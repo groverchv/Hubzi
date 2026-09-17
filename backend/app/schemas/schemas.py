@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 class CardSchema(BaseModel):
@@ -14,6 +14,7 @@ class NodeSchema(BaseModel):
     id: str = Field(..., description="Identificador único del nodo en el tablero (ej. 'node_1')")
     correct_card_id: str = Field(..., description="ID de la carta que encaja en este nodo")
     description: str = Field(..., description="Pista o rol del nodo que orienta al estudiante sin revelar el nombre")
+    question: Optional[str] = Field(default=None, description="Pregunta pedagógica interna formulada para este nodo")
 
 class GameBoardResponse(BaseModel):
     id_tablero: str = Field(..., description="UUID o identificador único del tablero de juego")

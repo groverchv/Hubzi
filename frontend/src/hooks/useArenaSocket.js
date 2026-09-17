@@ -28,7 +28,7 @@ export function useArenaSocket(roomId, clientId) {
     }
 
     const host = window.location.hostname || 'localhost';
-    const wsUrl = `ws://${host}:8000/ws/arena/${roomId}/${clientId}`;
+    const wsUrl = `ws://${host}:8001/ws/arena/${roomId}/${clientId}`;
 
     console.log(`[WS] Conectando a: ${wsUrl}`);
     const ws = new WebSocket(wsUrl);

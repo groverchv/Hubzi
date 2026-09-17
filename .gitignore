@@ -24,3 +24,4 @@ qdrant_storage/
 Thumbs.db
 .idea/
 .vscode/
+*.mp3

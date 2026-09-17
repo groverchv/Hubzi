@@ -38,12 +38,14 @@ class GameBoardBuilder:
         self, 
         node_id: str, 
         correct_card_id: str, 
-        description: str
+        description: str,
+        question: Optional[str] = None
     ) -> "GameBoardBuilder":
         node = NodeSchema(
             id=node_id,
             correct_card_id=correct_card_id,
-            description=description
+            description=description,
+            question=question
         )
         self._nodes.append(node)
         return self

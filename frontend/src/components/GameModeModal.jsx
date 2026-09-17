@@ -58,31 +58,28 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="relative w-full max-w-xl rounded-3xl bg-[#141d2d] border-2 border-cyan-400/50 shadow-[0_0_50px_rgba(6,182,212,0.4)] overflow-hidden text-slate-100 p-6 sm:p-8 flex flex-col"
+          transition={{ type: 'spring', stiffness: 320, damping: 25 }}
+          className="relative w-full max-w-xl rounded-[2.5rem] bg-[#162032] border-4 border-[#2d3f5d] shadow-[0_25px_60px_rgba(0,0,0,0.8),inset_0_2px_4px_rgba(255,255,255,0.1)] overflow-hidden text-slate-100 p-6 sm:p-8 flex flex-col"
         >
-          {/* Luz Neón Superior */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#22d3ee]" />
-
           {/* Cabecera */}
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-cyan-950/90 border border-cyan-400 flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.3)]">
-              <Gamepad2 className="w-7 h-7 text-cyan-300" />
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border-2 border-amber-400/60 flex items-center justify-center shadow-[0_4px_0_#78350f]">
+              <Gamepad2 className="w-8 h-8 text-amber-400" />
             </div>
             <div>
-              <h2 className="text-xl font-black uppercase tracking-wide text-white flex items-center gap-2">
-                Hubzy: Modo de Juego
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-900/80 text-cyan-300 border border-cyan-400">
-                  Sprint 5
-                </span>
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                🎮 Modo de Partida
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-0.5">
+                ¿Cómo quieres jugar hoy?
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Selecciona cómo deseas aprender y desafiar tus conocimientos hoy.
+              <p className="text-xs text-slate-400">
+                Elige tu estilo de juego para comenzar a aprender sin estrés.
               </p>
             </div>
           </div>
@@ -95,25 +92,25 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleStartSolo}
-                className="w-full p-4 rounded-2xl bg-slate-900/80 hover:bg-cyan-950/40 border border-slate-700 hover:border-cyan-400 flex items-center justify-between text-left transition-all shadow-md group"
+                className="w-full p-4 rounded-3xl bg-[#141d2c] hover:bg-[#1a263a] border-2 border-[#223147] hover:border-emerald-400/80 flex items-center justify-between text-left transition-all shadow-md group cursor-pointer"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-950/60 border border-emerald-400/60 flex items-center justify-center text-emerald-300 group-hover:scale-105 transition-transform">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/50 flex items-center justify-center text-emerald-300 group-hover:scale-105 transition-transform shadow-[0_3px_0_#065f46]">
                     <User className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      Jugar en Solitario (Zen)
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      Aventura en Solitario
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         Paso a paso
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Sube tus PDFs, fotos o audios y entrena sin presión con el Capiguara.
+                      Sube tu material y entrena a tu ritmo con el Capi Zen.
                     </p>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-cyan-300 group-hover:translate-x-1 transition-all" />
+                <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
               </motion.button>
 
               {/* Opción 2: Crear Sala 1v1 (Generar Código) */}
@@ -121,25 +118,25 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleGenerateRoom}
-                className="w-full p-4 rounded-2xl bg-slate-900/80 hover:bg-cyan-950/40 border border-slate-700 hover:border-cyan-400 flex items-center justify-between text-left transition-all shadow-md group"
+                className="w-full p-4 rounded-3xl bg-[#141d2c] hover:bg-[#1a263a] border-2 border-[#223147] hover:border-sky-400/80 flex items-center justify-between text-left transition-all shadow-md group cursor-pointer"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-cyan-950/60 border border-cyan-400/60 flex items-center justify-center text-cyan-300 group-hover:scale-105 transition-transform">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border-2 border-sky-400/50 flex items-center justify-center text-sky-300 group-hover:scale-105 transition-transform shadow-[0_3px_0_#0369a1]">
                     <Users className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      Crear Batalla 1 vs 1 (Host)
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40">
-                        Genera Código
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      Crear Batalla 1 vs 1
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                        Host
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Genera una clave de sala, sube el material y compite en tiempo real.
+                      Genera una clave de sala, sube el material y desafía a un amigo.
                     </p>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-cyan-300 group-hover:translate-x-1 transition-all" />
+                <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-1 transition-all" />
               </motion.button>
 
               {/* Opción 3: Unirse a Sala con Código */}
@@ -147,25 +144,25 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setView('join_room')}
-                className="w-full p-4 rounded-2xl bg-slate-900/80 hover:bg-amber-950/30 border border-slate-700 hover:border-amber-400 flex items-center justify-between text-left transition-all shadow-md group"
+                className="w-full p-4 rounded-3xl bg-[#141d2c] hover:bg-[#1a263a] border-2 border-[#223147] hover:border-amber-400/80 flex items-center justify-between text-left transition-all shadow-md group cursor-pointer"
               >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-amber-950/60 border border-amber-400/60 flex items-center justify-center text-amber-300 group-hover:scale-105 transition-transform">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border-2 border-amber-400/50 flex items-center justify-center text-amber-300 group-hover:scale-105 transition-transform shadow-[0_3px_0_#78350f]">
                     <LogIn className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      Unirse a una Sala Existente
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40">
-                        Tengo Código
+                    <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                      Unirse a una Partida
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        Con Código
                       </span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Ingresa el código que te compartió tu colega para jugar ambos.
+                      Ingresa el código que te compartió tu amigo para competir juntos.
                     </p>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-amber-300 group-hover:translate-x-1 transition-all" />
+                <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
               </motion.button>
             </div>
           )}
@@ -173,18 +170,18 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
           {/* VISTA 2: CÓDIGO GENERADO PARA 1v1 (HOST) */}
           {view === 'create_room' && (
             <div className="space-y-5 text-center">
-              <div className="p-5 rounded-2xl bg-slate-900/90 border border-cyan-500/40 shadow-inner">
-                <span className="text-[11px] font-mono text-cyan-400 uppercase tracking-widest font-bold">
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-700 shadow-md">
+                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-widest font-bold">
                   Código de Sala Generado
                 </span>
                 
                 <div className="my-3 flex items-center justify-center gap-3">
-                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-wider text-white px-4 py-2 rounded-xl bg-[#0d1420] border-2 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.4)]">
+                  <span className="text-3xl sm:text-4xl font-black font-mono tracking-wider text-emerald-400 px-5 py-2.5 rounded-xl bg-slate-950 border-2 border-emerald-500/60 shadow-inner">
                     {createdRoomCode}
                   </span>
                   <button
                     onClick={handleCopyCode}
-                    className="p-3 rounded-xl bg-cyan-950 hover:bg-cyan-900 border border-cyan-400 text-cyan-300 transition-colors shadow-sm"
+                    className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition-colors shadow-xs"
                     title="Copiar Código"
                   >
                     {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
@@ -199,14 +196,14 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
               <div className="flex items-center justify-between gap-3 pt-2">
                 <button
                   onClick={() => setView('select')}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   Volver Atrás
                 </button>
 
                 <button
                   onClick={handleConfirmHostRoom}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all active:scale-95"
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-all active:scale-95"
                 >
                   <span>Continuar a Subir Documentos</span>
                   <ArrowRight className="w-4 h-4" />
@@ -218,8 +215,8 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
           {/* VISTA 3: UNIRSE CON CÓDIGO (INVITADO) */}
           {view === 'join_room' && (
             <form onSubmit={handleJoinWithCode} className="space-y-5 text-center">
-              <div className="p-5 rounded-2xl bg-slate-900/90 border border-amber-500/40 shadow-inner">
-                <span className="text-[11px] font-mono text-amber-400 uppercase tracking-widest font-bold">
+              <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-700 shadow-md">
+                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-widest font-bold">
                   Ingresa el Código de la Sala
                 </span>
                 
@@ -228,7 +225,7 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
                   placeholder="EJ: HUB-4821"
                   value={joinCodeInput}
                   onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                  className="w-full max-w-xs mx-auto my-3 block text-center text-2xl font-black font-mono tracking-widest bg-[#0d1420] border-2 border-amber-400 rounded-xl px-4 py-2.5 text-white placeholder:text-slate-600 focus:outline-none focus:shadow-[0_0_20px_rgba(251,191,36,0.4)]"
+                  className="w-full max-w-xs mx-auto my-3 block text-center text-2xl font-black font-mono tracking-widest bg-slate-950 border-2 border-emerald-500/60 rounded-xl px-4 py-2.5 text-emerald-400 placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 shadow-inner"
                   autoFocus
                 />
 
@@ -241,7 +238,7 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
                 <button
                   type="button"
                   onClick={() => setView('select')}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   Volver Atrás
                 </button>
@@ -249,7 +246,7 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
                 <button
                   type="submit"
                   disabled={!joinCodeInput.trim()}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.5)] transition-all active:scale-95 disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <span>Unirme a la Batalla</span>
                   <Gamepad2 className="w-4 h-4" />
