@@ -132,7 +132,7 @@ export default function Arena() {
             className="w-16 h-16 rounded-2xl bg-oat/60 border-2 border-sage/40 flex items-center justify-center text-3xl shadow-sm cursor-pointer select-none"
             onClick={() => setQuoteIndex((prev) => (prev + 1) % CAPIGUARA_QUOTES.length)}
           >
-            🌿🦫
+            <Sparkles className="w-8 h-8 text-emerald-600" />
           </motion.div>
 
           <div>

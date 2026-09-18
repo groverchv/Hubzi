@@ -7,23 +7,29 @@ import {
   Check, 
   Lock, 
   Hourglass, 
-  PlayCircle, 
   RotateCcw, 
   LogOut, 
   Sparkles, 
   BookOpen, 
-  Trash2, 
-  Flame,
   Trophy,
   Bot,
   Swords,
   AlertTriangle,
   Zap,
   Target,
-  CircleDot,
   Wind,
   UploadCloud,
-  Folder as FolderIcon
+  Volume2,
+  VolumeX,
+  Heart,
+  MessageCircle,
+  HelpCircle,
+  Mic,
+  MicOff,
+  LogIn as LogInIcon,
+  Folder as FolderIcon,
+  User as UserIcon,
+  X
 } from 'lucide-react';
 import GameCard from '../components/GameCard';
 import ArcadeNode from '../components/ArcadeNode';
@@ -32,12 +38,31 @@ import CardDetailModal from '../components/CardDetailModal';
 import GameModeModal from '../components/GameModeModal';
 import ZenRelaxModal from '../components/ZenRelaxModal';
 import StudyFolderManagerModal from '../components/StudyFolderManagerModal';
+import UserAuthModal from '../components/UserAuthModal';
+import AuthModal from '../components/AuthModal';
 import { useArenaSocket } from '../hooks/useArenaSocket';
 import capybara3dImg from '../assets/capybara_3d.jpg';
-import trashBin3dImg from '../assets/trash_bin_3d.jpg';
 import { capyAudio } from '../utils/capyAudio';
+import { capyVoice } from '../utils/capyVoice';
+import { detectDomainCategory, resolveDynamicIcon } from '../utils/domainIcons';
+
+
+// 5 NIVELES DE PROGRESIÓN PEDAGÓGICA Y DIFICULTAD
+export const GAME_LEVELS = [
+  { level: 1, name: 'Fácil', questions: 3, difficulty: 'facil', desc: 'Preguntas directas y fáciles de predecir' },
+  { level: 2, name: 'Semi-normal', questions: 5, difficulty: 'seminormal', desc: 'Conceptos clave fundamentales' },
+  { level: 3, name: 'Normal', questions: 8, difficulty: 'normal', desc: 'Análisis y relaciones estándar' },
+  { level: 4, name: 'Semi-difícil', questions: 15, difficulty: 'semidificil', desc: 'Profundidad técnica e inferencias' },
+  { level: 5, name: 'Difícil', questions: 20, difficulty: 'dificil', desc: 'Integración exhaustiva del texto' }
+];
 
 export default function ArcadeArena() {
+  // Estados de Niveles del Juego (1 a 5)
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [isLevelUpModalOpen, setIsLevelUpModalOpen] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
+  const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
+
   // Estados del juego (Vacíos al inicio: sólo se pueblan tras subir materiales)
   const [boardInfo, setBoardInfo] = useState(null);
   const [nodes, setNodes] = useState({});
@@ -53,15 +78,62 @@ export default function ArcadeArena() {
   const [isCapySad, setIsCapySad] = useState(false); // Capibara llora cuando la carta es incorrecta
   const [wrongCardShake, setWrongCardShake] = useState(null); // id de carta que se puso en lugar incorrecto
 
-  // Modales (Flujo: 1. Carpetas/Material -> 2. Generación -> 3. Zen Relax -> 4. Juego en Vivo)
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(true);
+  // Reacciones Emocionales y Voz Tierna de Capibara (ElevenLabs)
+  const [capyMood, setCapyMood] = useState('idle'); // 'idle' | 'happy' | 'encouraging' | 'hint' | 'surprised' | 'welcome'
+  const [capySpeech, setCapySpeech] = useState({ text: '', isVisible: false, mood: 'idle' });
+  const [isCapySpeaking, setIsCapySpeaking] = useState(false);
+  const [isCapyMuted, setIsCapyMuted] = useState(false);
+  const capySpeechTimeoutRef = React.useRef(null);
+  const speakTimeoutRef = React.useRef(null);
+
+  // Reconocimiento de Voz / Micrófono Interactivo con Capibara
+  const [isListening, setIsListening] = useState(false);
+  const [isThinkingHint, setIsThinkingHint] = useState(false);
+  const recognitionRef = React.useRef(null);
+
+  // Gestión de Usuario Activo y Autenticación (Email + Contraseña)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hubzy_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Modal de Login / Registro (se abre si no hay usuario autenticado)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
+    try {
+      return !localStorage.getItem('hubzy_current_user');
+    } catch {
+      return true;
+    }
+  });
+
+  // Modal secundario de edición de perfil (género, edad, apodo)
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
+  // Cerrar Sesión
+  const handleLogout = () => {
+    localStorage.removeItem('hubzy_current_user');
+    localStorage.removeItem('hubzy_auth_token');
+    setCurrentUser(null);
+    setIsAuthModalOpen(true);
+  };
+
+  // Modales (Flujo: 1. Autenticación -> 2. Carpetas/Material -> 3. Zen Relax -> 4. Juego en Vivo)
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [activeFolder, setActiveFolder] = useState(null);
   const [isRelaxModalOpen, setIsRelaxModalOpen] = useState(false);
+  const [zenOffer, setZenOffer] = useState({ show: false, category: '', distortion: '', emotion: '' });
   const [isModeModalOpen, setIsModeModalOpen] = useState(false);
   const [isGeneratingArena, setIsGeneratingArena] = useState(false);
   const [selectedNodeForQuestion, setSelectedNodeForQuestion] = useState(null);
   const [selectedCardForDetail, setSelectedCardForDetail] = useState(null);
+  const [selectedCardInHand, setSelectedCardInHand] = useState(null);
   const [isGameOverModalOpen, setIsGameOverModalOpen] = useState(false);
+
+
 
 
   // Configuración de Sala (Modo Solitario por defecto)
@@ -83,165 +155,282 @@ export default function ArcadeArena() {
     return saved;
   }, []);
 
-  const { 
-    isConnected, 
-    isOpponentConnected, 
-    lastOpponentMove, 
-    isMyTurn, 
-    turnNumber, 
-    gameStarted, 
-    sendMove 
-  } = useArenaSocket(
-    gameConfig.mode === '1v1' ? gameConfig.roomId : null,
-    clientId
-  );
+  // Modo Solitario Zen sin contrincante: El estudiante juega a su propio ritmo sin presiones
+  const isActualTurn = true;
 
-  // REGLA: ¿Es el turno real del usuario?
-  // En 1v1: depende de WebSocket `isMyTurn` y que el oponente esté conectado
-  // En Solo: depende de `isSoloPlayerTurn` y que la IA no esté pensando
-  const isActualTurn = gameConfig.mode === '1v1' 
-    ? (isOpponentConnected && isMyTurn)
-    : (isSoloPlayerTurn && !isAiThinking);
 
-  // Sincronización de notificaciones de turno
+  // Sincronización de eventos de voz de Capibara
   useEffect(() => {
-    if (gameConfig.mode !== '1v1') return;
-
-    if (isOpponentConnected) {
-      if (isMyTurn) {
-        setSuccessNotif(`¡ES TU TURNO! Arrastra una carta.`);
-      } else {
-        setSuccessNotif(`Turno del rival. Espera su jugada...`);
+    const unsubscribe = capyVoice.subscribe((state) => {
+      setIsCapySpeaking(state.isSpeaking);
+      if (!state.isSpeaking) {
+        if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
+        capySpeechTimeoutRef.current = setTimeout(() => {
+          setCapySpeech(prev => ({ ...prev, isVisible: false }));
+          setCapyMood('idle');
+          setIsCapySad(false);
+        }, 3200);
       }
-      setTimeout(() => setSuccessNotif(null), 4000);
+    });
+    return () => {
+      unsubscribe();
+      if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
+    };
+  }, []);
+
+  // Función principal para activar la voz tierna y reacciones de Capibara (ElevenLabs)
+  // Control estricto anti-colisión: Detiene inmediatamente cualquier locución previa
+  const triggerCapyVoice = async (situation, customData = {}) => {
+    if (isCapyMuted) return;
+
+    // Corte inmediato de audio y temporizadores en vuelo para evitar cruces
+    capyVoice.stop();
+    if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current);
+
+    const level = customData.level || currentLevel || 1;
+    const theme = customData.theme || boardInfo?.theme || '';
+
+    let phrase = customData.customText;
+    if (!phrase) {
+      phrase = await capyVoice.getDynamicSpeech(situation, {
+        level,
+        theme,
+        ...customData
+      });
     }
-  }, [isOpponentConnected, isMyTurn, gameConfig.mode]);
 
-  // Ejecución y animación en vivo de movimientos del rival (1v1 WebSocket)
-  useEffect(() => {
-    if (!lastOpponentMove || gameConfig.mode !== '1v1') return;
+    let mood = 'talking';
+    if (situation === 'correct' || situation === 'victory' || situation === 'level_up') mood = 'happy';
+    else if (situation === 'wrong') mood = 'encouraging';
+    else if (situation === 'hint') mood = 'hint';
+    else if (situation === 'opponent_move') mood = 'surprised';
+    else if (situation === 'welcome') mood = 'welcome';
 
-    if (lastOpponentMove.action === 'card_placed') {
-      const { node_id, card_id, card_name, card_type, card_domain } = lastOpponentMove;
-      
-      // Animar carta del oponente viajando hacia el nodo objetivo
-      const targetNode = nodes[node_id];
-      const cardObj = {
-        id: card_id || 'opp_card',
-        name: card_name || 'Concepto Rival',
-        type: card_type || 'blue',
-        domain: card_domain || ''
-      };
+    setCapyMood(mood);
+    setCapySpeech({ text: phrase, isVisible: true, mood });
 
-      setFlyingCard({
-        card: cardObj,
-        targetPos: targetNode?.pos || { left: '50%', top: '50%' },
-        isOpponent: true
-      });
+    if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
 
-      // Retirar la carta de la mano del oponente
-      setOpponentHand(prev => {
-        const foundIndex = prev.findIndex(c => c.id === card_id || c.name === card_name);
-        if (foundIndex >= 0) {
-          const next = [...prev];
-          next.splice(foundIndex, 1);
-          return next;
-        }
-        return prev.slice(0, Math.max(0, prev.length - 1));
-      });
+    const speakOpts = {
+      mood,
+      level,
+      stress_level: customData.stress_level,
+      profile: customData.profile || (situation === 'wrong' ? 'anxiety_relief' : 'loving_psychologist'),
+      user: currentUser,
+      user_gender: currentUser?.gender,
+      voice_gender: currentUser?.assigned_voice_gender
+    };
 
-      // Al completar el vuelo, fijar el nodo
-      setTimeout(() => {
-        setFlyingCard(null);
-        setNodes((prev) => {
-          if (!prev[node_id]) return prev;
-          return {
-            ...prev,
-            [node_id]: {
-              ...prev[node_id],
-              lockedByOpponent: true,
-              opponentClaimedCard: card_name || 'Concepto Rival'
-            }
-          };
-        });
-
-        setOpponentScore((prev) => prev + 10);
-        setSuccessNotif(`El rival jugó [${card_name || 'una carta'}]. Ahora es TU TURNO.`);
-        setTimeout(() => setSuccessNotif(null), 3500);
-      }, 1000);
-    } 
-    else if (lastOpponentMove.action === 'game_reset') {
-      setNodes({});
-      setHand([]);
-      setOpponentHand([]);
-      setBoardInfo(null);
-      setIsFolderModalOpen(true);
+    if (situation === 'wrong') {
+      setIsCapySad(true);
+      capyAudio.playCapyCry();
+      speakTimeoutRef.current = setTimeout(() => {
+        capyVoice.speak(phrase, speakOpts);
+      }, 350);
+    } else if (situation === 'correct' || situation === 'level_up') {
+      setIsCapySad(false);
+      capyAudio.playCapyHappy();
+      speakTimeoutRef.current = setTimeout(() => {
+        capyVoice.speak(phrase, speakOpts);
+      }, 250);
+    } else {
+      setIsCapySad(false);
+      capyVoice.speak(phrase, speakOpts);
     }
-  }, [lastOpponentMove, gameConfig.mode]);
-
-  // Turno de la Máquina (Modo Solo / IA)
-  const triggerAiTurn = () => {
-    if (gameConfig.mode !== 'solo' || opponentHand.length === 0) return;
-
-    setIsSoloPlayerTurn(false);
-    setIsAiThinking(true);
-    setSuccessNotif(`TURNO DE LA MÁQUINA: Analizando jugada...`);
-
-    setTimeout(() => {
-      // Buscar nodos disponibles no reclamados
-      const availableNodeKeys = Object.keys(nodes).filter(
-        k => !nodes[k].placedCard && !nodes[k].lockedByOpponent
-      );
-
-      if (availableNodeKeys.length === 0 || opponentHand.length === 0) {
-        setIsAiThinking(false);
-        setIsSoloPlayerTurn(true);
-        setSuccessNotif(`¡ES TU TURNO! Elige una carta para responder.`);
-        setTimeout(() => setSuccessNotif(null), 3500);
-        return;
-      }
-
-      // La máquina elige una carta y un nodo al azar
-      const chosenNodeId = availableNodeKeys[Math.floor(Math.random() * availableNodeKeys.length)];
-      const targetNode = nodes[chosenNodeId];
-      const chosenCardIndex = Math.floor(Math.random() * opponentHand.length);
-      const chosenCard = opponentHand[chosenCardIndex];
-
-      // Disparar animación en vivo del vuelo de la carta de la máquina
-      setFlyingCard({
-        card: chosenCard,
-        targetPos: targetNode?.pos || { left: '50%', top: '50%' },
-        isOpponent: true
-      });
-
-      // Retirar carta de la mano de la máquina
-      setOpponentHand(prev => prev.filter((_, idx) => idx !== chosenCardIndex));
-
-      setTimeout(() => {
-        setFlyingCard(null);
-        setNodes(prev => ({
-          ...prev,
-          [chosenNodeId]: {
-            ...prev[chosenNodeId],
-            lockedByOpponent: true,
-            opponentClaimedCard: chosenCard.name
-          }
-        }));
-
-        setOpponentScore(prev => prev + 10);
-        setIsAiThinking(false);
-        setIsSoloPlayerTurn(true); // Regresar el turno al usuario
-        setSuccessNotif(`¡ES TU TURNO! La Máquina jugó [${chosenCard.name}].`);
-        setTimeout(() => setSuccessNotif(null), 4000);
-      }, 1100);
-    }, 1800);
   };
 
-  useEffect(() => {
-    if (Object.keys(nodes).length > 0 && hand.length === 0 && opponentHand.length === 0) {
-      setIsGameOverModalOpen(true);
+  // Clic directo en la Capibara: genera una orientación psicológica o pista 100% dinámica
+  const handleCapyClick = async () => {
+    const unsolvedNodes = Object.values(nodes).filter(n => !n.placedCard && !n.lockedByOpponent);
+    if (unsolvedNodes.length === 0) {
+      triggerCapyVoice('victory', { 
+        profile: 'loving_psychologist'
+      });
+      return;
     }
-  }, [hand, opponentHand, nodes]);
+    const target = unsolvedNodes[Math.floor(Math.random() * unsolvedNodes.length)];
+    const hintSnippet = target.hint || target.question || 'Observa las opciones disponibles en tus cartas';
+    triggerCapyVoice('hint', { 
+      label: target.label,
+      hintText: `para analizar "${target.label}": ${hintSnippet.slice(0, 90)}. Concéntrate en la función principal.`,
+      profile: 'loving_psychologist'
+    });
+  };
+
+  // Manejo de la pregunta por voz del usuario enviada a Gemini para generar una pista contextual
+  const handleUserVoiceQuery = async (transcript) => {
+    setIsThinkingHint(true);
+    setCapyMood('hint');
+    setCapySpeech({
+      text: `Tú: "${transcript}"\nCapi Psicólogo está escuchando con el corazón...`,
+      isVisible: true,
+      mood: 'hint'
+    });
+
+    try {
+      const res = await fetch('/api/v1/arena/capy-ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: transcript,
+          nodes: Object.values(nodes).map(n => ({
+            label: n.label,
+            question: n.question,
+            hint: n.hint,
+            isSolved: Boolean(n.placedCard || n.lockedByOpponent)
+          })),
+          hand: hand.map(c => ({
+            name: c.name,
+            domain: c.domain,
+            isDistractor: Boolean(c.isDistractor)
+          })),
+          theme: boardInfo?.title || 'Simulacro de Examen',
+          user_profile: currentUser || {}
+        })
+      });
+
+
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.reply || '¡Revisa los conceptos clave de tus cartas!';
+        const psych = data.psychology;
+        setIsThinkingHint(false);
+
+        // Si el motor NLP detecta sobrecarga, estrés o distorsión cognitiva, activar contención Capi Zen
+        if (psych?.needs_somatic_intervention || (psych?.stress_level && psych.stress_level >= 0.5)) {
+          setCapyMood('encouraging');
+          setZenOffer({
+            show: true,
+            category: psych.stress_category || 'tensión acumulada',
+            distortion: psych.cognitive_distortion || '',
+            emotion: psych.emotion_detected || 'ansiedad'
+          });
+          triggerCapyVoice('encouraging', { 
+            customText: reply,
+            stress_level: psych.stress_level,
+            profile: psych.stress_level >= 0.8 ? 'crisis_soothing' : 'anxiety_relief'
+          });
+        } else {
+          triggerCapyVoice('hint', { 
+            customText: reply,
+            stress_level: psych?.stress_level,
+            profile: 'loving_psychologist'
+          });
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Error consultando pista a Gemini:", e);
+    }
+
+
+
+    // Fallback si la IA se demora o no hay red
+    setIsThinkingHint(false);
+    const unsolvedNodes = Object.values(nodes).filter(n => !n.placedCard && !n.lockedByOpponent);
+    if (unsolvedNodes.length > 0) {
+      const target = unsolvedNodes[0];
+      triggerCapyVoice('hint', { customText: `Te sugiero revisar "${target.label}". ¡Fíjate en las palabras clave de su pregunta!` });
+    } else {
+      triggerCapyVoice('hint', { customText: '¡Vas muy bien! Confía en tu razonamiento y arrastra tu siguiente carta.' });
+    }
+  };
+
+  // Alternar activación de micrófono con Web Speech Recognition
+  const toggleMicrophone = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (_) {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setSuccessNotif('Tu navegador no soporta entrada de voz por micrófono. Te recomendamos Google Chrome o Edge.');
+      setTimeout(() => setSuccessNotif(null), 4000);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.lang = 'es-ES';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setCapyMood('hint');
+        setCapySpeech({ text: 'Te estoy escuchando... ¡Hazme cualquier pregunta o pídeme una pista!', isVisible: true, mood: 'hint' });
+      };
+
+      recognition.onresult = async (event) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        setIsListening(false);
+        if (transcript && transcript.trim()) {
+          await handleUserVoiceQuery(transcript.trim());
+        }
+      };
+
+      recognition.onerror = (err) => {
+        console.warn("Speech recognition error:", err);
+        setIsListening(false);
+        if (err.error === 'not-allowed') {
+          setSuccessNotif('Permiso de micrófono denegado. Habilita el acceso al micrófono en la barra de tu navegador.');
+          setTimeout(() => setSuccessNotif(null), 5000);
+        } else if (err.error === 'no-speech') {
+          setCapySpeech({ text: 'No alcancé a escucharte bien. ¡Presiona el micrófono y vuelve a hablarme!', isVisible: true, mood: 'hint' });
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn("Error iniciando micrófono:", err);
+      setIsListening(false);
+      setSuccessNotif('No se pudo iniciar el micrófono. Verifica los permisos de tu equipo.');
+      setTimeout(() => setSuccessNotif(null), 4000);
+    }
+  };
+
+  // Comprobación de conclusión del circuito (modo individual Zen con 5 niveles progresivos)
+  useEffect(() => {
+    const nodeValues = Object.values(nodes);
+    if (nodeValues.length > 0) {
+      // El circuito concluye cuando el estudiante ha completado todos los conceptos
+      const allNodesCompleted = nodeValues.every(n => Boolean(n.placedCard));
+      if (allNodesCompleted && !isLevelTransitioning) {
+        if (currentLevel < 5) {
+          setIsLevelTransitioning(true);
+          const nextLevel = currentLevel + 1;
+          const nextLvlInfo = GAME_LEVELS.find(l => l.level === nextLevel);
+
+          triggerCapyVoice('level_up', { 
+            level: nextLevel,
+            theme: boardInfo?.theme
+          });
+
+          setLevelUpData({
+            completedLevel: currentLevel,
+            nextLevel,
+            nextLvlInfo
+          });
+          setIsLevelUpModalOpen(true);
+        } else {
+          // Victoria Absoluta al completar el Nivel 5 (Difícil)
+          setIsGameOverModalOpen(true);
+          triggerCapyVoice('victory', { level: 5 });
+        }
+      }
+    }
+  }, [nodes, currentLevel, isLevelTransitioning]);
+
 
   const handleSelectGameMode = ({ mode, roomId, isHost, needsUpload }) => {
     setGameConfig({ mode, roomId, isHost });
@@ -270,87 +459,127 @@ export default function ArcadeArena() {
     setOpponentHand([]);
     setBoardInfo(null);
     setFlyingCard(null);
+    setSelectedCardInHand(null);
     setIsFolderModalOpen(true);
   };
 
-  // GENERADOR DINÁMICO DE POSICIONES Y TOPOLOGÍA DEL CIRCUITO
-  const getDynamicLayout = () => {
-    // 5 arquetipos topológicos distribuidos por todo el lienzo táctico
-    const layouts = [
-      // Arquetipo 0: Constelación Zig-Zag (dinámica y fluida)
-      [
-        { left: 20, top: 50 },
-        { left: 36, top: 22 },
-        { left: 50, top: 64 },
-        { left: 66, top: 24 },
-        { left: 81, top: 52 }
-      ],
-      // Arquetipo 1: Diamante Táctico con Núcleo Central
-      [
-        { left: 50, top: 44 }, // Centro
-        { left: 50, top: 18 }, // Norte
-        { left: 22, top: 44 }, // Oeste
-        { left: 78, top: 44 }, // Este
-        { left: 50, top: 70 }  // Sur
-      ],
-      // Arquetipo 2: Arco Orbital Cóncavo
-      [
-        { left: 19, top: 62 },
-        { left: 34, top: 32 },
-        { left: 50, top: 18 },
-        { left: 66, top: 32 },
-        { left: 81, top: 62 }
-      ],
-      // Arquetipo 3: Doble Flanco Asimétrico
-      [
-        { left: 23, top: 25 },
-        { left: 22, top: 65 },
-        { left: 50, top: 44 },
-        { left: 77, top: 25 },
-        { left: 78, top: 65 }
-      ],
-      // Arquetipo 4: Pentágono Invertido Clásico
-      [
-        { left: 22, top: 28 },
-        { left: 50, top: 18 },
-        { left: 78, top: 28 },
-        { left: 34, top: 66 },
-        { left: 66, top: 66 }
-      ]
-    ];
 
-    // Seleccionar un arquetipo al azar
-    const chosen = layouts[Math.floor(Math.random() * layouts.length)];
+  // GENERADOR DINÁMICO DE POSICIONES Y TOPOLOGÍA PARA CUALQUIER NÚMERO DE PREGUNTAS (3, 5, 8, 15, 20)
+  const getDynamicLayout = (count = 5) => {
+    if (count === 3) {
+      return [
+        { left: '26.0%', top: '48.0%' },
+        { left: '50.0%', top: '35.0%' },
+        { left: '74.0%', top: '48.0%' }
+      ];
+    }
+    if (count === 5) {
+      const layouts = [
+        [
+          { left: '20.0%', top: '50.0%' },
+          { left: '36.0%', top: '24.0%' },
+          { left: '50.0%', top: '64.0%' },
+          { left: '66.0%', top: '24.0%' },
+          { left: '81.0%', top: '50.0%' }
+        ],
+        [
+          { left: '50.0%', top: '44.0%' },
+          { left: '50.0%', top: '20.0%' },
+          { left: '23.0%', top: '44.0%' },
+          { left: '77.0%', top: '44.0%' },
+          { left: '50.0%', top: '68.0%' }
+        ]
+      ];
+      return layouts[Math.floor(Math.random() * layouts.length)];
+    }
+    if (count === 8) {
+      return [
+        { left: '20.0%', top: '30.0%' },
+        { left: '40.0%', top: '24.0%' },
+        { left: '60.0%', top: '24.0%' },
+        { left: '80.0%', top: '30.0%' },
+        { left: '22.0%', top: '64.0%' },
+        { left: '42.0%', top: '68.0%' },
+        { left: '62.0%', top: '68.0%' },
+        { left: '82.0%', top: '64.0%' }
+      ];
+    }
+    if (count === 15) {
+      // 3 filas ordenadas de 5 nodos para máxima claridad visual
+      const positions = [];
+      const cols = [18, 34, 50, 66, 82];
+      const rows = [24, 48, 72];
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 5; c++) {
+          positions.push({
+            left: `${cols[c]}%`,
+            top: `${rows[r]}%`
+          });
+        }
+      }
+      return positions;
+    }
+    if (count === 20) {
+      // 4 filas de 5 nodos
+      const positions = [];
+      const cols = [18, 34, 50, 66, 82];
+      const rows = [20, 38, 56, 74];
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 5; c++) {
+          positions.push({
+            left: `${cols[c]}%`,
+            top: `${rows[r]}%`
+          });
+        }
+      }
+      return positions;
+    }
 
-    // Aplicar micro-variación orgánica (jitter aleatorio de ±2.5%) para que cada reinicio sea 100% único
-    return chosen.map(p => {
-      const jitterX = (Math.random() * 5 - 2.5);
-      const jitterY = (Math.random() * 5 - 2.5);
-      const clampX = Math.max(17, Math.min(83, p.left + jitterX));
-      const clampY = Math.max(17, Math.min(73, p.top + jitterY));
-      return {
-        left: `${clampX.toFixed(1)}%`,
-        top: `${clampY.toFixed(1)}%`
-      };
-    });
+    // Algoritmo adaptativo universal
+    const colsCount = Math.ceil(Math.sqrt(count * 1.6));
+    const rowsCount = Math.ceil(count / colsCount);
+    const positions = [];
+    const minX = 18, maxX = 82;
+    const minY = 20, maxY = 74;
+    const stepX = colsCount > 1 ? (maxX - minX) / (colsCount - 1) : 0;
+    const stepY = rowsCount > 1 ? (maxY - minY) / (rowsCount - 1) : 0;
+
+    for (let i = 0; i < count; i++) {
+      const r = Math.floor(i / colsCount);
+      const c = i % colsCount;
+      const x = minX + c * stepX;
+      const y = minY + r * stepY;
+      positions.push({
+        left: `${x.toFixed(1)}%`,
+        top: `${y.toFixed(1)}%`
+      });
+    }
+    return positions;
   };
 
   // HELPER: Configurar tablero y cartas con enlace 1-a-1 y posiciones dinámicas
-  const applyBoardData = (boardData, folderName) => {
+  const applyBoardData = (boardData, folderName, level = currentLevel) => {
     if (!boardData.cards || boardData.cards.length === 0) return false;
+
+    const lvlInfo = GAME_LEVELS.find(l => l.level === level) || GAME_LEVELS[0];
 
     setBoardInfo({
       title: boardData.title || `Simulacro: ${folderName ? folderName.toUpperCase() : 'EXAMEN'}`,
-      theme: folderName || 'Estudio'
+      theme: folderName || 'Estudio',
+      levelInfo: lvlInfo
     });
 
-    const dynamicPositions = getDynamicLayout();
-    const availableColors = ['cyan', 'emerald', 'yellow', 'purple', 'rose', 'indigo', 'blue'];
+    const dynamicPositions = getDynamicLayout(boardData.nodes.length);
+    // Paleta exacta de la imagen de referencia (Concepto A, B, C, D, E, F)
+    const availableColors = ['orange', 'purple', 'blue', 'dark', 'salmon', 'white'];
     const availableShapes = ['hexagon', 'circle', 'diamond', 'octagon', 'squircle'];
-    const availableIcons = ['database', 'codigo', 'cpu', 'terminal', 'book'];
 
-    // Barajar paleta de colores para este juego específico
-    const shuffledColors = [...availableColors].sort(() => Math.random() - 0.5);
+    // Detección automática del tema y disciplina académica real del documento/carpeta
+    const activeTheme = folderName || boardData.title || 'Estudio';
+    const detectedCategory = detectDomainCategory(`${activeTheme} ${boardData.title || ''}`);
+
+    // Colores ordenados o barajados
+    const shuffledColors = ['orange', 'purple', 'blue', 'dark', 'salmon', 'white'];
     const chosenShape = availableShapes[Math.floor(Math.random() * availableShapes.length)];
 
     const newNodes = {};
@@ -358,13 +587,18 @@ export default function ArcadeArena() {
     boardData.nodes.forEach((n, idx) => {
       const matchingCard = boardData.cards[idx];
       const cardId = matchingCard?.id || `card_${idx + 1}`;
+      const conceptLabel = n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`;
+      const questionText = n.question || n.description || '¿A qué concepto corresponde este principio?';
+      const hintText = n.description || 'Revisa el contenido del documento de esta carpeta.';
+
       newNodes[n.id] = {
         id: n.id,
-        domain: 'estudio',
-        icon: availableIcons[idx % availableIcons.length],
-        label: n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`,
-        question: n.question || n.description || '¿A qué concepto corresponde este principio?',
-        hint: n.description || 'Revisa el contenido del documento de esta carpeta.',
+        domain: detectedCategory,
+        theme: activeTheme,
+        label: conceptLabel,
+        question: questionText,
+        hint: hintText,
+        nodeIndex: idx,
         pos: dynamicPositions[idx % dynamicPositions.length],
         color: shuffledColors[idx % shuffledColors.length],
         shape: chosenShape,
@@ -374,217 +608,263 @@ export default function ArcadeArena() {
       };
     });
 
-    const newCards = boardData.cards.map((c, i) => ({
-      id: c.id,
-      name: c.concept_name,
-      cost: c.points_multiplier || '1x',
-      type: shuffledColors[i % shuffledColors.length],
-      sourceType: 'document',
-      domain: 'estudio',
-      content: c.content,
-      matchesNodeId: boardData.nodes[i]?.id
-    }));
+    // Mapear cartas base y clasificar distractores (falsas respuestas)
+    const processedCards = boardData.cards.map((c, i) => {
+      const isDistractor = c.id?.includes('distractor') || i >= boardData.nodes.length;
+      return {
+        id: c.id,
+        name: c.concept_name,
+        cost: c.points_multiplier || '1x',
+        type: shuffledColors[i % shuffledColors.length],
+        sourceType: 'document',
+        domain: detectedCategory,
+        theme: activeTheme,
+        cardIndex: i,
+        content: c.content || 'Respuesta alternativa no coincidente.',
+        matchesNodeId: isDistractor ? null : (boardData.nodes[i]?.id || null),
+        isDistractor: isDistractor
+      };
+    });
+
+    // REGLA: Garantizar que exactamente el 30% del total de preguntas existan como cartas falsas (distractores)
+    const requiredDistractorCount = Math.max(1, Math.round(boardData.nodes.length * 0.30));
+    const currentDistractorCount = processedCards.filter(c => c.isDistractor).length;
+    
+    if (currentDistractorCount < requiredDistractorCount) {
+      const missingCount = requiredDistractorCount - currentDistractorCount;
+      const fallbackDistractorNames = [
+        "Enfoque Ortogonal Inverso",
+        "Principio de Premisa Contradictoria",
+        "Teoría de Correlación Espuria",
+        "Postulado No Demostrado",
+        "Metodología Excluida",
+        "Axioma de Descarte Arbitrario"
+      ];
+      for (let k = 0; k < missingCount; k++) {
+        const dIdx = currentDistractorCount + k;
+        processedCards.push({
+          id: `card_distractor_dyn_${dIdx + 1}`,
+          name: fallbackDistractorNames[dIdx % fallbackDistractorNames.length],
+          cost: '1x',
+          type: shuffledColors[(boardData.cards.length + k) % shuffledColors.length],
+          sourceType: 'document',
+          domain: 'estudio',
+          content: 'Esta es una respuesta falsa diseñada para desafiar tu discernimiento conceptual.',
+          matchesNodeId: null,
+          isDistractor: true
+        });
+      }
+    }
 
     // Barajar aleatoriamente la mano del jugador para que no sigan el mismo orden que los nodos
-    const shuffledHand = [...newCards].sort(() => Math.random() - 0.5);
+    const shuffledHand = [...processedCards].sort(() => Math.random() - 0.5);
     shuffledHand.forEach((c, i) => {
-      c.rotation = (i - 2) * 4;
+      c.rotation = (i - Math.floor(processedCards.length / 2)) * 2;
       c.zIndex = i + 1;
     });
 
-    // Resetear todo el estado de la partida
+    // Resetear todo el estado de la partida para el nivel
     setNodes(newNodes);
     setHand(shuffledHand);
-    setOpponentHand(newCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
+    setOpponentHand(processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
     setEnergy(maxEnergy);
     setTurn(1);
-    setPlayerScore(0);
-    setOpponentScore(0);
     setIsCapySad(false);
     setSelectedNodeForQuestion(null);
     setSelectedCardForDetail(null);
+    setSelectedCardInHand(null);
     setFlyingCard(null);
     setIsGameOverModalOpen(false);
+
+    setTimeout(() => {
+      triggerCapyVoice('welcome', { level });
+    }, 1000);
     return true;
   };
 
-  // 2. REINICIAR Y GENERAR NUEVAS PREGUNTAS DESDE LA CARPETA ACTUAL
+  // CARGAR NIVEL ESPECÍFICO (1 A 5) DESDE EL BACKEND
+  const loadGameForLevel = async (targetLevel, targetFolder = activeFolder, force = false) => {
+    if (!targetFolder) {
+      setSuccessNotif('Selecciona una carpeta de estudio para comenzar.');
+      setIsFolderModalOpen(true);
+      return false;
+    }
+
+    const lvlInfo = GAME_LEVELS.find(l => l.level === targetLevel) || GAME_LEVELS[0];
+    setIsGeneratingArena(true);
+    setSuccessNotif(`Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}]...`);
+
+    try {
+      const res = await fetch(
+        `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${force ? '&force=true' : ''}`,
+        { method: 'POST' }
+      );
+
+      if (res.ok) {
+        const boardData = await res.json();
+        const success = applyBoardData(boardData, targetFolder.name, targetLevel);
+        if (success) {
+          setCurrentLevel(targetLevel);
+          setSuccessNotif(`Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) listo.`);
+          setTimeout(() => setSuccessNotif(null), 4000);
+          return true;
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setSuccessNotif(`${err.detail || 'No se pudieron generar los reactivos del nivel.'}`);
+        setTimeout(() => setSuccessNotif(null), 5000);
+      }
+    } catch (e) {
+      console.warn("Error cargando nivel:", e);
+      setSuccessNotif("Error al conectarse con el servidor.");
+      setTimeout(() => setSuccessNotif(null), 5000);
+    } finally {
+      setIsGeneratingArena(false);
+    }
+    return false;
+  };
+
+  // AVANZAR AL SIGUIENTE NIVEL DESDE EL MODAL CELEBRATORIO
+  const handleProceedToNextLevel = async () => {
+    setIsLevelUpModalOpen(false);
+    if (levelUpData?.nextLevel) {
+      const targetLvl = levelUpData.nextLevel;
+      await loadGameForLevel(targetLvl, activeFolder, false);
+      setIsLevelTransitioning(false);
+    }
+  };
+
+  // SALTAR / SELECCIONAR NIVEL DIRECTAMENTE
+  const handleJumpToLevel = async (lvl) => {
+    if (lvl === currentLevel && Object.keys(nodes).length > 0) return;
+    setIsLevelTransitioning(false);
+    setIsLevelUpModalOpen(false);
+    await loadGameForLevel(lvl, activeFolder, false);
+  };
+
+  // 2. REINICIAR Y GENERAR NUEVAS PREGUNTAS DEL NIVEL ACTUAL
   const handleRestartWithNewQuestions = async () => {
     if (!activeFolder) {
       setSuccessNotif('Selecciona una carpeta en el baúl para iniciar el juego.');
       setIsFolderModalOpen(true);
       return;
     }
-
-    // Limpieza total e inmediata del tablero para reflejar el reinicio completo
-    setNodes({});
-    setHand([]);
-    setOpponentHand([]);
-    setPlayerScore(0);
-    setOpponentScore(0);
-    setTurn(1);
-    setIsCapySad(false);
-    setSelectedNodeForQuestion(null);
-    setSelectedCardForDetail(null);
-    setFlyingCard(null);
-    setIsGameOverModalOpen(false);
-    setIsGeneratingArena(true);
-    setSuccessNotif(`⚡ Reiniciando partida: reubicando nodos y formulando NUEVAS preguntas desde [${activeFolder.name}]...`);
-
-    try {
-      const res = await fetch(`/api/v1/folders/${activeFolder.id}/generate-game?force=true`, {
-        method: 'POST'
-      });
-
-      if (res.ok) {
-        const boardData = await res.json();
-        const success = applyBoardData(boardData, activeFolder.name);
-        if (success) {
-          setSuccessNotif(`✅ ¡Tablero, ubicaciones y preguntas completamente renovados para [${activeFolder.name}]!`);
-          setTimeout(() => setSuccessNotif(null), 4000);
-          // Iniciar con la relajación Zen antes de la nueva ronda
-          setIsRelaxModalOpen(true);
-        }
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setSuccessNotif(`⚠️ ${err.detail || 'No se pudieron generar nuevas preguntas.'}`);
-        setTimeout(() => setSuccessNotif(null), 5000);
-      }
-    } catch (e) {
-      console.warn('Error regenerando preguntas:', e);
-      setSuccessNotif('⚠️ Error de conexión al generar nuevas preguntas.');
-      setTimeout(() => setSuccessNotif(null), 5000);
-    } finally {
-      setIsGeneratingArena(false);
-    }
+    await loadGameForLevel(currentLevel, activeFolder, true);
   };
 
   // 3. REINTENTAR GENÉRICO (Regenera preguntas de la carpeta actual)
   const handleRetryGame = () => {
     setIsGameOverModalOpen(false);
-    handleRestartWithNewQuestions();
+    setCurrentLevel(1);
+    loadGameForLevel(1, activeFolder, true);
+  };
+
+  // INTENTO UNIFICADO DE JUGAR/COLOCAR CARTA (Arrastrar o Tocar)
+  const attemptPlayCard = (cardId, targetNodeId) => {
+    if (!isActualTurn) {
+      setSuccessNotif(`TURNO NO DISPONIBLE: Espera a tu turno para jugar.`);
+      setTimeout(() => setSuccessNotif(null), 2500);
+      return false;
+    }
+
+    if (!targetNodeId || !nodes[targetNodeId]) return false;
+    const targetNode = nodes[targetNodeId];
+
+    if (targetNode.placedCard) {
+      setSuccessNotif(`Este nodo ya tiene su respuesta colocada.`);
+      setTimeout(() => setSuccessNotif(null), 2500);
+      return false;
+    }
+
+    const card = hand.find((c) => String(c.id) === String(cardId));
+    if (!card) return false;
+
+    // Validación precisa: soporta match de ID, de matchesNodeId o por igualdad de texto/concepto
+    const isDistractor = card.isDistractor || String(card.id).includes('distractor');
+    const isCorrectCard = !isDistractor && Boolean(
+      (targetNode.correctCardId && String(targetNode.correctCardId) === String(card.id)) ||
+      (card.matchesNodeId && String(card.matchesNodeId) === String(targetNodeId)) ||
+      (targetNode.label && card.name && targetNode.label.trim().toLowerCase() === card.name.trim().toLowerCase())
+    );
+
+    if (!isCorrectCard) {
+      // CARTA INCORRECTA O DISTRACTOR: Hubzi reacciona y te anima tiernamente
+      setWrongCardShake(card.id);
+      triggerCapyVoice('wrong');
+      setSuccessNotif(`"${card.name}" no corresponde a esta casilla. Hubzi te anima: ¡estuviste cerca!`);
+      setTimeout(() => {
+        setWrongCardShake(null);
+        setSuccessNotif(null);
+      }, 3500);
+      return false;
+    }
+
+    // CARTA CORRECTA: Colocar en el nodo y voz de celebración entusiasta
+    triggerCapyVoice('correct');
+    setSelectedCardForDetail(null);
+    setSelectedCardInHand(null);
+    const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
+    const pointsEarned = 10 * multiplier;
+    setNodes((prev) => ({
+      ...prev,
+      [targetNodeId]: { ...prev[targetNodeId], placedCard: card },
+    }));
+    setHand((prev) => prev.filter((c) => String(c.id) !== String(card.id)));
+    setPlayerScore((prev) => prev + pointsEarned);
+    setSuccessNotif(`¡Excelente! "${card.name}" responde correctamente. +${pointsEarned} pts`);
+    setTimeout(() => setSuccessNotif(null), 3000);
+    return true;
   };
 
   const handleNodeClick = (nodeId) => {
     const node = nodes[nodeId];
-    if (node) {
-      setSelectedNodeForQuestion(node);
-    }
+    if (!node) return;
+
+    // Al hacer clic en un nodo se abre el modal con la pregunta de examen
+    setSelectedNodeForQuestion(node);
+  };
+
+  const handleCardClick = (card) => {
+    // Al hacer clic en una carta solo se abre su vista detallada (la colocación es SI O SI arrastrando)
+    setSelectedCardForDetail(card);
   };
 
   const handleDragEnd = (cardId, info) => {
-    // REGLA ESTRICTA: No permitir mover ni jugar cartas si no es tu turno
-    if (!isActualTurn) {
-      setSuccessNotif(
-        gameConfig.mode === '1v1'
-          ? `TURNO NO DISPONIBLE: Actualmente juega el rival en vivo.`
-          : `TURNO NO DISPONIBLE: La máquina está calculando su jugada.`
-      );
-      setTimeout(() => setSuccessNotif(null), 3000);
-      return;
-    }
+    if (!isActualTurn) return;
 
     const dropPoint = { x: info.point.x, y: info.point.y };
 
-    // 1. Detectar si se soltó sobre el BASURERO DE CARTAS (Lado Derecho)
-    const trashEl = document.getElementById('card-trash-bin');
-    if (trashEl) {
-      const tRect = trashEl.getBoundingClientRect();
-      if (
-        dropPoint.x >= tRect.left &&
-        dropPoint.x <= tRect.right &&
-        dropPoint.y >= tRect.top &&
-        dropPoint.y <= tRect.bottom
-      ) {
-        const discardedCard = hand.find((c) => c.id === cardId);
-        setHand((prev) => prev.filter((c) => c.id !== cardId));
-        setSuccessNotif(`Carta [${discardedCard?.name || 'descartada'}] enviada a incineración.`);
-        setTimeout(() => setSuccessNotif(null), 2500);
-        return;
-      }
-    }
-
-    // 2. Detectar si se soltó sobre una pregunta del tablero
+    // Detectar si se soltó sobre o cerca de una pregunta del tablero (radio generoso de 80px)
     const elements = document.querySelectorAll('[data-node-id]');
 
     let matchedNodeId = null;
+    let shortestDist = Infinity;
+    const HIT_RADIUS = 80;
+
     elements.forEach((el) => {
       const rect = el.getBoundingClientRect();
-      if (
-        dropPoint.x >= rect.left &&
-        dropPoint.x <= rect.right &&
-        dropPoint.y >= rect.top &&
-        dropPoint.y <= rect.bottom
-      ) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dist = Math.hypot(dropPoint.x - centerX, dropPoint.y - centerY);
+
+      const inExpandedArea = (
+        dropPoint.x >= rect.left - HIT_RADIUS &&
+        dropPoint.x <= rect.right + HIT_RADIUS &&
+        dropPoint.y >= rect.top - HIT_RADIUS &&
+        dropPoint.y <= rect.bottom + HIT_RADIUS
+      );
+
+      if (inExpandedArea && dist < shortestDist) {
+        shortestDist = dist;
         matchedNodeId = el.getAttribute('data-node-id');
       }
     });
 
-    if (matchedNodeId && nodes[matchedNodeId]) {
-      const targetNode = nodes[matchedNodeId];
-      if (targetNode.lockedByOpponent) {
-        setSuccessNotif(`Este nodo ya fue reclamado por tu rival.`);
-        setTimeout(() => setSuccessNotif(null), 2500);
-        return;
-      }
-
-      const card = hand.find((c) => c.id === cardId);
-      if (card) {
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // REGLA ESTRICTA: La carta debe ser la respuesta exacta al nodo
-        // Cada carta tiene 1 solo nodo correcto (matchesNodeId)
-        // Cada nodo acepta 1 sola carta correcta (correctCardId)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const hasStrictMatch = targetNode.correctCardId && card.matchesNodeId;
-        const isCorrectCard = hasStrictMatch
-          ? (targetNode.correctCardId === card.id || card.matchesNodeId === matchedNodeId)
-          : true; // Si no hay enlace definido, aceptar (modo fallback sin IA)
-
-        if (!isCorrectCard) {
-          // ❌ CARTA INCORRECTA: Capibara se pone triste y llora de verdad con sonidos de emoción
-          setIsCapySad(true);
-          setWrongCardShake(cardId);
-          capyAudio.playCapyCry(); // 😭 Sonido realista de sollozos y gemidos de la Capibara
-          setSuccessNotif(`❌ ¡Respuesta incorrecta! La carta "${card.name}" no responde esa pregunta. Capi llora desconsolado... 😭`);
-          setTimeout(() => {
-            setIsCapySad(false);
-            setWrongCardShake(null);
-            setSuccessNotif(null);
-          }, 3200);
-          return; // La carta regresa a la mano sin moverse
-        }
-
-        // ✅ CARTA CORRECTA: Colocar en el nodo y sonido feliz
-        capyAudio.playCapyHappy(); // ✨ Sonido alegre y victorioso de la Capibara
-        const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
-        const pointsEarned = 10 * multiplier;
-        setNodes((prev) => ({
-          ...prev,
-          [matchedNodeId]: { ...prev[matchedNodeId], placedCard: card },
-        }));
-        setHand((prev) => prev.filter((c) => c.id !== cardId));
-        setPlayerScore((prev) => prev + pointsEarned);
-        setSuccessNotif(`✅ ¡Correcto! "${card.name}" responde esta pregunta. +${pointsEarned} pts`);
-        setTimeout(() => setSuccessNotif(null), 3000);
-
-        if (gameConfig.mode === '1v1') {
-          sendMove({
-            action: 'card_placed',
-            node_id: matchedNodeId,
-            card_id: cardId,
-            card_name: card.name,
-            card_type: card.type,
-            card_domain: card.domain
-          });
-        } else if (gameConfig.mode === 'solo') {
-          // En modo máquina, la IA responde con una jugada después de tu movimiento
-          setTimeout(() => {
-            triggerAiTurn();
-          }, 1200);
-        }
-      }
+    if (matchedNodeId) {
+      attemptPlayCard(cardId, matchedNodeId);
     }
   };
+
 
   const handleEndTurn = () => {
     if (!isActualTurn) {
@@ -674,22 +954,57 @@ export default function ArcadeArena() {
             };
           });
 
-          const newCards = boardData.cards.map((c, i) => ({
-            id: c.id,
-            name: c.concept_name,
-            cost: c.points_multiplier || '1x',
-            type: i % 2 === 0 ? 'cyan' : 'emerald',
-            sourceType: 'document',
-            domain: 'estudio',
-            rotation: (i - 2) * 4,
-            zIndex: i + 1,
-            content: c.content,
-            matchesNodeId: boardData.nodes[i]?.id  // <-- enlace inverso 1-a-1
-          }));
+          const processedCards = boardData.cards.map((c, i) => {
+            const isDistractor = c.id?.includes('distractor') || i >= boardData.nodes.length;
+            return {
+              id: c.id,
+              name: c.concept_name,
+              cost: c.points_multiplier || '1x',
+              type: i % 2 === 0 ? 'cyan' : 'emerald',
+              sourceType: 'document',
+              domain: 'estudio',
+              content: c.content || 'Respuesta falsa que no corresponde a ningún reactivo.',
+              matchesNodeId: isDistractor ? null : (boardData.nodes[i]?.id || null),
+              isDistractor: isDistractor
+            };
+          });
 
-            setNodes(newNodes);
-            setHand(newCards);
-            setOpponentHand(newCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
+          // 30% del total de preguntas como cartas falsas
+          const requiredDistractors = Math.max(1, Math.round(boardData.nodes.length * 0.30));
+          const currentDistractors = processedCards.filter(c => c.isDistractor).length;
+          if (currentDistractors < requiredDistractors) {
+            const needed = requiredDistractors - currentDistractors;
+            const distractorPool = [
+              "Enfoque Ortogonal Inverso",
+              "Principio de Premisa Contradictoria",
+              "Teoría de Correlación Espuria",
+              "Postulado No Demostrado"
+            ];
+            for (let k = 0; k < needed; k++) {
+              const dIdx = currentDistractors + k;
+              processedCards.push({
+                id: `card_distractor_dyn_${dIdx + 1}`,
+                name: distractorPool[dIdx % distractorPool.length],
+                cost: '1x',
+                type: (processedCards.length + k) % 2 === 0 ? 'cyan' : 'emerald',
+                sourceType: 'document',
+                domain: 'estudio',
+                content: 'Respuesta alternativa no válida.',
+                matchesNodeId: null,
+                isDistractor: true
+              });
+            }
+          }
+
+          const shuffledHand = [...processedCards].sort(() => Math.random() - 0.5);
+          shuffledHand.forEach((c, i) => {
+            c.rotation = (i - Math.floor(processedCards.length / 2)) * 3;
+            c.zIndex = i + 1;
+          });
+
+          setNodes(newNodes);
+          setHand(shuffledHand);
+          setOpponentHand(processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
             setEnergy(maxEnergy);
             setTurn(1);
             setSuccessNotif(`¡Material procesado con Gemini! Tablero generado en tiempo real.`);
@@ -855,46 +1170,49 @@ export default function ArcadeArena() {
   return (
     <div className="relative w-screen h-screen overflow-hidden flex flex-col justify-between select-none">
       
-      {/* -1. PANEL PREVIO DE CARPETAS Y ASIGNATURAS DE ESTUDIO */}
+      {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          if (currentUser) setIsAuthModalOpen(false);
+        }}
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setIsAuthModalOpen(false);
+          capyVoice.currentUser = user;
+          setIsFolderModalOpen(true);
+        }}
+      />
+
+      {/* 0.1 MODAL DE EDICIÓN DE PERFIL / VOZ ADAPTATIVA DE CAPI */}
+      <UserAuthModal
+        isOpen={isUserModalOpen}
+        currentUser={currentUser}
+        onUserSaved={(user) => {
+          setCurrentUser(user);
+          setIsUserModalOpen(false);
+          capyVoice.currentUser = user;
+        }}
+      />
+
+      {/* -1. PANEL PREVIO DE CARPETAS Y ASIGNATURAS DE ESTUDIO (AISLADO POR USUARIO) */}
       <StudyFolderManagerModal
         isOpen={isFolderModalOpen}
+        currentUser={currentUser}
         onSelectFolder={async (folder) => {
           setActiveFolder(folder);
           setIsFolderModalOpen(false);
 
+
           if (folder.playDirectly && folder.documents && folder.documents.filter(d => !d.isUploading).length > 0) {
-            // Generar juego usando EXCLUSIVAMENTE el texto de los documentos de ESTA carpeta
-            // El backend recupera el texto extraído desde MongoDB (aislado por folder_id)
-            setIsGeneratingArena(true);
-            setSuccessNotif(`⚡ Generando simulacro de examen con los materiales de [${folder.name}]...`);
-
-            try {
-              const res = await fetch(`/api/v1/folders/${folder.id}/generate-game`, {
-                method: 'POST'
-              });
-
-              if (res.ok) {
-                const boardData = await res.json();
-                const success = applyBoardData(boardData, folder.name);
-
-                if (success) {
-                  setSuccessNotif(`✅ Simulacro generado con ${boardData.cards.length} reactivos de [${folder.name}]`);
-                  setTimeout(() => setSuccessNotif(null), 5000);
-
-                  // PASO 3: Tras analizar y generar el juego, aparece la actividad de respiración Zen!
-                  setIsRelaxModalOpen(true);
-                }
-              } else {
-                const err = await res.json().catch(() => ({}));
-                setSuccessNotif(`⚠️ ${err.detail || 'No se pudo generar el simulacro.'}`);
-                setTimeout(() => setSuccessNotif(null), 6000);
-                setIsFolderModalOpen(true);
-              }
-            } catch (e) {
-              console.warn('Error generando juego desde carpeta:', e);
+            // Inicia el juego en el Nivel 1 (Fácil: 3 preguntas)
+            setCurrentLevel(1);
+            const success = await loadGameForLevel(1, folder, false);
+            if (success) {
+              // Tras generar el nivel, sesión Zen de respiración consciente
+              setIsRelaxModalOpen(true);
+            } else {
               setIsFolderModalOpen(true);
-            } finally {
-              setIsGeneratingArena(false);
             }
           } else {
             setIsFolderModalOpen(true);
@@ -946,18 +1264,21 @@ export default function ArcadeArena() {
       <QuestionModal
         isOpen={!!selectedNodeForQuestion}
         node={selectedNodeForQuestion}
-        onClose={() => setSelectedNodeForQuestion(null)}
+        onClose={() => {
+          const targetNode = selectedNodeForQuestion;
+          setSelectedNodeForQuestion(null);
+          if (targetNode?.hint) {
+            triggerCapyVoice('hint', {
+              customText: `Te doy una pista: ${targetNode.hint}`
+            });
+          }
+        }}
       />
 
       {/* 3.1 MODAL DE DETALLE DE CARTA (VISUALIZACIÓN DE RESPUESTA) */}
       <CardDetailModal
         isOpen={!!selectedCardForDetail}
         card={selectedCardForDetail}
-        matchingNode={
-          selectedCardForDetail
-            ? Object.values(nodes).find(n => n.label === selectedCardForDetail.name || n.correctCardId === selectedCardForDetail.id)
-            : null
-        }
         onClose={() => setSelectedCardForDetail(null)}
       />
 
@@ -1001,7 +1322,7 @@ export default function ArcadeArena() {
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <button
                   onClick={handleRestartWithNewQuestions}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all active:scale-95"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all active:scale-95 cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Siguiente Desafío (Nuevas Preguntas)</span>
@@ -1009,10 +1330,85 @@ export default function ArcadeArena() {
 
                 <button
                   onClick={handleTerminateGame}
-                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"
+                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 text-rose-400" />
                   <span>Terminar Partida</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 4.1 MODAL ASCENSO DE NIVEL (LEVEL UP CON CAPI PSICÓLOGO ULTRA AMOROSO) */}
+      <AnimatePresence>
+        {isLevelUpModalOpen && levelUpData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: 30 }}
+              className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#182035] to-[#0c1220] border-2 border-purple-400/80 p-6 sm:p-8 text-center text-slate-100 shadow-[0_0_60px_rgba(168,85,247,0.45)]"
+            >
+              <div className="relative w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-purple-950 to-indigo-900 border-2 border-purple-400 flex items-center justify-center text-purple-300 mb-4 shadow-[0_0_30px_rgba(168,85,247,0.5)]">
+                <Trophy className="w-10 h-10 text-amber-300 animate-bounce" />
+                <Sparkles className="w-6 h-6 text-purple-300 absolute -top-2 -right-2 animate-pulse" />
+              </div>
+
+              <span className="px-3 py-1 rounded-full bg-purple-900/60 border border-purple-400 text-purple-200 text-[10px] font-mono font-bold tracking-widest uppercase">
+                ¡Nivel {levelUpData.completedLevel} Conquistado!
+              </span>
+
+              <h2 className="text-2xl font-black uppercase tracking-wider text-white mt-3">
+                ¡Subes al Nivel {levelUpData.nextLevel}: {levelUpData.nextLvlInfo?.name}!
+              </h2>
+
+              {/* Mensaje de Capi Psicólogo reflexivo y sereno */}
+              <div className="my-5 p-4 rounded-2xl bg-slate-900/90 border border-purple-500/40 text-left flex items-start gap-3 shadow-inner">
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-cyan-400 flex-shrink-0">
+                  <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-cyan-300 font-mono flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+                    Capi Psicólogo cognitivo:
+                  </p>
+                  <p className="text-xs text-slate-200 mt-1 italic leading-relaxed">
+                    "{capySpeech.text || 'Excelente constancia mental. Tu cerebro ha asimilado las relaciones conceptuales y está listo para mayor profundidad analítica.'}"
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalles del próximo nivel */}
+              <div className="grid grid-cols-2 gap-3 py-3 px-4 rounded-2xl bg-slate-950/80 border border-slate-700/80 mb-6 text-left">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Nuevas Preguntas</p>
+                  <p className="text-lg font-black text-amber-300 font-mono">
+                    {levelUpData.nextLvlInfo?.questions} reactivos
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Dificultad</p>
+                  <p className="text-sm font-black text-purple-300 font-mono capitalize">
+                    {levelUpData.nextLvlInfo?.difficulty}
+                  </p>
+                </div>
+                <div className="col-span-2 pt-2 border-t border-slate-800">
+                  <p className="text-[11px] text-slate-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="font-semibold">{levelUpData.nextLvlInfo?.desc}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  onClick={handleProceedToNextLevel}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(168,85,247,0.5)] transition-all active:scale-95 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>Comenzar Nivel {levelUpData.nextLevel} ({levelUpData.nextLvlInfo?.questions} preguntas)</span>
                 </button>
               </div>
             </motion.div>
@@ -1024,74 +1420,163 @@ export default function ArcadeArena() {
       <div className="absolute right-0 top-1/4 w-36 h-96 bg-gradient-to-l from-amber-700/80 via-amber-900/60 to-transparent border-l-4 border-amber-500/40 rounded-l-3xl pointer-events-none transform skew-y-6 opacity-80" />
       <div className="absolute right-24 bottom-1/3 w-48 h-28 bg-gradient-to-l from-cyan-400/40 via-cyan-400/10 to-transparent transform -rotate-12 blur-lg pointer-events-none" />
 
-      {/* GUARDIÁN TÁCTICO 3D ZEN ANIMADO / LLORA CUANDO LA CARTA ES INCORRECTA */}
+      {/* GUARDIÁN TÁCTICO 3D ZEN INTERACTIVO / HABLA CON ELEVENLABS Y REACCIONA SEGÚN LA SITUACIÓN */}
       <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center select-none pointer-events-auto">
+        
+        {/* BOCADILLO DE DIÁLOGO FLOTANTE (ESTILO CÓMIC NEÓN CON TEXTO SINTÉTICO Y MOTIVADOR) */}
+        <AnimatePresence>
+          {capySpeech.isVisible && capySpeech.text && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: -10 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+              className={`absolute -top-26 sm:-top-28 left-0 sm:left-2 w-64 sm:w-72 p-3 rounded-2xl border-2 shadow-2xl backdrop-blur-md z-50 text-left ${
+                capyMood === 'encouraging' || isCapySad
+                  ? 'bg-rose-950/98 border-rose-400 text-rose-100 shadow-[0_0_25px_rgba(244,63,94,0.45)]'
+                  : capyMood === 'happy'
+                  ? 'bg-emerald-950/98 border-emerald-400 text-emerald-100 shadow-[0_0_25px_rgba(52,211,153,0.45)]'
+                  : capyMood === 'hint'
+                  ? 'bg-[#101b2b]/98 border-amber-400 text-amber-100 shadow-[0_0_25px_rgba(251,191,36,0.45)]'
+                  : 'bg-slate-900/98 border-cyan-400 text-slate-100 shadow-[0_0_25px_rgba(6,182,212,0.45)]'
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-white/15 pb-1 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[8.5px] font-mono font-black uppercase flex items-center gap-1 ${
+                    capyMood === 'encouraging' || isCapySad ? 'text-rose-300' : capyMood === 'happy' ? 'text-emerald-300' : capyMood === 'hint' ? 'text-amber-300' : 'text-cyan-300'
+                  }`}>
+                    <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                    <span>HUBZI {capyMood === 'hint' ? 'PISTA' : capyMood === 'happy' ? 'CELEBRA' : capyMood === 'encouraging' ? 'TE ANIMA' : 'DICE'}:</span>
+                  </span>
+                </div>
+
+                {/* Ondas / ecualizador de voz animado */}
+                {isCapySpeaking ? (
+                  <div className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/40">
+                    <motion.span animate={{ height: [4, 12, 4] }} transition={{ repeat: Infinity, duration: 0.35 }} className="w-1 bg-cyan-400 rounded-full" />
+                    <motion.span animate={{ height: [6, 16, 6] }} transition={{ repeat: Infinity, duration: 0.40, delay: 0.1 }} className="w-1 bg-amber-400 rounded-full" />
+                    <motion.span animate={{ height: [4, 14, 4] }} transition={{ repeat: Infinity, duration: 0.30, delay: 0.2 }} className="w-1 bg-cyan-300 rounded-full" />
+                  </div>
+                ) : (
+                  <span className="text-[7.5px] text-cyan-400/80 font-mono">
+                    Voz ElevenLabs
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[10.5px] sm:text-[11.5px] font-medium leading-snug break-words">
+                {capySpeech.text}
+              </p>
+
+              {/* Flecha cómic del bocadillo */}
+              <div className={`absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 border-r-2 border-b-2 ${
+                capyMood === 'encouraging' || isCapySad ? 'bg-rose-950 border-rose-400' : capyMood === 'happy' ? 'bg-emerald-950 border-emerald-400' : capyMood === 'hint' ? 'bg-[#101b2b] border-amber-400' : 'bg-slate-900 border-cyan-400'
+              }`} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* BANNER INTERACTIVO DE PSICOLOGÍA Y ALIVIO DE ESTRÉS */}
+        <AnimatePresence>
+          {zenOffer.show && (
+            <motion.div
+              initial={{ opacity: 0, y: 15, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-2xl bg-gradient-to-br from-emerald-950/98 via-teal-950/95 to-slate-900/98 border-2 border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.6)] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-emerald-300 font-mono flex items-center gap-1.5">
+                  <Wind className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                  Capi Zen • Calma
+                </span>
+                <button
+                  onClick={() => setZenOffer({ ...zenOffer, show: false })}
+                  className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                  title="Cerrar"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-[10.5px] text-emerald-100 leading-snug">
+                {zenOffer.distortion
+                  ? `Detecté "${zenOffer.distortion}". Tranquilo, un error es solo un dato, no define tu capacidad.`
+                  : 'Siento tensión en tu voz amiguito. ¿Hacemos 30 segundos de respiración guiada para oxigenar tu mente?'}
+              </p>
+              <button
+                onClick={() => {
+                  setZenOffer({ ...zenOffer, show: false });
+                  setIsRelaxModalOpen(true);
+                }}
+                className="w-full py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-[10px] tracking-wide uppercase shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+              >
+                <Sparkles className="w-3 h-3 text-slate-950" />
+                Respirar 4-7-8 con Capi
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <motion.div
           animate={isCapySad ? {
-            // Animación de llanto: sacudida intensa + caída emocional
-            x: [0, -10, 10, -10, 10, -8, 8, -5, 5, 0],
+            x: [0, -8, 8, -8, 8, -5, 5, 0],
             y: [0, 4, 0, 4, 0],
-            rotateZ: [-5, 5, -5, 5, 0],
-            scale: [1, 0.95, 1]
+            rotateZ: [-4, 4, -4, 4, 0],
+            scale: [1, 0.96, 1]
+          } : isCapySpeaking ? {
+            y: [0, -6, 0],
+            scale: [1, 1.05, 1],
+            rotateZ: [-1.5, 1.5, -1.5]
           } : {
-            y: [0, -12, 0],
-            rotateZ: [-2.5, 2.5, -2.5],
-            scale: [1, 1.04, 1]
+            y: [0, -10, 0],
+            rotateZ: [-2, 2, -2],
+            scale: [1, 1.03, 1]
           }}
           transition={isCapySad ? {
             duration: 0.6,
-            repeat: 3,
+            repeat: 2,
+            ease: 'easeInOut'
+          } : isCapySpeaking ? {
+            repeat: Infinity,
+            duration: 0.45,
             ease: 'easeInOut'
           } : {
             repeat: Infinity,
             duration: 3.8,
             ease: 'easeInOut'
           }}
-          whileHover={!isCapySad ? { scale: 1.2, rotate: 6 } : {}}
+          whileHover={{ scale: 1.15, rotate: 4 }}
           whileTap={{ scale: 0.92 }}
-          onClick={() => {
-            if (isCapySad) {
-              capyAudio.playCapyCry();
-            } else {
-              capyAudio.playCapyHappy();
-            }
-          }}
+          onClick={handleCapyClick}
           className="relative group cursor-pointer flex flex-col items-center"
-          title={isCapySad ? '¡Carta incorrecta! Capi llora... 😭 (Haz clic para escucharlo)' : 'Capibara Zen 3D - Tu Guardián Táctico (Haz clic para escuchar su saludo feliz)'}
+          title="Haz clic en Capi para escuchar su voz tierna y pedirle una pista"
         >
-          {/* Base Holográfica: roja si triste, cyan si zen */}
-          <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 w-24 h-6 rounded-full blur-md animate-pulse pointer-events-none transition-colors duration-500 ${
-            isCapySad ? 'bg-rose-400/40' : 'bg-cyan-400/25'
-          }`} />
-          <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 w-20 h-3 border rounded-full pointer-events-none transition-colors duration-500 ${
-            isCapySad ? 'border-rose-400/90 shadow-[0_0_15px_#f43f5e]' : 'border-cyan-400/70 shadow-[0_0_15px_#22d3ee]'
+          {/* Base Holográfica */}
+          <div className={`w-28 h-6 rounded-full blur-md -mb-3 transition-colors duration-300 ${
+            isCapySad ? 'bg-rose-500/50' : isCapySpeaking ? 'bg-amber-400/50' : 'bg-cyan-400/40'
           }`} />
 
-          {/* Figura 3D del Capibara: temblor de llanto, borde rojo y filtro si está triste */}
+          {/* Marco Redondo 3D con Borde Neón y Sombra Glow */}
           <motion.div 
-            animate={isCapySad ? {
-              x: [-2, 2, -3, 3, -1, 1, 0],
-              y: [0, 3, 0, 4, 0],
-              rotate: [-1.5, 1.5, -1, 1, 0]
-            } : {}}
-            transition={isCapySad ? { repeat: Infinity, duration: 0.28, ease: "easeInOut" } : {}}
-            className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl overflow-hidden border-2 transition-all duration-300 ${
+            className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 overflow-hidden transition-colors duration-500 ${
               isCapySad
-                ? 'border-rose-500 shadow-[0_0_40px_rgba(244,63,94,0.85)] ring-4 ring-rose-500/30'
+                ? 'border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.8)]'
+                : isCapySpeaking
+                ? 'border-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.9)]'
                 : 'border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.6)] group-hover:border-cyan-300 group-hover:shadow-[0_0_45px_rgba(34,211,238,0.8)]'
             } bg-[#0c1420]`}
           >
             <img
               src={capybara3dImg}
-              alt={isCapySad ? 'Capibara Triste' : 'Capibara 3D'}
+              alt="Capibara Compañero"
               className={`w-full h-full object-cover object-center transition-all duration-300 ${
-                isCapySad ? 'brightness-70 saturate-75 contrast-125' : 'group-hover:scale-110'
+                isCapySad ? 'brightness-85 saturate-80' : 'group-hover:scale-105'
               }`}
             />
-            {/* Overlay de tristeza con cascada de lágrimas animadas */}
+            {/* Overlay de tristeza con cascada de lágrimas si está triste */}
             {isCapySad && (
               <div className="absolute inset-0 flex flex-col items-center justify-between p-2 pointer-events-none z-20">
-                {/* Gotas de lágrimas que caen a borbotones */}
                 <div className="relative w-full h-full">
                   <motion.div
                     animate={{ y: [0, 40], opacity: [1, 0], scale: [0.8, 1.2] }}
@@ -1103,153 +1588,143 @@ export default function ArcadeArena() {
                     transition={{ repeat: Infinity, duration: 0.50, delay: 0.12, ease: 'easeIn' }}
                     className="absolute top-1/4 right-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
                   />
-                  <motion.div
-                    animate={{ y: [0, 35], opacity: [0.9, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.40, delay: 0.22, ease: 'easeIn' }}
-                    className="absolute top-1/3 left-[38%] w-1 h-3 rounded-full bg-sky-200"
-                  />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-rose-950/80 via-transparent to-black/30 pointer-events-none" />
-                <span className="text-white text-xl animate-bounce drop-shadow-md">😭</span>
+                <AlertTriangle className="w-6 h-6 text-rose-300 animate-bounce drop-shadow-md z-10" />
               </div>
             )}
             {/* Brillo dinámico de iluminación */}
-            <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/50 via-transparent to-white/20 pointer-events-none" />
-            {!isCapySad && <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-cyan-300 animate-ping" />}
-            {isCapySad && <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-400 animate-ping" />}
+            <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/40 via-transparent to-white/15 pointer-events-none" />
+            <div className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${
+              isCapySad ? 'bg-rose-400' : isCapySpeaking ? 'bg-amber-300' : 'bg-cyan-300'
+            } animate-ping`} />
           </motion.div>
 
-          {/* Badge 3D: rojo si triste */}
-          <div className={`mt-2 px-3 py-0.5 rounded-full bg-slate-900/95 shadow-lg text-center backdrop-blur-sm border transition-colors duration-500 ${
-            isCapySad ? 'border-rose-500/80' : 'border-emerald-400/80'
-          }`}>
-            <span className={`text-[9px] font-black font-mono tracking-wider flex items-center gap-1 justify-center transition-colors duration-300 ${
-              isCapySad ? 'text-rose-300' : 'text-emerald-300'
+          {/* Badge 3D interactivo con estado y botones de control */}
+          <div className="mt-2 flex items-center gap-1.5 z-20">
+            <div className={`px-3 py-0.5 rounded-full bg-slate-900/95 shadow-lg text-center backdrop-blur-sm border transition-colors duration-500 ${
+              isCapySad ? 'border-rose-500/80' : isCapySpeaking ? 'border-cyan-400' : 'border-emerald-400/80'
             }`}>
-              {isCapySad
-                ? <><AlertTriangle className="w-2.5 h-2.5 text-rose-400" /> CAPI TRISTE</>
-                : <><Sparkles className="w-2.5 h-2.5 text-amber-400" /> CAPI 3D ZEN</>}
-            </span>
-          </div>
-
-          {/* Globo de Diálogo Flotante */}
-          {isCapySad ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 5 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap bg-rose-950/95 border border-rose-500 text-rose-200 text-[8.5px] font-mono font-bold px-2.5 py-1.5 rounded-xl shadow-2xl pointer-events-none flex flex-col items-center gap-0.5 z-50"
-            >
-              <span>😭 ¡Esa no era la respuesta!</span>
-              <span className="text-[7.5px] text-rose-300/80">Cada carta va en su nodo correcto</span>
-            </motion.div>
-          ) : (
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-900/95 border border-cyan-400 text-cyan-200 text-[8.5px] font-mono font-bold px-2.5 py-1 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center gap-1">
-              <Zap className="w-3 h-3 text-amber-400" />
-              <span>¡Tú puedes, enfócate y gana!</span>
-            </div>
-          )}
-        </motion.div>
-      </div>
-
-      {/* BASURERO INCINERADOR 3D TÁCTICO */}
-      <div 
-        id="card-trash-bin"
-        className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center pointer-events-auto select-none"
-      >
-        <motion.div
-          animate={{
-            y: [0, -6, 0],
-            boxShadow: [
-              '0 0 20px rgba(244,63,94,0.4)',
-              '0 0 35px rgba(239,68,68,0.8)',
-              '0 0 20px rgba(244,63,94,0.4)'
-            ]
-          }}
-          transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-          whileHover={{ scale: 1.15 }}
-          className="relative w-22 sm:w-26 h-28 sm:h-32 rounded-2xl overflow-hidden border-2 border-rose-500 bg-[#0d131f] flex flex-col items-center justify-between p-1.5 group transition-all duration-300 cursor-pointer"
-        >
-          {/* Imagen Render 3D del Incinerador de Basura */}
-          <div className="relative w-full h-20 sm:h-22 rounded-xl overflow-hidden border border-rose-500/40">
-            <img 
-              src={trashBin3dImg} 
-              alt="Basurero 3D" 
-              className="w-full h-full object-cover object-center group-hover:scale-115 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-rose-500/20 pointer-events-none" />
-            <div className="absolute top-1 right-1 flex items-center gap-0.5 bg-rose-950/90 border border-rose-400/60 px-1 rounded text-[7px] text-rose-300 font-bold font-mono">
-              <Flame className="w-2.5 h-2.5 text-rose-400 animate-bounce" /> INCINERAR
-            </div>
-          </div>
-
-          {/* Instrucción de arrastre */}
-          <span className="text-[7.5px] font-mono font-bold text-rose-200 text-center uppercase tracking-tight py-0.5 px-1 rounded bg-slate-950/90 border border-slate-700/80 w-full flex items-center justify-center gap-1">
-            <Trash2 className="w-2.5 h-2.5 text-rose-400" />
-            <span>Arrastra y bota</span>
-          </span>
-        </motion.div>
-      </div>
-
-      {/* BARRA SUPERIOR CON CONTROLES LIMPIOS Y TURNO */}
-      <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
-        
-        {/* BANNER DE TURNO EN VIVO (PARA 1v1 Y MÁQUINA) */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 backdrop-blur-md shadow-xl transition-all ${
-          gameConfig.mode === '1v1' && !isOpponentConnected
-            ? 'bg-slate-900/90 border-amber-500/60 text-amber-300'
-            : isActualTurn
-            ? 'bg-emerald-950/95 border-emerald-400 text-emerald-100 shadow-[0_0_20px_rgba(52,211,153,0.5)] animate-pulse'
-            : 'bg-rose-950/90 border-rose-500/80 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
-        }`}>
-          {gameConfig.mode === '1v1' && !isOpponentConnected ? (
-            <>
-              <Hourglass className="w-3.5 h-3.5 animate-spin text-amber-400" />
-              <span className="text-[11px] font-bold font-mono">
-                Sala <strong className="text-white underline">{gameConfig.roomId}</strong>: Esperando Rival...
+              <span className={`text-[9px] font-black font-mono tracking-wider flex items-center gap-1 justify-center transition-colors duration-300 ${
+                isCapySad ? 'text-rose-300' : isCapySpeaking ? 'text-cyan-300' : capyMood === 'hint' ? 'text-amber-300' : 'text-emerald-300'
+              }`}>
+                {isCapySad ? (
+                  <><Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> HUBZI CONTENCIÓN</>
+                ) : isCapySpeaking ? (
+                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> HUBZI ORIENTANDO</>
+                ) : capyMood === 'happy' ? (
+                  <><Sparkles className="w-2.5 h-2.5 text-emerald-400" /> HUBZI REFUERZO</>
+                ) : capyMood === 'hint' ? (
+                  <><HelpCircle className="w-2.5 h-2.5 text-amber-400" /> HUBZI PISTA</>
+                ) : (
+                  <><Sparkles className="w-2.5 h-2.5 text-cyan-400 animate-pulse" /> HUBZI PSICÓLOGO</>
+                )}
               </span>
-            </>
-          ) : isActualTurn ? (
-            <>
-              <PlayCircle className="w-4 h-4 text-emerald-400 animate-bounce" />
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1">
-                  <CircleDot className="w-2.5 h-2.5 text-emerald-400 fill-emerald-400" />
-                  <span>TU TURNO</span>
-                </span>
-                <span className="text-[8px] text-emerald-100/80 font-mono hidden sm:inline">
-                  Arrastra una carta al circuito o basurero
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <Hourglass className="w-3.5 h-3.5 text-rose-400 animate-spin" />
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-black uppercase tracking-wider text-rose-300 flex items-center gap-1">
-                  <CircleDot className="w-2.5 h-2.5 text-rose-400 fill-rose-400" />
-                  <span>{gameConfig.mode === 'solo' ? 'TURNO MÁQUINA' : 'TURNO RIVAL'}</span>
-                </span>
-                <span className="text-[8px] text-rose-200/80 font-mono hidden sm:inline">
-                  {gameConfig.mode === 'solo' ? 'Analizando...' : 'Jugando...'}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* BOTÓN PANEL DE CARPETAS DE ESTUDIO */}
-        <button
-          onClick={() => setIsFolderModalOpen(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[#1a2638] hover:bg-[#23334d] border-2 border-amber-400/70 text-amber-300 text-xs font-black transition-all flex items-center gap-2 shadow-[0_3px_0_#92400e] active:translate-y-0.5 active:shadow-none cursor-pointer"
-          title="Ver baúl de carpetas y seleccionar material"
-        >
-          <FolderIcon className="w-4 h-4 text-amber-400" />
-          <span className="hidden md:inline">
-            {activeFolder ? `Carpeta: ${activeFolder.name}` : 'Carpetas'}
+            {/* Botón Zen Anti-Estrés: Pausa 4-7-8 con Hubzi */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsRelaxModalOpen(true);
+              }}
+              className="p-1 rounded-full bg-emerald-950/90 border border-emerald-400/80 hover:border-emerald-300 text-emerald-300 hover:scale-110 transition-all shadow-[0_0_10px_rgba(52,211,153,0.4)] cursor-pointer"
+              title="Pausa Zen Anti-Estrés: Realiza respiración 4-7-8 con Hubzi"
+            >
+              <Wind className="w-3 h-3 text-emerald-300 animate-pulse" />
+            </button>
+
+            {/* Botón Micrófono para hablar por voz con Hubzi */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMicrophone();
+              }}
+              className={`p-1 rounded-full border transition-all duration-300 shadow-md cursor-pointer flex items-center justify-center ${
+                isListening 
+                  ? 'bg-rose-600 border-rose-400 text-white ring-4 ring-rose-400/60 animate-pulse shadow-[0_0_15px_#f43f5e]' 
+                  : isThinkingHint
+                  ? 'bg-amber-600 border-amber-400 text-white ring-4 ring-amber-400/60 animate-spin'
+                  : 'bg-slate-900/90 border-cyan-400/70 hover:border-cyan-300 text-cyan-300 hover:scale-110 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
+              }`}
+              title={isListening ? "Detener micrófono" : "Habla por micrófono con Hubzi para pedirle apoyo o pistas"}
+            >
+              {isListening ? <MicOff className="w-3 h-3 text-white" /> : <Mic className="w-3 h-3 text-cyan-300" />}
+            </button>
+
+            {/* Botón Silenciar / Activar Voz Tierna */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const nextMuted = !isCapyMuted;
+                setIsCapyMuted(nextMuted);
+                capyVoice.isMuted = nextMuted;
+                if (nextMuted) capyVoice.stop();
+              }}
+              className="p-1 rounded-full bg-slate-900/90 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
+              title={isCapyMuted ? "Activar voz de Hubzi" : "Silenciar voz de Hubzi"}
+            >
+              {isCapyMuted ? <VolumeX className="w-3 h-3 text-rose-400" /> : <Volume2 className="w-3 h-3 text-cyan-300" />}
+            </button>
+          </div>
+
+          {/* Micro-pista interactiva al pasar el mouse */}
+          <span className={`text-[7.5px] font-mono mt-1 text-center transition-colors ${
+            isListening ? 'text-rose-400 font-bold animate-pulse' : 'text-cyan-300/80 group-hover:text-cyan-200'
+          }`}>
+            {isListening 
+              ? 'Hubzi te escucha...' 
+              : isThinkingHint 
+              ? 'Hubzi preparando sus palabras con calidez...' 
+              : 'Toca el micrófono para hablar con Hubzi'}
           </span>
-          <span className="md:hidden">Carpetas</span>
-        </button>
+
+        </motion.div>
+      </div>
+
+
+
+      {/* BARRA SUPERIOR CON CONTROLES LIMPIOS */}
+      <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
+        {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
+        {currentUser ? (
+          <div className="flex items-center gap-1 bg-[#131d2b]/95 border-2 border-cyan-400/70 rounded-2xl p-0.5 shadow-[0_3px_0_#0e3c54]">
+            <button
+              onClick={() => setIsUserModalOpen(true)}
+              className="px-2.5 py-1 text-cyan-200 text-xs font-bold transition-all flex items-center gap-2 hover:bg-[#1a283a] rounded-xl cursor-pointer group"
+              title="Configurar perfil de usuario, edad y voz de Capi"
+            >
+              <UserIcon className={`w-4 h-4 shrink-0 ${currentUser?.gender === 'femenino' ? 'text-rose-400' : 'text-sky-400'}`} />
+              <div className="flex flex-col text-left leading-tight">
+                <span className="text-[11px] font-black font-mono text-white group-hover:text-cyan-300 truncate max-w-[90px]">
+                  {currentUser?.username || currentUser?.email?.split('@')[0] || 'Mi Perfil'}
+                </span>
+                <span className="text-[8.5px] font-mono text-cyan-400 truncate max-w-[90px]">
+                  {currentUser?.email ? currentUser.email : `${currentUser?.age}a • ${currentUser?.gender === 'femenino' ? 'Voz Masc.' : 'Voz Fem.'}`}
+                </span>
+              </div>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 hover:bg-rose-950/80 hover:text-rose-300 text-slate-400 rounded-xl transition-colors cursor-pointer"
+              title="Cerrar sesión de esta cuenta"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-2 border-cyan-300 text-slate-950 font-black text-xs transition-all flex items-center gap-2 shadow-[0_3px_0_#0284c7] active:translate-y-0.5 active:shadow-none cursor-pointer"
+            title="Iniciar sesión o registrarse con correo y contraseña"
+          >
+            <LogInIcon className="w-4 h-4 text-slate-950" />
+            <span>Iniciar Sesión</span>
+          </button>
+        )}
+
+
+
 
         {/* BOTÓN REINICIAR (GENERA NUEVAS PREGUNTAS) */}
         <button
@@ -1274,100 +1749,42 @@ export default function ArcadeArena() {
         </button>
       </div>
 
-      {/* Marcadores de Puntuación */}
-      <div className="absolute left-4 top-3 z-30 flex items-center gap-2.5">
-        <div className="flex items-center gap-2 bg-slate-900/90 border border-amber-400/80 px-2.5 py-1 rounded-xl shadow-lg" title="Tu Puntuación">
-          <span className="text-[10px] font-mono text-amber-300 font-bold uppercase">Puntos:</span>
-          <span className="text-sm font-black font-mono text-amber-400">{playerScore}</span>
+      {/* Marcadores de Puntuación, Nivel Actual y Progreso del Estudiante */}
+      <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
+        {/* Indicador de Nivel 1 a 5 */}
+        {(() => {
+          const lvlInfo = GAME_LEVELS.find(l => l.level === currentLevel) || GAME_LEVELS[0];
+          return (
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-950/95 to-indigo-950/95 border border-purple-400/80 px-3 py-1 rounded-xl shadow-lg backdrop-blur-sm" title={`Nivel ${currentLevel} de 5: ${lvlInfo.name}`}>
+              <Trophy className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+              <span className="text-[10px] font-mono font-bold text-purple-300 uppercase">
+                NIVEL {currentLevel}/5:
+              </span>
+              <span className="text-xs font-black font-mono text-purple-200">
+                {lvlInfo.name} ({lvlInfo.questions} preg.)
+              </span>
+            </div>
+          );
+        })()}
+
+        <div className="flex items-center gap-2 bg-slate-900/90 border border-emerald-400/80 px-3 py-1 rounded-xl shadow-lg" title="Progreso del Circuito">
+          <span className="text-[10px] font-mono text-emerald-300 font-bold uppercase">Progreso:</span>
+          <span className="text-sm font-black font-mono text-emerald-400">
+            {Object.values(nodes).filter(n => Boolean(n.placedCard)).length} / {Object.keys(nodes).length || 3}
+          </span>
         </div>
-        {gameConfig.mode === '1v1' && (
-          <div className="flex items-center gap-2 bg-slate-900/90 border border-cyan-400/80 px-2.5 py-1 rounded-xl shadow-lg" title="Puntuación Rival">
-            <span className="text-[10px] font-mono text-cyan-300 font-bold uppercase">Rival:</span>
-            <span className="text-sm font-black font-mono text-cyan-400">{opponentScore}</span>
-          </div>
-        )}
       </div>
 
-      {/* Indicadores Inferiores Izquierdos */}
-      <div className="absolute bottom-6 left-6 z-40 flex flex-col gap-2">
-        <div className="flex items-center gap-2 bg-[#101726]/90 border border-amber-400/60 px-3 py-1.5 rounded-xl shadow-lg" title="Cartas restantes en tu mazo">
+      {/* Contador de Cartas Propias en Mano */}
+      <div className="absolute bottom-5 left-4 sm:left-6 z-40 flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-[#101726]/90 border border-amber-400/60 px-3 py-1.5 rounded-xl shadow-lg" title="Tus cartas restantes">
           <Layers className="w-4 h-4 text-amber-400" />
           <span className="text-xs font-mono font-bold text-amber-300">
-            {String(hand.length).padStart(2, '0')}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 bg-[#101726]/90 border border-cyan-400/60 px-3 py-1.5 rounded-xl shadow-lg" title="Cartas restantes del rival">
-          <Layers className="w-4 h-4 text-cyan-400" />
-          <span className="text-xs font-mono font-bold text-cyan-300">
-            {String(opponentHand.length).padStart(2, '0')}
+            {String(hand.length).padStart(2, '0')} cartas
           </span>
         </div>
       </div>
 
-      {/* MANO DEL CONTRINCANTE AL FRENTE (COMPACTA Y NO INVASIVA) */}
-      <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-40 pointer-events-none flex flex-col items-center">
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 border border-slate-700 shadow-md backdrop-blur-sm mb-0.5">
-          <span className="text-[7.5px] font-black uppercase tracking-wider text-rose-400 font-mono flex items-center gap-1">
-            {gameConfig.mode === 'solo' ? (
-              <>
-                <Bot className="w-2.5 h-2.5 text-rose-400" />
-                <span>MÁQUINA</span>
-              </>
-            ) : (
-              <>
-                <Swords className="w-2.5 h-2.5 text-rose-400" />
-                <span>RIVAL</span>
-              </>
-            )}
-          </span>
-          <span className="text-[7.5px] font-bold text-slate-400 font-mono">
-            ({opponentHand.length})
-          </span>
-          {isAiThinking && (
-            <span className="text-[7px] text-amber-300 animate-pulse font-mono font-bold">
-              [PENSANDO...]
-            </span>
-          )}
-        </div>
-
-        {/* Cartas miniatura del contrincante más compactas para no tapar el título */}
-        <div className="flex items-center justify-center -space-x-5 hover:-space-x-2 transition-all duration-300">
-          {opponentHand.map((card, idx) => (
-            <motion.div
-              key={card.id || `opp_${idx}`}
-              initial={{ y: -15, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0, scale: 0.5 }}
-              className="relative w-9 sm:w-11 h-13 sm:h-15 rounded-lg border border-rose-500/80 bg-gradient-to-b from-slate-900 via-rose-950/70 to-slate-950 p-0.5 shadow-[0_2px_8px_rgba(244,63,94,0.3)] flex flex-col justify-between"
-              style={{
-                transform: `rotate(${(idx - (opponentHand.length - 1) / 2) * 4}deg)`,
-                zIndex: idx + 10
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[5.5px] font-mono font-bold text-rose-300 bg-rose-950/90 px-0.5 rounded truncate max-w-[28px]">
-                  {card.domain?.substring(0, 3).toUpperCase() || 'RIV'}
-                </span>
-                <span className="text-[6px] font-black text-amber-400 font-mono">
-                  {card.cost || '+1'}
-                </span>
-              </div>
-
-              <div className="w-full h-5 rounded bg-black/50 border border-rose-500/30 flex items-center justify-center">
-                <span className="text-rose-400 font-bold text-[7px]">
-                  {gameConfig.mode === 'solo' ? 'IA' : '1v1'}
-                </span>
-              </div>
-
-              <div className="w-full py-0.2 px-0.5 rounded bg-slate-950/90 text-center">
-                <p className="text-[5.5px] font-bold text-slate-200 truncate uppercase">
-                  {card.name}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
 
       {/* CARTA VOLADORA EN VIVO (MOVIMIENTO EN TIEMPO REAL AL JUGAR LA MÁQUINA O EL RIVAL) */}
       <AnimatePresence>
@@ -1414,78 +1831,131 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-      {/* TABLERO ISOMÉTRICO 3D CON PREGUNTAS DISTRIBUIDAS POR TODO EL ESPACIO */}
-      <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-auto px-2">
-        <div className="table-3d relative w-[95%] max-w-6xl h-[460px] lg:h-[490px] rounded-3xl bg-[#1e2532] border-8 border-[#3b475a] shadow-[0_25px_50px_rgba(0,0,0,0.95)] p-3 sm:p-4 flex flex-col justify-between">
-          
-          <div className="absolute top-2 left-1/4 w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_10px_#facc15]" />
-          <div className="absolute top-2 right-1/4 w-3 h-3 rounded-full bg-yellow-400 shadow-[0_0_10px_#facc15]" />
+      {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
+      <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-1 sm:my-auto px-2 z-10 overflow-visible">
+        
+        {/* Carcasa Octogonal Externa con Extrusión de Sombra 3D */}
+        <div 
+          className="table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] p-3 sm:p-4 flex flex-col justify-between"
+          style={{
+            clipPath: 'polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)',
+            boxShadow: '0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)'
+          }}
+        >
 
-          {/* Indicadores de Energía */}
-          <div className="absolute -top-5 -left-5 z-20 flex flex-col items-center">
-            <div className="w-12 h-12 bg-amber-500 border-2 border-amber-300 rounded-2xl flex items-center justify-center text-xl font-black text-slate-950 shadow-[0_0_20px_rgba(251,191,36,0.6)]">
-              {maxEnergy}
-            </div>
-            <div className="w-3 h-20 bg-slate-900 border border-amber-500/50 rounded-full mt-1 overflow-hidden p-0.5">
-              <div className="w-full bg-amber-400 rounded-full h-3/4 shadow-[0_0_8px_#facc15]" />
-            </div>
+          {/* Superficie Interior Biselada del Tablero */}
+          <div 
+            className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 pointer-events-none"
+            style={{
+              clipPath: 'polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)',
+              backgroundImage: 'linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)',
+              backgroundSize: '32px 32px'
+            }}
+          />
+
+          {/* ========================================================= */}
+          {/* MÓDULOS DECORATIVOS COLORIDOS INCRUSTADOS EN LOS BORDES */}
+          {/* ========================================================= */}
+
+          {/* 1. ESQUINA SUPERIOR IZQUIERDA: Bisel Azul Pizarra Oscuro */}
+          <div className="absolute top-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#1e293b] to-[#334155] border border-[#475569] shadow-md transform -rotate-[35deg] pointer-events-none">
+            <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse" />
+            <span className="w-5 h-1 rounded-full bg-slate-300/60" />
           </div>
 
-          <div className="absolute -bottom-4 -left-4 z-20 flex flex-col items-center">
-            <div className="w-3 h-16 bg-slate-900 border border-cyan-400/50 rounded-full mb-1 overflow-hidden p-0.5">
-              <div className="w-full bg-cyan-400 rounded-full h-2/3 shadow-[0_0_8px_#22d3ee]" />
-            </div>
-            <div className="w-12 h-12 bg-cyan-500 border-2 border-cyan-300 rounded-2xl flex items-center justify-center text-xl font-black text-slate-950 shadow-[0_0_20px_rgba(34,211,238,0.6)]">
-              {energy}
-            </div>
+          {/* 2. ESQUINA SUPERIOR DERECHA: Bisel Naranja Coral Vivo */}
+          <div className="absolute top-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ea580c] to-[#f97316] border border-[#fb923c] shadow-md transform rotate-[35deg] pointer-events-none">
+            <div className="w-2 h-2 rounded-full bg-amber-200 shadow-[0_0_8px_#fde68a]" />
+            <span className="w-5 h-1 rounded-full bg-white/70" />
           </div>
 
-          {/* Botón FINALIZAR TURNO */}
-          <div className="absolute -bottom-4 -right-4 z-30">
-            <button 
-              onClick={handleEndTurn}
-              className={`w-28 h-14 rounded-2xl border-2 shadow-lg flex flex-col items-center justify-center font-black text-xs tracking-wider transition-all active:scale-95 ${
-                gameConfig.mode === '1v1' && isOpponentConnected && !isMyTurn
-                  ? 'bg-slate-900/90 border-slate-700 text-slate-500 cursor-not-allowed opacity-60'
-                  : 'bg-[#142332] hover:bg-[#1a3148] border-cyan-400 text-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.5)]'
-              }`}
-            >
-              <span>FINALIZAR TURNO</span>
-              <span className="text-[10px] text-cyan-400">
-                {gameConfig.mode === '1v1' ? (isMyTurn ? 'Pasar Turno' : 'Turno Rival') : `Turno ${turn}`}
-              </span>
-            </button>
+          {/* 3. ESQUINA INFERIOR IZQUIERDA: Bisel Índigo / Morado */}
+          <div className="absolute bottom-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#312e81] to-[#4f46e5] border border-[#6366f1] shadow-md transform rotate-[35deg] pointer-events-none">
+            <div className="w-2 h-2 rounded-full bg-indigo-200 shadow-[0_0_8px_#c7d2fe]" />
+            <span className="w-5 h-1 rounded-full bg-white/60" />
           </div>
+
+          {/* 4. ESQUINA INFERIOR DERECHA: Bisel Dorado / Mostaza */}
+          <div className="absolute bottom-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ca8a04] to-[#eab308] border border-[#facc15] shadow-md transform -rotate-[35deg] pointer-events-none">
+            <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff]" />
+            <span className="w-5 h-1 rounded-full bg-amber-950/40" />
+          </div>
+
+          {/* 5. LATERAL IZQUIERDO: Placa Modular Salmón con Sensor Central y Ranuras */}
+          <div className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#f87171] to-[#fb923c] border-2 border-[#fdba74] shadow-[0_4px_12px_rgba(248,113,113,0.35)] pointer-events-none">
+            <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70 flex items-center justify-center">
+              <div className="w-1 h-4 rounded-full bg-white" />
+            </div>
+            <div className="w-4 h-4 rounded-lg bg-[#b91c1c]/50 border border-white/80 flex items-center justify-center shadow-inner">
+              <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
+            </div>
+            <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70" />
+          </div>
+
+          {/* 6. LATERAL DERECHO: Bahía Profunda Oscura con Indicador Triángulo / Flecha */}
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#0f172a] to-[#1e293b] border-2 border-[#475569] shadow-[0_4px_12px_rgba(15,23,42,0.45)] pointer-events-none">
+            <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
+            <div className="w-4 h-4 rounded-lg bg-orange-500 border border-orange-300 flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.8)]">
+              <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-white ml-0.5" />
+            </div>
+            <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
+          </div>
+
+          {/* 7. BORDE SUPERIOR: Conectores de Hardware Metálicos */}
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-6 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
+            <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
+            <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
+          </div>
+
+          {/* 8. BORDE INFERIOR: Conector de Ranura de Cartas */}
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-10 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
+            <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]" />
+            <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
+          </div>
+
+
 
           {/* PANTALLA TÁCTICA CON DISTRIBUCIÓN ESPACIAL ABIERTA */}
-          <div className="w-full h-full rounded-2xl bg-[#2a3443] border border-slate-600/70 p-3 sm:p-4 flex flex-col justify-between relative overflow-hidden">
+          <div className="w-full h-full rounded-2xl bg-[#f8fafc]/70 border border-slate-300/80 p-3 sm:p-4 flex flex-col justify-between relative overflow-hidden">
             
-            <div className="flex items-center justify-between border-b border-slate-600/50 pb-2 z-10">
+            <div className="flex items-center justify-between border-b border-slate-300/70 pb-2 z-10">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-cyan-950 text-cyan-300 border border-cyan-500/40">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300">
                   {boardInfo?.theme || 'Circuito de Estudio'}
                 </span>
-                <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-200 font-mono uppercase">
+                <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-700 font-mono uppercase">
                   {boardInfo?.title || 'Tablero de Aprendizaje'}
                 </h1>
               </div>
 
-              {gameConfig.mode === '1v1' && isOpponentConnected && (
-                <div className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-slate-900/90 border border-slate-600 shadow-md">
-                  {isMyTurn ? (
-                    <span className="text-emerald-400">● TU TURNO DE JUGADA</span>
-                  ) : (
-                    <span className="text-rose-400">● TURNO DEL RIVAL</span>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono text-slate-400">
-                  Haz clic en cualquier nodo para ver su pregunta
-                </span>
+              {/* Selector / Barra de 5 Niveles */}
+              <div className="hidden sm:flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-xl border border-slate-300 shadow-sm">
+                {GAME_LEVELS.map((lvl) => {
+                  const isCurrent = lvl.level === currentLevel;
+                  const isCompleted = lvl.level < currentLevel;
+                  return (
+                    <button
+                      key={lvl.level}
+                      onClick={() => handleJumpToLevel(lvl.level)}
+                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'bg-orange-500 text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)] scale-105'
+                          : isCompleted
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-400'
+                          : 'bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200'
+                      }`}
+                      title={`Nivel ${lvl.level}: ${lvl.name} (${lvl.questions} preguntas)`}
+                    >
+                      {isCompleted && <Check className="w-2.5 h-2.5 inline mr-1 text-emerald-600" />}
+                      N{lvl.level}: {lvl.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
 
             {/* ÁREA CENTRAL DE NODOS DISTRIBUIDOS LIBREMENTE */}
             <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center">
@@ -1493,20 +1963,20 @@ export default function ArcadeArena() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center text-center p-6 rounded-3xl bg-slate-900/60 border border-slate-700/60 max-w-md backdrop-blur-sm shadow-xl"
+                  className="flex flex-col items-center justify-center text-center p-6 rounded-3xl bg-white/80 border border-slate-300 max-w-md backdrop-blur-sm shadow-lg"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-cyan-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-300 mb-4 shadow-[0_0_20px_rgba(34,211,238,0.3)]">
-                    <UploadCloud className="w-8 h-8 text-cyan-400 animate-bounce" />
+                  <div className="w-16 h-16 rounded-2xl bg-orange-100 border border-orange-300 flex items-center justify-center text-orange-600 mb-4 shadow-md">
+                    <UploadCloud className="w-8 h-8 text-orange-500 animate-bounce" />
                   </div>
-                  <h3 className="text-base font-bold text-slate-100 font-mono uppercase tracking-wide">
+                  <h3 className="text-base font-bold text-slate-700 font-mono uppercase tracking-wide">
                     Circuito Sin Inicializar
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1 mb-4 leading-relaxed">
+                  <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
                     Sube tus documentos (PDF, audio, imágenes o YouTube) para que Gemini y el motor RAG construyan las preguntas, conceptos y nodos en tiempo real.
                   </p>
                   <button
                     onClick={() => setIsFolderModalOpen(true)}
-                    className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold font-mono text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_0_15px_rgba(34,211,238,0.4)] active:scale-95 transition-all cursor-pointer"
+                    className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold font-mono text-xs uppercase tracking-wider flex items-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
                   >
                     <FolderIcon className="w-4 h-4" />
                     <span>Mis Carpetas de Estudio</span>
@@ -1514,11 +1984,20 @@ export default function ArcadeArena() {
                 </motion.div>
               ) : (
                 <>
-                  {/* Conexiones de fondo estilo constelación / circuito neuronal conectando los nodos activos */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" xmlns="http://www.w3.org/2000/svg">
+                  {/* Conexiones de red con flechas de flujo — exactamente como en la imagen de referencia */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <marker id="arrow-coral" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
+                        <polygon points="0 1, 7 4, 0 7" fill="#ea580c" />
+                      </marker>
+                      <marker id="arrow-dark" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
+                        <polygon points="0 1, 7 4, 0 7" fill="#1e293b" />
+                      </marker>
+                    </defs>
                     {Object.values(nodes).map((node, i, arr) => {
                       const nextNode = arr[(i + 1) % arr.length];
                       if (!node.pos || !nextNode.pos) return null;
+                      const isEven = i % 2 === 0;
                       return (
                         <line
                           key={`line-${node.id}-${nextNode.id}`}
@@ -1526,9 +2005,11 @@ export default function ArcadeArena() {
                           y1={node.pos.top}
                           x2={nextNode.pos.left}
                           y2={nextNode.pos.top}
-                          stroke="#22d3ee"
-                          strokeWidth="2"
-                          strokeDasharray="4 4"
+                          stroke={isEven ? "#ea580c" : "#1e293b"}
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          opacity={isEven ? "0.85" : "0.75"}
+                          markerEnd={isEven ? "url(#arrow-coral)" : "url(#arrow-dark)"}
                         />
                       );
                     })}
@@ -1554,6 +2035,8 @@ export default function ArcadeArena() {
                           color={node.color}
                           shape={node.shape}
                           domain={node.domain}
+                          theme={node.theme || boardInfo?.theme}
+                          index={node.nodeIndex ?? 0}
                           label={node.label}
                           question={node.question}
                           hint={node.hint}
@@ -1597,31 +2080,50 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-      {/* MANO DE CARTAS EN ABANICO CON ICONOS CONTEXTUALES */}
-      <div className={`relative w-full flex items-center justify-center pb-2 z-40 transition-all duration-300 ${
-        !isActualTurn
-          ? 'opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed' 
-          : 'opacity-100'
-      }`}>
-        <div className="flex items-center justify-center -space-x-8 sm:-space-x-10 hover:space-x-2 transition-all duration-300">
-          {hand.map((card) => (
-            <GameCard
-              key={card.id}
-              id={card.id}
-              name={card.name}
-              cost={card.cost}
-              type={card.type}
-              sourceType={card.sourceType}
-              domain={card.domain}
-              rotation={card.rotation}
-              zIndex={card.zIndex}
-              isDraggable={isActualTurn}
-              onDragEnd={handleDragEnd}
-              onClick={() => setSelectedCardForDetail(card)}
-            />
-          ))}
+        {/* MANO DE CARTAS EN ABANICO CON ADAPTACIÓN PARA HASTA 26 CARTAS */}
+        <div className={`relative w-full flex flex-col items-center justify-center pb-2 z-40 transition-all duration-300 overflow-visible ${
+          !isActualTurn
+            ? 'opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed' 
+            : 'opacity-100'
+        }`}>
+
+        {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" (IDÉNTICO A LA IMAGEN DE REFERENCIA) */}
+        <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
+          
+          {/* Fondo con huecos/ranuras rectangulares empotradas (slots de cartas) */}
+          <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
+            {hand.map((card, idx) => (
+              <div 
+                key={`slot-${card.id || idx}`}
+                className="relative rounded-2xl p-1 bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner flex items-center justify-center"
+                style={{
+                  width: '86px',
+                  height: '112px'
+                }}
+              >
+                {/* Carta encajada en su hueco */}
+                <GameCard
+                  id={card.id}
+                  name={card.name}
+                  cost={card.cost}
+                  type={card.type}
+                  sourceType={card.sourceType}
+                  domain={card.domain}
+                  theme={card.theme || boardInfo?.theme}
+                  index={card.cardIndex ?? idx}
+                  rotation={0}
+                  zIndex={card.zIndex}
+                  isDraggable={isActualTurn}
+                  isSelected={false}
+                  onDragEnd={handleDragEnd}
+                  onClick={() => handleCardClick(card)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
     </div>
   );
 }

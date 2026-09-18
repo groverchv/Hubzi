@@ -72,8 +72,9 @@ export default function GameModeModal({ isOpen, onSelectMode }) {
               <Gamepad2 className="w-8 h-8 text-amber-400" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                🎮 Modo de Partida
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                <Gamepad2 className="w-3 h-3 text-emerald-400" />
+                Modo de Partida
               </span>
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-0.5">
                 ¿Cómo quieres jugar hoy?

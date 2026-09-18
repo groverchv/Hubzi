@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Wifi, WifiOff, Lock, Sparkles, Trophy, RotateCcw, ArrowRight } from 'lucide-react';
+import { Users, Wifi, WifiOff, Lock, Sparkles, Trophy, RotateCcw, ArrowRight, Swords } from 'lucide-react';
 import Card from '../components/Card';
 import Node from '../components/Node';
 import { useArenaSocket } from '../hooks/useArenaSocket';
@@ -109,8 +109,8 @@ export default function MultiplayerArena() {
         className="w-full bg-white/80 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-mint/60 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4"
       >
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-oat/60 border border-sage/40 flex items-center justify-center text-3xl shadow-sm">
-            🦫⚔️
+          <div className="w-14 h-14 rounded-2xl bg-oat/60 border border-sage/40 flex items-center justify-center shadow-sm">
+            <Swords className="w-7 h-7 text-amber-600" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export default function MultiplayerArena() {
             <div className="flex items-center gap-1.5">
               <span className={`w-2.5 h-2.5 rounded-full ${isOpponentConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
               <span className="text-xs font-medium text-slate-700">
-                {isOpponentConnected ? 'Capiguara Rival 🟢' : 'Esperando Rival 🟡'}
+                {isOpponentConnected ? 'Capiguara Rival' : 'Esperando Rival'}
               </span>
               <span className="text-xs font-bold text-slate-500">({opponentScore} pts)</span>
             </div>

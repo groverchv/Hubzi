@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wind, Play, Volume2, VolumeX, Sparkles, ChevronRight } from 'lucide-react';
 import capybara3dImg from '../assets/capybara_3d.jpg';
+import { capyVoice } from '../utils/capyVoice';
 
 /**
  * Técnica de Respiración Terapéutica 4-7-8 (Respaldada psicológicamente para reducir cortisol y ansiedad):
@@ -113,62 +114,79 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
       return;
     }
 
-    // 2. Si no está en caché, solicitar únicamente a ElevenLabs
+    // 2. Solicitar al backend la voz sintetizada
     try {
       setIsVoiceLoading(true);
       const res = await fetch('/api/v1/voice/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, profile: 'zen' })
       });
 
-      if (!res.ok) {
-        setIsVoiceLoading(false);
+      if (res.ok) {
+        const blob = await res.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        audioCacheRef.current.set(text, audioUrl);
+
+        // Si la fase ya cambió mientras se descargaba el audio, descartarlo
+        if (requestId !== activeRequestIdRef.current) {
+          return;
+        }
+
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        await audio.play();
         return;
       }
-
-      const blob = await res.blob();
-      const audioUrl = URL.createObjectURL(blob);
-      audioCacheRef.current.set(text, audioUrl);
-
-      // Si la fase ya cambió mientras se descargaba el audio, descartarlo
-      if (requestId !== activeRequestIdRef.current) {
-        return;
-      }
-
-      const audio = new Audio(audioUrl);
-      currentAudioRef.current = audio;
-      await audio.play();
     } catch (err) {
-      console.warn("ElevenLabs voice fetch error:", err);
+      // Ignorar errores de red y activar fallback sin alarmas
     } finally {
       if (requestId === activeRequestIdRef.current) {
         setIsVoiceLoading(false);
       }
     }
+
+    // 3. Fallback inmediato con síntesis suave si el backend no responde
+    if (requestId === activeRequestIdRef.current) {
+      capyVoice.speak(text, { profile: 'zen', stress_level: 0.7 });
+    }
   };
 
-  // Precarga silenciosa en segundo plano de todas las frases de ElevenLabs
+  // Precarga suave y secuencial de frases en segundo plano
   useEffect(() => {
     if (!isOpen) return;
 
+    let isSubscribed = true;
     const phrasesToPreload = Object.values(ZEN_PHRASES);
-    phrasesToPreload.forEach(async (phrase) => {
+
+    const preloadNext = async (index) => {
+      if (!isSubscribed || index >= phrasesToPreload.length) return;
+      const phrase = phrasesToPreload[index];
       if (!audioCacheRef.current.has(phrase)) {
         try {
           const res = await fetch('/api/v1/voice/speak', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: phrase })
+            body: JSON.stringify({ text: phrase, profile: 'zen' })
           });
-          if (res.ok) {
+          if (res.ok && isSubscribed) {
             const blob = await res.blob();
             const audioUrl = URL.createObjectURL(blob);
             audioCacheRef.current.set(phrase, audioUrl);
           }
         } catch (e) {}
       }
-    });
+      // Pequeño intervalo de 800ms entre precargas para no saturar la red
+      if (isSubscribed) {
+        setTimeout(() => preloadNext(index + 1), 800);
+      }
+    };
+
+    const timer = setTimeout(() => preloadNext(0), 1200);
+    return () => {
+      isSubscribed = false;
+      clearTimeout(timer);
+    };
   }, [isOpen]);
 
   // Inicio automático de la sesión

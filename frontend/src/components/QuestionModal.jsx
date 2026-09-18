@@ -50,19 +50,6 @@ export default function QuestionModal({ isOpen, node, onClose }) {
             </p>
           </div>
 
-          {/* Pista Pedagógica Zen de la Mascota */}
-          <div className="p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-500/50 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-900 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shrink-0 shadow-sm">
-              <Lightbulb className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-emerald-300">Pista del Capiguara Zen:</p>
-              <p className="text-[11px] text-emerald-100/90 leading-snug">
-                {node.hint || 'Revisa tu mano de cartas y arrastra la que cumpla exactamente este rol en el circuito.'}
-              </p>
-            </div>
-          </div>
-
           {/* Estado de la Carta si ya fue colocada */}
           {node.placedCard && (
             <div className="mt-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-between text-xs text-emerald-300">
@@ -70,17 +57,19 @@ export default function QuestionModal({ isOpen, node, onClose }) {
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 Respuesta colocada: {node.placedCard.name}
               </span>
-              <span className="font-mono font-bold text-emerald-300">{node.placedCard.cost}</span>
             </div>
           )}
 
           {/* Botón Entendido */}
           <div className="mt-5 flex items-center justify-end gap-3">
             <button
-              onClick={onClose}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all active:scale-95"
+              onClick={() => {
+                if (onClose) onClose();
+              }}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-950 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
             >
-              Entendido, Buscaré la Carta
+              <span>Entendido, Buscaré la Carta</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </motion.div>

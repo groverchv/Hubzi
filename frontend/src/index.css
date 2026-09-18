@@ -9,15 +9,14 @@
   --color-clay: #A08C78;
 }
 
-/* Custom 3D Isometric Viewport & Deep Calming Slate Theme */
+/* Custom 3D Isometric Viewport & Studio Board Theme (Matching Reference Image) */
 body {
-  background-color: #0c121e;
+  background-color: #f6f4ee;
   background-image: 
-    radial-gradient(circle at 50% 15%, rgba(30, 58, 138, 0.25) 0%, transparent 60%),
-    radial-gradient(circle at 85% 85%, rgba(15, 118, 110, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 15% 80%, rgba(67, 56, 202, 0.15) 0%, transparent 50%);
-  background-size: 100% 100%, 800px 800px, 800px 800px;
-  color: #F1F5F9;
+    linear-gradient(rgba(203, 213, 225, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(203, 213, 225, 0.45) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: #1e293b;
   font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   margin: 0;
   height: 100vh;
@@ -25,15 +24,16 @@ body {
   user-select: none;
 }
 
-/* Perspectiva 3D inclinada hacia la mesa con relieve suave */
+/* Perspectiva 3D inclinada hacia la mesa con relieve isométrico suave */
 .isometric-board-container {
-  perspective: 1400px;
-  perspective-origin: center 55%;
+  perspective: 1200px;
+  perspective-origin: 50% 48%;
 }
 
 .table-3d {
-  transform: rotateX(16deg) translateY(-6px);
+  transform: rotateX(18deg) translateY(-4px);
   transform-style: preserve-3d;
+  transition: transform 0.4s ease;
 }
 
 /* Halos luminosos de relajación visual (suaves y difusos, no agresivos) */

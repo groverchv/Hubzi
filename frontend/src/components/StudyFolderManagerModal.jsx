@@ -20,19 +20,25 @@ import {
   Image as ImageIcon,
   ArrowLeft,
   Gamepad2,
-  CheckCircle2
+  CheckCircle2,
+  Lock,
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 
 const STORAGE_KEY = 'hubzy_user_study_folders';
 
 export default function StudyFolderManagerModal({ 
   isOpen, 
+  currentUser,
   onSelectFolder, 
   onStartNewFolder 
 }) {
+  const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
+
   const [folders, setFolders] = useState(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(userStorageKey);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -47,23 +53,34 @@ export default function StudyFolderManagerModal({
   const [activeFolderView, setActiveFolderView] = useState(null); // folder object or null
   const fileInputRef = useRef(null);
 
-  // Intentar cargar desde el backend al abrir
+  // Cargar las carpetas privadas del usuario activo desde el backend o localStorage
   useEffect(() => {
     if (!isOpen) return;
-    fetch('/api/v1/folders')
+    const currentKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
+    try {
+      const saved = localStorage.getItem(currentKey);
+      if (saved) setFolders(JSON.parse(saved));
+      else setFolders([]);
+    } catch {
+      setFolders([]);
+    }
+
+    const userIdParam = currentUser?.id ? `?user_id=${currentUser.id}` : '';
+    fetch(`/api/v1/folders${userIdParam}`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data && data.folders && data.folders.length > 0) {
+        if (data && data.folders) {
           setFolders(data.folders);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.folders));
+          localStorage.setItem(currentKey, JSON.stringify(data.folders));
         }
       })
       .catch(() => {});
-  }, [isOpen]);
+  }, [isOpen, currentUser]);
 
   const saveFolders = (updatedList) => {
+    const currentKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
     setFolders(updatedList);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+    localStorage.setItem(currentKey, JSON.stringify(updatedList));
   };
 
   // Crear nueva carpeta
@@ -76,6 +93,7 @@ export default function StudyFolderManagerModal({
       name: newFolderName.trim(),
       description: newFolderDesc.trim() || 'Juegos didácticos y preguntas personalizadas',
       created_at: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+      user_id: currentUser?.id || 'guest',
       documents: [],
       games: []
     };
@@ -86,14 +104,17 @@ export default function StudyFolderManagerModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: folderItem.name,
-          description: folderItem.description
+          description: folderItem.description,
+          user_id: currentUser?.id || 'guest'
         })
       });
       if (res.ok) {
-        const saved = await res.json();
-        folderItem.id = saved.id || folderItem.id;
+        const savedDoc = await res.json();
+        folderItem.id = savedDoc.id || folderItem.id;
       }
-    } catch {}
+    } catch (err) {
+      console.warn("MongoDB no respondió, guardando en local storage privado:", err);
+    }
 
     const updated = [folderItem, ...folders];
     saveFolders(updated);
@@ -310,16 +331,22 @@ export default function StudyFolderManagerModal({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      🎒 Baúl de Asignaturas
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
+                      <Lock className="w-3 h-3 text-amber-400" />
+                      Baúl Privado de {currentUser?.username || 'Estudio'}
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/70 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      100% Exclusivo
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
                     Mis Carpetas de Estudio
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Entra a una carpeta para ver sus documentos, subir más o iniciar la partida directamente.
+                    Documentos y reactivos privados de {currentUser?.username || 'tu cuenta'}. Nadie más tiene acceso a ellos.
                   </p>
+
                 </div>
               </div>
 
@@ -595,8 +622,9 @@ export default function StudyFolderManagerModal({
                                 {doc.name}
                               </h5>
                               {doc.is_analyzed && (
-                                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" title="Documento ya analizado y listo para reutilizar">
-                                  ⚡ Reutilizable
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1" title="Documento ya analizado y listo para reutilizar">
+                                  <Zap className="w-2.5 h-2.5 text-emerald-400" />
+                                  Reutilizable
                                 </span>
                               )}
                             </div>
@@ -604,7 +632,7 @@ export default function StudyFolderManagerModal({
                               doc.isUploading ? 'text-emerald-400' : 'text-slate-400'
                             }`}>
                               {doc.isUploading
-                                ? '⚡ Extrayendo texto...'
+                                ? 'Extrayendo texto...'
                                 : `${doc.size || 'Cargado'} • ${doc.char_count ? doc.char_count.toLocaleString() + ' chars' : doc.uploaded_at || 'Procesado'}`
                               }
                             </span>
