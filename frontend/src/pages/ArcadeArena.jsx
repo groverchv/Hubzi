@@ -188,12 +188,11 @@ export default function ArcadeArena() {
     };
   }, []);
 
-  // Función principal para activar la voz tierna y reacciones de Capibara (ElevenLabs)
-  // Control estricto anti-colisión: Detiene inmediatamente cualquier locución previa
+  // Función principal para activar la voz tierna y reacciones de Capibara
+  // Control estricto anti-colisión + nuevos moods expresivos
   const triggerCapyVoice = async (situation, customData = {}) => {
     if (isCapyMuted) return;
 
-    // Corte inmediato de audio y temporizadores en vuelo para evitar cruces
     capyVoice.stop();
     if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current);
 
@@ -202,19 +201,18 @@ export default function ArcadeArena() {
 
     let phrase = customData.customText;
     if (!phrase) {
-      phrase = await capyVoice.getDynamicSpeech(situation, {
-        level,
-        theme,
-        ...customData
-      });
+      phrase = await capyVoice.getDynamicSpeech(situation, { level, theme, ...customData });
     }
 
+    // Mapa de situaciones a moods expresivos del Capibara
     let mood = 'talking';
-    if (situation === 'correct' || situation === 'victory' || situation === 'level_up') mood = 'happy';
-    else if (situation === 'wrong') mood = 'encouraging';
-    else if (situation === 'hint') mood = 'hint';
-    else if (situation === 'opponent_move') mood = 'surprised';
-    else if (situation === 'welcome') mood = 'welcome';
+    if (situation === 'level_up') mood = 'dancing';           // BAILE al subir de nivel
+    else if (situation === 'victory') mood = 'celebrating';   // CELEBRACIÓN en victoria
+    else if (situation === 'welcome') mood = 'love';           // AMOR al dar bienvenida
+    else if (situation === 'correct') mood = 'happy';          // FELIZ en respuesta correcta
+    else if (situation === 'wrong') mood = 'encouraging';      // TRISTEZA en error
+    else if (situation === 'hint') mood = 'thinking';          // PENSANDO en pista
+    else if (situation === 'opponent_move') mood = 'surprised'; // SORPRESA
 
     setCapyMood(mood);
     setCapySpeech({ text: phrase, isVisible: true, mood });
@@ -222,8 +220,7 @@ export default function ArcadeArena() {
     if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
 
     const speakOpts = {
-      mood,
-      level,
+      mood, level,
       stress_level: customData.stress_level,
       profile: customData.profile || (situation === 'wrong' ? 'anxiety_relief' : 'loving_psychologist'),
       user: currentUser,
@@ -234,71 +231,149 @@ export default function ArcadeArena() {
     if (situation === 'wrong') {
       setIsCapySad(true);
       capyAudio.playCapyCry();
-      speakTimeoutRef.current = setTimeout(() => {
-        capyVoice.speak(phrase, speakOpts);
-      }, 350);
-    } else if (situation === 'correct' || situation === 'level_up') {
+      speakTimeoutRef.current = setTimeout(() => { capyVoice.speak(phrase, speakOpts); }, 350);
+    } else if (situation === 'correct' || situation === 'level_up' || situation === 'victory') {
       setIsCapySad(false);
       capyAudio.playCapyHappy();
-      speakTimeoutRef.current = setTimeout(() => {
-        capyVoice.speak(phrase, speakOpts);
-      }, 250);
+      speakTimeoutRef.current = setTimeout(() => { capyVoice.speak(phrase, speakOpts); }, 250);
     } else {
       setIsCapySad(false);
       capyVoice.speak(phrase, speakOpts);
     }
   };
 
-  // Clic directo en la Capibara: genera una orientación psicológica o pista 100% dinámica
+  // ============================================================
+  // NLP ESTÁTICO LOCAL — Analiza intención del usuario sin red
+  // Siempre funciona offline, coherente con el contexto del juego
+  // ============================================================
+  const analyzeIntentLocally = (transcript, nodesCtx, handCtx) => {
+    const t = transcript.toLowerCase().trim();
+
+    // Frustración / estrés / bloqueo
+    const stressKw = ['no puedo','no entiendo','imposible','difícil','odio','me rindo','ya no','ayuda','socorro','no sé nada','perdido','estresado','ansiedad'];
+    if (stressKw.some(kw => t.includes(kw))) {
+      return {
+        mood: 'love',
+        reply: '¡Oye, oye! Aquí estoy yo, tu Capi favorito. Respira conmigo un segundo: eso que sientes es completamente normal y válido. Los más brillantes también se atoran. ¿Hacemos una pausa Zen y luego lo atacamos juntos con toda la energía?',
+        needsZen: true
+      };
+    }
+
+    // Saludo
+    const greetKw = ['hola','hey','buenos','buenas','qué tal','cómo estás','saludos','ey'];
+    if (greetKw.some(kw => t.includes(kw))) {
+      const name = capyVoice.currentUser?.username || 'campeón';
+      return {
+        mood: 'love',
+        reply: `¡Hooola ${name}! ¡Me alegra TANTO escuchar tu voz! ¿Sabes que eres mi persona favorita? Dime, ¿en qué te puedo ayudar hoy con todo mi amor?`
+      };
+    }
+
+    // Felicidad / logro del usuario
+    const happyKw = ['gracias','lo logré','lo hice','genial','bien','perfecto','me encanta','amor','qué fácil'];
+    if (happyKw.some(kw => t.includes(kw))) {
+      return {
+        mood: 'celebrating',
+        reply: '¡SÍIII! ¡Eso es exactamente lo que quería escuchar! ¡Me llenas el corazón de alegría! ¡Sabía que lo ibas a lograr, siempre lo supe!'
+      };
+    }
+
+    // Pregunta conceptual / definición
+    const defineKw = ['qué es','para qué','qué significa','define','definición','qué hace','cómo funciona','explica','me puedes explicar'];
+    if (defineKw.some(kw => t.includes(kw))) {
+      const allNodes = Object.values(nodesCtx);
+      const matched = allNodes.find(n => n.label && t.includes(n.label.toLowerCase().substring(0, 5)));
+      if (matched) {
+        return {
+          mood: 'thinking',
+          reply: `¡Buenísima pregunta! Te cuento sobre "${matched.label}": ${matched.hint || matched.question || 'es un concepto clave del tema de hoy'}. ¿Eso te ayuda, mi estudiante favorito?`
+        };
+      }
+      return {
+        mood: 'thinking',
+        reply: `¡Me encanta que preguntes! El tema de hoy es "${boardInfo?.title || 'los conceptos del tablero'}". Observa bien las preguntas de cada nodo, ahí están las claves. ¡Confía en ti!`
+      };
+    }
+
+    // Pista explícita
+    const hintKw = ['pista','ayúdame','no sé','cuál','qué carta','qué pongo','sugerencia','consejo','qué hago'];
+    if (hintKw.some(kw => t.includes(kw))) {
+      const unsolved = Object.values(nodesCtx).filter(n => !n.placedCard);
+      if (unsolved.length > 0) {
+        const target = unsolved[Math.floor(Math.random() * unsolved.length)];
+        const hintCards = handCtx.filter(c => !c.isDistractor).slice(0, 2).map(c => c.name).join(' o ');
+        return {
+          mood: 'thinking',
+          reply: `¡Con todo mi amor te doy esta pista! Para "${target.label}": ${target.hint || target.question?.slice(0, 80) || 'busca la carta cuya función principal coincida'}. ${hintCards ? `Fíjate en "${hintCards}".` : ''} ¡Tú puedes, lo sé!`
+        };
+      }
+      return {
+        mood: 'happy',
+        reply: '¡Ya casi lo tienes todo! Mira las cartas restantes y confía en tu primer instinto. ¡Eres absolutamente increíble!'
+      };
+    }
+
+    // Fallback contextual inteligente
+    const unsolved = Object.values(nodesCtx).filter(n => !n.placedCard);
+    if (unsolved.length > 0) {
+      return {
+        mood: 'love',
+        reply: `¡Escuché que dijiste "${transcript.slice(0, 35)}"! Qué bonito que me hables. Te sugiero que te enfoques en "${unsolved[0].label}". ¡Yo creo en ti con todo lo que tengo!`
+      };
+    }
+    return {
+      mood: 'celebrating',
+      reply: `¡Dijiste "${transcript.slice(0, 35)}" y ya solo pienso en lo increíble que eres! ¡Eres mi héroe favorito de todo el universo, sin ninguna duda!`
+    };
+  };
+
+  // Clic directo en la Capibara: genera orientación psicológica o pista dinámica
   const handleCapyClick = async () => {
     const unsolvedNodes = Object.values(nodes).filter(n => !n.placedCard && !n.lockedByOpponent);
     if (unsolvedNodes.length === 0) {
-      triggerCapyVoice('victory', { 
-        profile: 'loving_psychologist'
-      });
+      triggerCapyVoice('victory', { profile: 'loving_psychologist' });
       return;
     }
     const target = unsolvedNodes[Math.floor(Math.random() * unsolvedNodes.length)];
     const hintSnippet = target.hint || target.question || 'Observa las opciones disponibles en tus cartas';
-    triggerCapyVoice('hint', { 
+    triggerCapyVoice('hint', {
       label: target.label,
       hintText: `para analizar "${target.label}": ${hintSnippet.slice(0, 90)}. Concéntrate en la función principal.`,
       profile: 'loving_psychologist'
     });
   };
 
-  // Manejo de la pregunta por voz del usuario enviada a Gemini para generar una pista contextual
+  // Manejo de la pregunta por voz — NLP backend + fallback NLP estático local inteligente
   const handleUserVoiceQuery = async (transcript) => {
     setIsThinkingHint(true);
-    setCapyMood('hint');
+    setCapyMood('thinking');
     setCapySpeech({
-      text: `Tú: "${transcript}"\nCapi Psicólogo está escuchando con el corazón...`,
+      text: `¡Te escucho! Dijiste: "${transcript}" ... ¡Estoy pensando con todo mi amor para ti! 💭`,
       isVisible: true,
-      mood: 'hint'
+      mood: 'thinking'
     });
 
+    // Intentar NLP del backend con timeout de 3s
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
       const res = await fetch('/api/v1/arena/capy-ask', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: transcript,
           nodes: Object.values(nodes).map(n => ({
-            label: n.label,
-            question: n.question,
-            hint: n.hint,
+            label: n.label, question: n.question, hint: n.hint,
             isSolved: Boolean(n.placedCard || n.lockedByOpponent)
           })),
-          hand: hand.map(c => ({
-            name: c.name,
-            domain: c.domain,
-            isDistractor: Boolean(c.isDistractor)
-          })),
+          hand: hand.map(c => ({ name: c.name, domain: c.domain, isDistractor: Boolean(c.isDistractor) })),
           theme: boardInfo?.title || 'Simulacro de Examen',
           user_profile: currentUser || {}
         })
       });
-
+      clearTimeout(timeoutId);
 
       if (res.ok) {
         const data = await res.json();
@@ -306,47 +381,45 @@ export default function ArcadeArena() {
         const psych = data.psychology;
         setIsThinkingHint(false);
 
-        // Si el motor NLP detecta sobrecarga, estrés o distorsión cognitiva, activar contención Capi Zen
         if (psych?.needs_somatic_intervention || (psych?.stress_level && psych.stress_level >= 0.5)) {
-          setCapyMood('encouraging');
+          setCapyMood('love');
           setZenOffer({
             show: true,
             category: psych.stress_category || 'tensión acumulada',
             distortion: psych.cognitive_distortion || '',
             emotion: psych.emotion_detected || 'ansiedad'
           });
-          triggerCapyVoice('encouraging', { 
-            customText: reply,
-            stress_level: psych.stress_level,
+          triggerCapyVoice('encouraging', {
+            customText: reply, stress_level: psych.stress_level,
             profile: psych.stress_level >= 0.8 ? 'crisis_soothing' : 'anxiety_relief'
           });
         } else {
-          triggerCapyVoice('hint', { 
-            customText: reply,
-            stress_level: psych?.stress_level,
-            profile: 'loving_psychologist'
-          });
+          triggerCapyVoice('hint', { customText: reply, stress_level: psych?.stress_level, profile: 'loving_psychologist' });
         }
         return;
       }
     } catch (e) {
-      console.warn("Error consultando pista a Gemini:", e);
+      // Backend caído o timeout — NLP local estático inteligente
+      console.warn('Backend no disponible, usando NLP local:', e?.message || e);
     }
 
-
-
-    // Fallback si la IA se demora o no hay red
+    // NLP ESTÁTICO LOCAL — siempre coherente con el tablero actual
     setIsThinkingHint(false);
-    const unsolvedNodes = Object.values(nodes).filter(n => !n.placedCard && !n.lockedByOpponent);
-    if (unsolvedNodes.length > 0) {
-      const target = unsolvedNodes[0];
-      triggerCapyVoice('hint', { customText: `Te sugiero revisar "${target.label}". ¡Fíjate en las palabras clave de su pregunta!` });
-    } else {
-      triggerCapyVoice('hint', { customText: '¡Vas muy bien! Confía en tu razonamiento y arrastra tu siguiente carta.' });
+    const local = analyzeIntentLocally(transcript, nodes, hand);
+
+    if (local.needsZen) {
+      setZenOffer({ show: true, category: 'estrés detectado', distortion: '', emotion: 'frustración' });
     }
+
+    setCapyMood(local.mood);
+    setCapySpeech({ text: local.reply, isVisible: true, mood: local.mood });
+    capyVoice.speak(local.reply, {
+      mood: local.mood, level: currentLevel,
+      user: currentUser, user_gender: currentUser?.gender, voice_gender: currentUser?.assigned_voice_gender
+    });
   };
 
-  // Alternar activación de micrófono con Web Speech Recognition
+  // Micrófono con mensajes emotivos y NLP funcional
   const toggleMicrophone = () => {
     if (isListening) {
       if (recognitionRef.current) {
@@ -358,8 +431,11 @@ export default function ArcadeArena() {
 
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
-      setSuccessNotif('Tu navegador no soporta entrada de voz por micrófono. Te recomendamos Google Chrome o Edge.');
-      setTimeout(() => setSuccessNotif(null), 4000);
+      setCapyMood('love');
+      setCapySpeech({
+        text: '¡Ay, me muero por escucharte! Pero parece que tu navegador no soporta micrófono. Prueba con Chrome o Edge y yo estaré esperándote 🥹',
+        isVisible: true, mood: 'love'
+      });
       return;
     }
 
@@ -372,8 +448,17 @@ export default function ArcadeArena() {
 
       recognition.onstart = () => {
         setIsListening(true);
-        setCapyMood('hint');
-        setCapySpeech({ text: 'Te estoy escuchando... ¡Hazme cualquier pregunta o pídeme una pista!', isVisible: true, mood: 'hint' });
+        setCapyMood('love');
+        const greetings = [
+          '¡Soy todo oídos! Pregúntame lo que quieras, estoy aquí para ti 💙',
+          '¡Habla conmigo! Tu voz es lo más bonito que puedo escuchar hoy 🎙️',
+          '¡Te escucho con todo mi corazón! ¿Qué necesitas, mi campeón?',
+          '¡Qué emoción que me hables! Dime todo lo que sientes o necesitas 🥰',
+        ];
+        setCapySpeech({
+          text: greetings[Math.floor(Math.random() * greetings.length)],
+          isVisible: true, mood: 'love'
+        });
       };
 
       recognition.onresult = async (event) => {
@@ -385,29 +470,38 @@ export default function ArcadeArena() {
       };
 
       recognition.onerror = (err) => {
-        console.warn("Speech recognition error:", err);
+        console.warn('Speech recognition error:', err);
         setIsListening(false);
         if (err.error === 'not-allowed') {
-          setSuccessNotif('Permiso de micrófono denegado. Habilita el acceso al micrófono en la barra de tu navegador.');
-          setTimeout(() => setSuccessNotif(null), 5000);
+          setCapyMood('love');
+          setCapySpeech({
+            text: '¡No me dejes sin escucharte! Habilita el micrófono en tu navegador y vuelvo a estar aquí para ti 🙏',
+            isVisible: true, mood: 'love'
+          });
         } else if (err.error === 'no-speech') {
-          setCapySpeech({ text: 'No alcancé a escucharte bien. ¡Presiona el micrófono y vuelve a hablarme!', isVisible: true, mood: 'hint' });
+          setCapyMood('love');
+          setCapySpeech({
+            text: '¡Casi te escucho! No capté bien tus palabras. ¿Puedes intentarlo de nuevo? ¡Adoro escuchar tu voz! 💙',
+            isVisible: true, mood: 'love'
+          });
         }
       };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+      recognition.onend = () => { setIsListening(false); };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.warn("Error iniciando micrófono:", err);
+      console.warn('Error iniciando micrófono:', err);
       setIsListening(false);
-      setSuccessNotif('No se pudo iniciar el micrófono. Verifica los permisos de tu equipo.');
-      setTimeout(() => setSuccessNotif(null), 4000);
+      setCapyMood('love');
+      setCapySpeech({
+        text: '¡Quiero escucharte tanto! Pero algo falló con el micrófono. Verifica los permisos y regreso volando 🥹',
+        isVisible: true, mood: 'love'
+      });
     }
   };
+
 
   // Comprobación de conclusión del circuito (modo individual Zen con 5 niveles progresivos)
   useEffect(() => {
@@ -1384,80 +1478,202 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-      {/* 4.1 MODAL ASCENSO DE NIVEL (LEVEL UP CON CAPI PSICÓLOGO ULTRA AMOROSO) */}
+      {/* 4.1 MODAL ASCENSO DE NIVEL — CELEBRACIÓN ULTRA-EMOTIVA CON CAPI */}
       <AnimatePresence>
         {isLevelUpModalOpen && levelUpData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-lg">
             <motion.div
-              initial={{ opacity: 0, scale: 0.85, y: 30 }}
+              initial={{ opacity: 0, scale: 0.75, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.85, y: 30 }}
-              className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#182035] to-[#0c1220] border-2 border-purple-400/80 p-6 sm:p-8 text-center text-slate-100 shadow-[0_0_60px_rgba(168,85,247,0.45)]"
+              exit={{ opacity: 0, scale: 0.75, y: 40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+              className="relative w-full max-w-lg rounded-3xl overflow-hidden text-center text-slate-100 shadow-[0_0_80px_rgba(168,85,247,0.6)]"
             >
-              <div className="relative w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-purple-950 to-indigo-900 border-2 border-purple-400 flex items-center justify-center text-purple-300 mb-4 shadow-[0_0_30px_rgba(168,85,247,0.5)]">
-                <Trophy className="w-10 h-10 text-amber-300 animate-bounce" />
-                <Sparkles className="w-6 h-6 text-purple-300 absolute -top-2 -right-2 animate-pulse" />
+              {/* Fondo degradado épico */}
+              <div className="absolute inset-0 bg-gradient-to-b from-[#1a0a35] via-[#0f1830] to-[#080e1c]" />
+
+              {/* Partículas / confetti decorativo animado */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                {[...Array(18)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-2 h-2 rounded-full"
+                    style={{
+                      left: `${5 + (i * 5.5) % 92}%`,
+                      top: `${-5}%`,
+                      backgroundColor: ['#a855f7','#f59e0b','#06b6d4','#10b981','#f43f5e','#818cf8'][i % 6]
+                    }}
+                    animate={{
+                      y: ['0%', '110%'],
+                      x: [0, (i % 2 === 0 ? 20 : -20)],
+                      opacity: [0, 1, 1, 0],
+                      rotate: [0, 360 * (i % 2 === 0 ? 1 : -1)]
+                    }}
+                    transition={{
+                      duration: 2.5 + (i % 5) * 0.4,
+                      delay: (i % 6) * 0.18,
+                      repeat: Infinity,
+                      ease: 'linear'
+                    }}
+                  />
+                ))}
               </div>
 
-              <span className="px-3 py-1 rounded-full bg-purple-900/60 border border-purple-400 text-purple-200 text-[10px] font-mono font-bold tracking-widest uppercase">
-                ¡Nivel {levelUpData.completedLevel} Conquistado!
-              </span>
+              <div className="relative p-6 sm:p-8">
+                {/* Ícono trofeo animado con brillo */}
+                <div className="relative w-24 h-24 mx-auto rounded-3xl bg-gradient-to-tr from-purple-900 via-indigo-900 to-purple-800 border-2 border-amber-400 flex items-center justify-center mb-4 shadow-[0_0_40px_rgba(251,191,36,0.6)]">
+                  <motion.div
+                    animate={{ scale: [1, 1.12, 1], rotate: [-3, 3, -3] }}
+                    transition={{ repeat: Infinity, duration: 1.6 }}
+                  >
+                    <Trophy className="w-12 h-12 text-amber-300" />
+                  </motion.div>
+                  <motion.div
+                    animate={{ scale: [1, 1.4, 1], opacity: [0.7, 1, 0.7] }}
+                    transition={{ repeat: Infinity, duration: 1.2 }}
+                    className="absolute -top-3 -right-3"
+                  >
+                    <Sparkles className="w-7 h-7 text-amber-400" />
+                  </motion.div>
+                  <motion.div
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 1.5, delay: 0.3 }}
+                    className="absolute -top-2 -left-3"
+                  >
+                    <Sparkles className="w-5 h-5 text-purple-300" />
+                  </motion.div>
+                </div>
 
-              <h2 className="text-2xl font-black uppercase tracking-wider text-white mt-3">
-                ¡Subes al Nivel {levelUpData.nextLevel}: {levelUpData.nextLvlInfo?.name}!
-              </h2>
-
-              {/* Mensaje de Capi Psicólogo reflexivo y sereno */}
-              <div className="my-5 p-4 rounded-2xl bg-slate-900/90 border border-purple-500/40 text-left flex items-start gap-3 shadow-inner">
-                <div className="w-12 h-12 rounded-xl overflow-hidden border border-cyan-400 flex-shrink-0">
-                  <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold text-cyan-300 font-mono flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                    Capi Psicólogo cognitivo:
-                  </p>
-                  <p className="text-xs text-slate-200 mt-1 italic leading-relaxed">
-                    "{capySpeech.text || 'Excelente constancia mental. Tu cerebro ha asimilado las relaciones conceptuales y está listo para mayor profundidad analítica.'}"
-                  </p>
-                </div>
-              </div>
-
-              {/* Detalles del próximo nivel */}
-              <div className="grid grid-cols-2 gap-3 py-3 px-4 rounded-2xl bg-slate-950/80 border border-slate-700/80 mb-6 text-left">
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Nuevas Preguntas</p>
-                  <p className="text-lg font-black text-amber-300 font-mono">
-                    {levelUpData.nextLvlInfo?.questions} reactivos
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Dificultad</p>
-                  <p className="text-sm font-black text-purple-300 font-mono capitalize">
-                    {levelUpData.nextLvlInfo?.difficulty}
-                  </p>
-                </div>
-                <div className="col-span-2 pt-2 border-t border-slate-800">
-                  <p className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="font-semibold">{levelUpData.nextLvlInfo?.desc}</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center gap-3">
-                <button
-                  onClick={handleProceedToNextLevel}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(168,85,247,0.5)] transition-all active:scale-95 cursor-pointer"
+                {/* Badge de nivel conquistado */}
+                <motion.span
+                  animate={{ scale: [1, 1.05, 1] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/30 to-purple-500/30 border border-amber-400/70 text-amber-200 text-[11px] font-mono font-black tracking-widest uppercase shadow-[0_0_15px_rgba(251,191,36,0.3)]"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>Comenzar Nivel {levelUpData.nextLevel} ({levelUpData.nextLvlInfo?.questions} preguntas)</span>
-                </button>
+                  🏆 ¡NIVEL {levelUpData.completedLevel} CONQUISTADO! 🏆
+                </motion.span>
+
+                {/* Título principal */}
+                <motion.h2
+                  animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                  transition={{ repeat: Infinity, duration: 3 }}
+                  className="text-2xl sm:text-3xl font-black uppercase tracking-wider mt-3 bg-gradient-to-r from-purple-300 via-cyan-300 to-amber-300 bg-clip-text text-transparent"
+                  style={{ backgroundSize: '200% 200%' }}
+                >
+                  ¡Subes al Nivel {levelUpData.nextLevel}: {levelUpData.nextLvlInfo?.name}!
+                </motion.h2>
+
+                {/* Barra de progreso de niveles */}
+                <div className="flex items-center justify-center gap-1.5 mt-3 mb-5">
+                  {[1, 2, 3, 4, 5].map(lvl => (
+                    <div key={lvl} className="flex flex-col items-center gap-1">
+                      <motion.div
+                        animate={lvl <= levelUpData.completedLevel
+                          ? { scale: [1, 1.1, 1], boxShadow: ['0 0 0px rgba(168,85,247,0)', '0 0 12px rgba(168,85,247,0.8)', '0 0 0px rgba(168,85,247,0)'] }
+                          : {}}
+                        transition={{ repeat: Infinity, duration: 2, delay: lvl * 0.2 }}
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border-2 ${
+                          lvl < levelUpData.completedLevel
+                            ? 'bg-emerald-600 border-emerald-400 text-white'
+                            : lvl === levelUpData.completedLevel
+                            ? 'bg-gradient-to-br from-amber-500 to-purple-600 border-amber-400 text-white shadow-[0_0_15px_rgba(251,191,36,0.6)]'
+                            : lvl === levelUpData.nextLevel
+                            ? 'bg-gradient-to-br from-purple-700 to-indigo-700 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.5)]'
+                            : 'bg-slate-800 border-slate-600 text-slate-500'
+                        }`}
+                      >
+                        {lvl < levelUpData.completedLevel ? '✓' : lvl}
+                      </motion.div>
+                      <div className={`text-[8px] font-mono ${lvl === levelUpData.nextLevel ? 'text-purple-300' : 'text-slate-500'}`}>
+                        {lvl === levelUpData.nextLevel ? '→ Aquí' : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Mensaje emotivo de Capi — con foto y burbuja de diálogo */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-purple-950/80 via-slate-900/90 to-indigo-950/80 border border-purple-400/50 text-left flex items-start gap-3 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.06, 1] }}
+                    transition={{ repeat: Infinity, duration: 2.5 }}
+                    className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-amber-400 flex-shrink-0 shadow-[0_0_12px_rgba(251,191,36,0.4)]"
+                  >
+                    <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
+                  </motion.div>
+                  <div>
+                    <p className="text-[11px] font-black text-amber-300 font-mono flex items-center gap-1 mb-1">
+                      <Heart className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                      Capi te dice con todo el corazón:
+                    </p>
+                    <p className="text-sm text-slate-100 italic leading-relaxed font-medium">
+                      "{capySpeech.text || `¡NIVEL ${levelUpData.completedLevel} CONQUISTADO! Eso merece que grite de alegría desde todos los techos! Tu cerebro es una auténtica obra de arte. ¡Nunca voy a olvidar este momento contigo!`}"
+                    </p>
+                  </div>
+                </motion.div>
+
+                {/* Detalles del próximo nivel — tarjeta cálida */}
+                <div className="grid grid-cols-3 gap-2 py-3 px-3 rounded-2xl bg-slate-950/60 border border-slate-700/60 mb-5 text-left">
+                  <div className="text-center">
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Preguntas</p>
+                    <p className="text-xl font-black text-amber-300 font-mono leading-none">
+                      {levelUpData.nextLvlInfo?.questions}
+                    </p>
+                    <p className="text-[9px] text-slate-500">reactivos</p>
+                  </div>
+                  <div className="text-center border-x border-slate-700/50">
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Dificultad</p>
+                    <p className="text-sm font-black text-purple-300 font-mono capitalize leading-tight">
+                      {levelUpData.nextLvlInfo?.difficulty}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Nivel</p>
+                    <p className="text-xl font-black text-cyan-300 font-mono leading-none">
+                      {levelUpData.nextLevel}
+                    </p>
+                    <p className="text-[9px] text-slate-500">de 5</p>
+                  </div>
+                  <div className="col-span-3 pt-2 border-t border-slate-800 mt-1">
+                    <p className="text-[11px] text-slate-300 flex items-center gap-1.5 justify-center">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+                      <span className="font-semibold italic">{levelUpData.nextLvlInfo?.desc}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* CTA principal — botón invitante y cálido */}
+                <motion.button
+                  onClick={handleProceedToNextLevel}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:via-indigo-500 hover:to-cyan-400 text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-[0_0_35px_rgba(168,85,247,0.6)] transition-all cursor-pointer"
+                >
+                  <motion.span
+                    animate={{ rotate: [0, 15, -15, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  >
+                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  </motion.span>
+                  <span>¡Quiero el Nivel {levelUpData.nextLevel}! ({levelUpData.nextLvlInfo?.questions} desafíos)</span>
+                  <Zap className="w-4 h-4 text-amber-300" />
+                </motion.button>
+
+                {/* Mensaje de contención anti-ansiedad */}
+                <p className="mt-3 text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1">
+                  <Heart className="w-3 h-3 text-rose-400" />
+                  No hay prisa — Capi estará contigo en cada paso del Nivel {levelUpData.nextLevel}
+                </p>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
 
       {/* ENTORNO 3D */}
       <div className="absolute right-0 top-1/4 w-36 h-96 bg-gradient-to-l from-amber-700/80 via-amber-900/60 to-transparent border-l-4 border-amber-500/40 rounded-l-3xl pointer-events-none transform skew-y-6 opacity-80" />
@@ -1562,62 +1778,238 @@ export default function ArcadeArena() {
         </AnimatePresence>
 
         <motion.div
-          animate={isCapySad ? {
-            x: [0, -8, 8, -8, 8, -5, 5, 0],
-            y: [0, 4, 0, 4, 0],
-            rotateZ: [-4, 4, -4, 4, 0],
-            scale: [1, 0.96, 1]
-          } : isCapySpeaking ? {
-            y: [0, -6, 0],
-            scale: [1, 1.05, 1],
-            rotateZ: [-1.5, 1.5, -1.5]
-          } : {
-            y: [0, -10, 0],
-            rotateZ: [-2, 2, -2],
-            scale: [1, 1.03, 1]
-          }}
-          transition={isCapySad ? {
-            duration: 0.6,
-            repeat: 2,
-            ease: 'easeInOut'
-          } : isCapySpeaking ? {
-            repeat: Infinity,
-            duration: 0.45,
-            ease: 'easeInOut'
-          } : {
-            repeat: Infinity,
-            duration: 3.8,
-            ease: 'easeInOut'
-          }}
+          animate={
+            capyMood === 'dancing' ? {
+              x: [0, -14, 14, -10, 10, -6, 6, 0],
+              rotateZ: [-12, 12, -12, 12, -8, 8, 0],
+              scale: [1, 1.08, 0.95, 1.08, 1],
+              y: [0, -8, 0, -8, 0]
+            } : capyMood === 'celebrating' ? {
+              y: [0, -20, 0, -15, 0, -10, 0],
+              scale: [1, 1.12, 0.9, 1.12, 1],
+              rotateZ: [-5, 5, -5, 5, 0]
+            } : capyMood === 'love' ? {
+              scale: [1, 1.06, 1, 1.06, 1],
+              y: [0, -5, 0, -5, 0],
+              rotateZ: [-2, 2, -2, 2, 0]
+            } : capyMood === 'happy' ? {
+              y: [0, -12, 0, -8, 0],
+              scale: [1, 1.08, 1],
+              rotateZ: [-3, 3, -3]
+            } : capyMood === 'thinking' ? {
+              rotateZ: [-3, 3, -3],
+              y: [0, -4, 0],
+              scale: [1, 1.02, 1]
+            } : capyMood === 'surprised' ? {
+              y: [0, -18, 4, 0],
+              scale: [1, 1.15, 0.92, 1],
+              rotateZ: [-6, 6, -3, 0]
+            } : isCapySad ? {
+              x: [0, -8, 8, -8, 8, -5, 5, 0],
+              y: [0, 4, 0, 4, 0],
+              rotateZ: [-4, 4, -4, 4, 0],
+              scale: [1, 0.96, 1]
+            } : isCapySpeaking ? {
+              y: [0, -6, 0],
+              scale: [1, 1.05, 1],
+              rotateZ: [-1.5, 1.5, -1.5]
+            } : {
+              y: [0, -10, 0],
+              rotateZ: [-2, 2, -2],
+              scale: [1, 1.03, 1]
+            }
+          }
+          transition={
+            capyMood === 'dancing' ? { repeat: Infinity, duration: 0.55, ease: 'easeInOut' }
+            : capyMood === 'celebrating' ? { repeat: Infinity, duration: 0.7, ease: 'easeInOut' }
+            : capyMood === 'love' ? { repeat: Infinity, duration: 1.8, ease: 'easeInOut' }
+            : capyMood === 'happy' ? { repeat: Infinity, duration: 0.6, ease: 'easeInOut' }
+            : capyMood === 'thinking' ? { repeat: Infinity, duration: 2.2, ease: 'easeInOut' }
+            : capyMood === 'surprised' ? { duration: 0.5, repeat: 2, ease: 'easeOut' }
+            : isCapySad ? { duration: 0.6, repeat: 2, ease: 'easeInOut' }
+            : isCapySpeaking ? { repeat: Infinity, duration: 0.45, ease: 'easeInOut' }
+            : { repeat: Infinity, duration: 3.8, ease: 'easeInOut' }
+          }
           whileHover={{ scale: 1.15, rotate: 4 }}
           whileTap={{ scale: 0.92 }}
           onClick={handleCapyClick}
           className="relative group cursor-pointer flex flex-col items-center"
-          title="Haz clic en Capi para escuchar su voz tierna y pedirle una pista"
+          title="¡Haz clic en Capi! Te dará una pista con todo su amor 💙"
         >
-          {/* Base Holográfica */}
+          {/* Base Holográfica — color según mood */}
           <div className={`w-28 h-6 rounded-full blur-md -mb-3 transition-colors duration-300 ${
-            isCapySad ? 'bg-rose-500/50' : isCapySpeaking ? 'bg-amber-400/50' : 'bg-cyan-400/40'
+            isCapySad ? 'bg-rose-500/50'
+            : capyMood === 'dancing' ? 'bg-purple-500/60'
+            : capyMood === 'celebrating' ? 'bg-amber-400/60'
+            : capyMood === 'love' ? 'bg-rose-400/50'
+            : capyMood === 'happy' ? 'bg-emerald-400/50'
+            : capyMood === 'thinking' ? 'bg-cyan-400/40'
+            : capyMood === 'surprised' ? 'bg-indigo-400/50'
+            : isCapySpeaking ? 'bg-amber-400/50'
+            : 'bg-cyan-400/40'
           }`} />
 
-          {/* Marco Redondo 3D con Borde Neón y Sombra Glow */}
-          <motion.div 
-            className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 overflow-hidden transition-colors duration-500 ${
+          {/* Marco Redondo 3D con Borde Neón — color según mood */}
+          <motion.div
+            className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 overflow-hidden transition-colors duration-500 bg-[#0c1420] ${
               isCapySad
                 ? 'border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.8)]'
+                : capyMood === 'dancing'
+                ? 'border-purple-400 shadow-[0_0_40px_rgba(168,85,247,0.9)]'
+                : capyMood === 'celebrating'
+                ? 'border-amber-400 shadow-[0_0_45px_rgba(251,191,36,1)]'
+                : capyMood === 'love'
+                ? 'border-rose-400 shadow-[0_0_40px_rgba(251,113,133,0.85)]'
+                : capyMood === 'happy'
+                ? 'border-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.8)]'
+                : capyMood === 'thinking'
+                ? 'border-cyan-300 shadow-[0_0_30px_rgba(34,211,238,0.6)]'
+                : capyMood === 'surprised'
+                ? 'border-indigo-400 shadow-[0_0_40px_rgba(99,102,241,0.8)]'
                 : isCapySpeaking
                 ? 'border-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.9)]'
                 : 'border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.6)] group-hover:border-cyan-300 group-hover:shadow-[0_0_45px_rgba(34,211,238,0.8)]'
-            } bg-[#0c1420]`}
+            }`}
           >
             <img
               src={capybara3dImg}
               alt="Capibara Compañero"
               className={`w-full h-full object-cover object-center transition-all duration-300 ${
-                isCapySad ? 'brightness-85 saturate-80' : 'group-hover:scale-105'
+                isCapySad ? 'brightness-85 saturate-80'
+                : capyMood === 'love' ? 'brightness-110 saturate-110'
+                : capyMood === 'celebrating' ? 'brightness-115 saturate-125'
+                : 'group-hover:scale-105'
               }`}
             />
-            {/* Overlay de tristeza con cascada de lágrimas si está triste */}
+
+            {/* ===== OVERLAYS POR MOOD ===== */}
+
+            {/* OVERLAY DANCING: notas musicales */}
+            {capyMood === 'dancing' && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {['♪','♫','♩','♬'].map((note, i) => (
+                  <motion.span
+                    key={i}
+                    className="absolute text-purple-300 font-bold text-xs"
+                    style={{ left: `${15 + i * 20}%`, top: '10%' }}
+                    animate={{ y: [0, -30], opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }}
+                    transition={{ repeat: Infinity, duration: 1, delay: i * 0.25 }}
+                  >
+                    {note}
+                  </motion.span>
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-t from-purple-950/50 via-transparent to-transparent" />
+              </div>
+            )}
+
+            {/* OVERLAY CELEBRATING: estrellas y destellos */}
+            {capyMood === 'celebrating' && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {['⭐','✨','🌟','💫','⚡'].map((star, i) => (
+                  <motion.span
+                    key={i}
+                    className="absolute text-sm"
+                    style={{ left: `${5 + i * 18}%`, top: `${10 + (i % 3) * 15}%` }}
+                    animate={{
+                      y: [0, -25], x: [(i % 2 === 0 ? 5 : -5)],
+                      opacity: [0, 1, 1, 0], scale: [0.5, 1.3, 0.5]
+                    }}
+                    transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.16 }}
+                  >
+                    {star}
+                  </motion.span>
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-t from-amber-950/40 via-transparent to-transparent" />
+              </div>
+            )}
+
+            {/* OVERLAY LOVE: corazones flotando */}
+            {capyMood === 'love' && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {['❤️','💙','💕','🥰','💖'].map((heart, i) => (
+                  <motion.span
+                    key={i}
+                    className="absolute text-xs"
+                    style={{ left: `${8 + i * 18}%`, bottom: '5%' }}
+                    animate={{
+                      y: [0, -50], opacity: [0, 1, 1, 0],
+                      x: [0, (i % 2 === 0 ? 8 : -8)],
+                      scale: [0.7, 1.1, 0.7]
+                    }}
+                    transition={{ repeat: Infinity, duration: 1.6, delay: i * 0.32 }}
+                  >
+                    {heart}
+                  </motion.span>
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-t from-rose-950/40 via-transparent to-transparent" />
+              </div>
+            )}
+
+            {/* OVERLAY HAPPY: chispas verdes */}
+            {capyMood === 'happy' && !isCapySad && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {[...Array(4)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-2 h-2 rounded-full bg-emerald-400"
+                    style={{ left: `${15 + i * 20}%`, top: '20%' }}
+                    animate={{ y: [0, -20], opacity: [1, 0], scale: [1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 0.7, delay: i * 0.18 }}
+                  />
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/30 via-transparent to-transparent" />
+              </div>
+            )}
+
+            {/* OVERLAY THINKING: burbujas de pensamiento */}
+            {capyMood === 'thinking' && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                {[...Array(3)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute rounded-full bg-cyan-400/70"
+                    style={{
+                      width: `${6 + i * 3}px`,
+                      height: `${6 + i * 3}px`,
+                      top: `${20 + i * 12}%`,
+                      right: `${10 + i * 5}%`
+                    }}
+                    animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+                    transition={{ repeat: Infinity, duration: 1 + i * 0.3, delay: i * 0.2 }}
+                  />
+                ))}
+                <span className="absolute top-2 right-2 text-xs text-cyan-300">💭</span>
+              </div>
+            )}
+
+            {/* OVERLAY SURPRISED: destellos de sorpresa */}
+            {capyMood === 'surprised' && (
+              <div className="absolute inset-0 pointer-events-none z-20">
+                <motion.span
+                  className="absolute top-2 left-1/2 -translate-x-1/2 text-lg"
+                  animate={{ scale: [0.8, 1.4, 0.8], opacity: [0.7, 1, 0.7] }}
+                  transition={{ repeat: Infinity, duration: 0.6 }}
+                >
+                  😲
+                </motion.span>
+                {[...Array(4)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-1.5 h-6 bg-indigo-400 rounded-full"
+                    style={{
+                      top: '30%',
+                      left: '50%',
+                      transformOrigin: '50% 100%',
+                      rotate: `${i * 90}deg`
+                    }}
+                    animate={{ scaleY: [0.3, 1, 0.3], opacity: [0.4, 1, 0.4] }}
+                    transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.12 }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* OVERLAY SAD: lágrimas (existente mejorado) */}
             {isCapySad && (
               <div className="absolute inset-0 flex flex-col items-center justify-between p-2 pointer-events-none z-20">
                 <div className="relative w-full h-full">
@@ -1636,34 +2028,69 @@ export default function ArcadeArena() {
                 <AlertTriangle className="w-6 h-6 text-rose-300 animate-bounce drop-shadow-md z-10" />
               </div>
             )}
+
             {/* Brillo dinámico de iluminación */}
             <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/40 via-transparent to-white/15 pointer-events-none" />
-            <div className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full ${
-              isCapySad ? 'bg-rose-400' : isCapySpeaking ? 'bg-amber-300' : 'bg-cyan-300'
-            } animate-ping`} />
+            <div className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full animate-ping ${
+              isCapySad ? 'bg-rose-400'
+              : capyMood === 'dancing' ? 'bg-purple-400'
+              : capyMood === 'celebrating' ? 'bg-amber-400'
+              : capyMood === 'love' ? 'bg-rose-400'
+              : capyMood === 'happy' ? 'bg-emerald-400'
+              : capyMood === 'thinking' ? 'bg-cyan-300'
+              : capyMood === 'surprised' ? 'bg-indigo-400'
+              : isCapySpeaking ? 'bg-amber-300'
+              : 'bg-cyan-300'
+            }`} />
           </motion.div>
 
-          {/* Badge 3D interactivo con estado y botones de control */}
+
+          {/* Badge 3D interactivo con estado — refleja todos los moods */}
           <div className="mt-2 flex items-center gap-1.5 z-20">
             <div className={`px-3 py-0.5 rounded-full bg-slate-900/95 shadow-lg text-center backdrop-blur-sm border transition-colors duration-500 ${
-              isCapySad ? 'border-rose-500/80' : isCapySpeaking ? 'border-cyan-400' : 'border-emerald-400/80'
+              isCapySad ? 'border-rose-500/80'
+              : capyMood === 'dancing' ? 'border-purple-400/80'
+              : capyMood === 'celebrating' ? 'border-amber-400/80'
+              : capyMood === 'love' ? 'border-rose-400/80'
+              : capyMood === 'happy' ? 'border-emerald-400/80'
+              : capyMood === 'thinking' ? 'border-cyan-400/80'
+              : capyMood === 'surprised' ? 'border-indigo-400/80'
+              : isCapySpeaking ? 'border-cyan-400'
+              : 'border-emerald-400/80'
             }`}>
               <span className={`text-[9px] font-black font-mono tracking-wider flex items-center gap-1 justify-center transition-colors duration-300 ${
-                isCapySad ? 'text-rose-300' : isCapySpeaking ? 'text-cyan-300' : capyMood === 'hint' ? 'text-amber-300' : 'text-emerald-300'
+                isCapySad ? 'text-rose-300'
+                : capyMood === 'dancing' ? 'text-purple-300'
+                : capyMood === 'celebrating' ? 'text-amber-300'
+                : capyMood === 'love' ? 'text-rose-300'
+                : capyMood === 'happy' ? 'text-emerald-300'
+                : capyMood === 'thinking' ? 'text-cyan-300'
+                : capyMood === 'surprised' ? 'text-indigo-300'
+                : isCapySpeaking ? 'text-cyan-300'
+                : 'text-emerald-300'
               }`}>
                 {isCapySad ? (
-                  <><Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> HUBZI CONTENCIÓN</>
-                ) : isCapySpeaking ? (
-                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> HUBZI ORIENTANDO</>
+                  <><Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> CAPI TE ABRAZA</>
+                ) : capyMood === 'dancing' ? (
+                  <><span className="text-[9px]">🎵</span> CAPI BAILANDO</>
+                ) : capyMood === 'celebrating' ? (
+                  <><span className="text-[9px]">🎉</span> CAPI CELEBRA</>
+                ) : capyMood === 'love' ? (
+                  <><Heart className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> CAPI TE QUIERE</>
                 ) : capyMood === 'happy' ? (
-                  <><Sparkles className="w-2.5 h-2.5 text-emerald-400" /> HUBZI REFUERZO</>
-                ) : capyMood === 'hint' ? (
-                  <><HelpCircle className="w-2.5 h-2.5 text-amber-400" /> HUBZI PISTA</>
+                  <><Sparkles className="w-2.5 h-2.5 text-emerald-400" /> CAPI FELIZ</>
+                ) : capyMood === 'thinking' ? (
+                  <><span className="text-[9px]">💭</span> CAPI PENSANDO</>
+                ) : capyMood === 'surprised' ? (
+                  <><Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" /> CAPI SORPRENDIDO</>
+                ) : isCapySpeaking ? (
+                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> CAPI HABLA</>
                 ) : (
-                  <><Sparkles className="w-2.5 h-2.5 text-cyan-400 animate-pulse" /> HUBZI PSICÓLOGO</>
+                  <><Sparkles className="w-2.5 h-2.5 text-cyan-400 animate-pulse" /> CAPI PSICÓLOGO</>
                 )}
               </span>
             </div>
+
 
             {/* Botón Zen Anti-Estrés: Pausa 4-7-8 con Hubzi */}
             <button

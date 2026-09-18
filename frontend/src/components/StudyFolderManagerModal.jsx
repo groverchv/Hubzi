@@ -715,7 +715,10 @@ export default function StudyFolderManagerModal({
                     ))}
                   </div>
                 </div>
-                  {/* Barra Inferior con Opciones de Juego */}
+              )}
+            </div>
+
+            {/* Barra Inferior con Opciones de Juego */}
             <div className="p-5 border-t-2 border-[#223147] bg-[#111927] flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-300">
                 {(() => {

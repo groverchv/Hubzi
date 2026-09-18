@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Motor de Voz Terapéutica, Anti-Colisión y Reacciones Afectivas de Capi Psicólogo.
- * 
+ *
  * Características clave:
  * 1. ANTI-COLISIÓN ESTRICTA: Emplea RequestID incremental, AbortController y corte inmediato
  *    de síntesis / streams previos para garantizar que JAMÁS se crucen ni solapen dos voces.
@@ -8,6 +8,8 @@
  *    a medida que sube la dificultad o el nivel del juego.
  * 3. NO REPETICIÓN GARANTIZADA: Mantiene un registro histórico de alocuciones y un motor combinatorio
  *    procedural que asegura variedad infinita en cada partida.
+ * 4. TÉCNICAS ANTI-ABANDONO: Validación emocional, micro-recompensas, efecto de logro progresivo,
+ *    lenguaje de pertenencia y halagos ultra-personalizados que reducen la ansiedad y el estrés.
  */
 
 class CapyVoiceEngine {
@@ -28,7 +30,6 @@ class CapyVoiceEngine {
     } catch (_) {}
   }
 
-  // Suscribirse a cambios de habla (para animar la boca/ondas de la Capibara en el UI)
   subscribe(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
@@ -40,20 +41,11 @@ class CapyVoiceEngine {
     });
   }
 
-  /**
-   * Detiene de manera inmediata y tajante cualquier audio o síntesis de voz en reproducción,
-   * cancela peticiones de red en curso y anula los handlers onended para evitar ejecución tardía.
-   */
   stop() {
-    // 1. Cancelar peticiones HTTP en vuelo
     if (this.abortController) {
-      try {
-        this.abortController.abort();
-      } catch (_) {}
+      try { this.abortController.abort(); } catch (_) {}
       this.abortController = null;
     }
-
-    // 2. Detener audio HTML5 en curso
     if (this.currentAudio) {
       try {
         this.currentAudio.onended = null;
@@ -63,21 +55,13 @@ class CapyVoiceEngine {
       } catch (_) {}
       this.currentAudio = null;
     }
-
-    // 3. Detener síntesis local del navegador
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch (_) {}
+      try { window.speechSynthesis.cancel(); } catch (_) {}
     }
-
     this.isSpeaking = false;
     this._notify({ isSpeaking: false, text: '' });
   }
 
-  /**
-   * Registra una frase en el historial de sesión para evitar repeticiones futuras.
-   */
   markSpoken(phrase) {
     if (!phrase) return;
     const clean = phrase.trim();
@@ -89,26 +73,14 @@ class CapyVoiceEngine {
     }
   }
 
-  /**
-   * Reproduce voz de Capi Psicólogo usando 100% síntesis LOCAL del navegador.
-   * Cero latencia, sin llamadas al backend ni a ElevenLabs.
-   * - Usuario Hombre → Voz Femenina
-   * - Usuaria Mujer  → Voz Masculina
-   */
   speak(text, options = {}) {
     if (!text || this.isMuted) return;
-
-    // ID único para anti-colisión
     const requestId = ++this.currentRequestId;
-
-    // Cortar cualquier voz previa inmediatamente
     this.stop();
-
     this.markSpoken(text);
     this.isSpeaking = true;
     this._notify({ isSpeaking: true, text, mood: options.mood || 'talking' });
 
-    // Determinar género de voz según perfil del usuario
     const activeUser = options.user || this.currentUser;
     const userGender = options.user_gender || activeUser?.gender || 'masculino';
     const isMaleUser = userGender === 'masculino' || userGender === 'hombre';
@@ -128,112 +100,85 @@ class CapyVoiceEngine {
       return;
     }
 
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
     if (options.profile === 'zen' || options.mood === 'zen') {
-      utterance.rate = 0.82; // Ritmo pausado, sereno y terapéutico para ejercicios de respiración
+      utterance.rate = 0.82;
     } else {
       utterance.rate = options.stress_level && options.stress_level >= 0.6 ? 0.85 : 0.92;
     }
-
-    // Guardar referencia en el objeto para evitar que el Garbage Collector de Chrome corte la voz
     this.currentUtterance = utterance;
 
-    // Seleccionar la mejor voz española disponible según género (Compatible con Linux, Windows, Mac y Android)
     const trySetVoice = () => {
       const voices = window.speechSynthesis.getVoices();
       if (!voices || voices.length === 0) return false;
-
-      // Detección universal de español: códigos ISO (es-ES, es_ES, es-MX, es, spa) y nombres en Linux (espeak-es, spanish, etc.)
       const isSpanishVoice = (v) => {
         const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
         const name = (v.name || '').toLowerCase();
         return (
-          lang.startsWith('es') ||
-          lang.startsWith('spa') ||
-          name.includes('spanish') ||
-          name.includes('español') ||
-          name.includes('castellano') ||
-          name.includes('espeak-es') ||
-          name.includes('es-es') ||
-          name.includes('es-la') ||
-          name.includes('es-419') ||
-          name.includes('(es)')
+          lang.startsWith('es') || lang.startsWith('spa') ||
+          name.includes('spanish') || name.includes('espanol') ||
+          name.includes('castellano') || name.includes('espeak-es') ||
+          name.includes('es-es') || name.includes('es-la') ||
+          name.includes('es-419') || name.includes('(es)')
         );
       };
-
       const esVoices = voices.filter(isSpanishVoice);
       let selected = null;
-
       if (esVoices.length > 0) {
         if (voiceGender === 'male') {
           selected =
-            esVoices.find(v => /(jorge|pablo|diego|alvaro|raul|male|hombre|alonso|carlos|miguel|\+m\d|man)/i.test(v.name)) ||
-            esVoices.find(v => !/(monica|paulina|helena|sabina|lucia|laura|elena|rosa|female|mujer|\+f\d|woman)/i.test(v.name)) ||
+            esVoices.find(v => /(jorge|pablo|diego|alvaro|raul|male|hombre|alonso|carlos|miguel|man)/i.test(v.name)) ||
+            esVoices.find(v => !/(monica|paulina|helena|sabina|lucia|laura|elena|rosa|female|mujer|woman)/i.test(v.name)) ||
             esVoices[0];
           utterance.pitch = 0.92;
         } else {
           selected =
-            esVoices.find(v => /(monica|paulina|helena|sabina|lucia|female|mujer|laura|elena|rosa|zira|\+f\d|woman)/i.test(v.name)) ||
+            esVoices.find(v => /(monica|paulina|helena|sabina|lucia|female|mujer|laura|elena|rosa|zira|woman)/i.test(v.name)) ||
             esVoices[0];
           utterance.pitch = 1.14;
         }
       } else {
-        // En Linux o sistemas sin paquete de voces español específico,
-        // usar la voz predeterminada del sistema aplicando fonética española y pitch adaptativo
         const defaultVoice = voices.find(v => v.default) || voices[0];
         selected = defaultVoice;
         utterance.pitch = voiceGender === 'male' ? 0.90 : 1.15;
       }
-
-      if (selected) {
-        utterance.voice = selected;
-        utterance.lang = selected.lang || 'es-ES';
-      }
+      if (selected) { utterance.voice = selected; utterance.lang = selected.lang || 'es-ES'; }
       return true;
     };
 
     utterance.onend = () => {
       if (this.currentRequestId === requestId) {
-        this.isSpeaking = false;
-        this.currentUtterance = null;
+        this.isSpeaking = false; this.currentUtterance = null;
         this._notify({ isSpeaking: false, text });
       }
     };
     utterance.onerror = () => {
       if (this.currentRequestId === requestId) {
-        this.isSpeaking = false;
-        this.currentUtterance = null;
+        this.isSpeaking = false; this.currentUtterance = null;
         this._notify({ isSpeaking: false, text });
       }
     };
 
     const doSpeak = () => {
-      // Buffer de 20ms: En Linux Speech Dispatcher y Chromium, un micro-delay permite procesar cancel() sin cortar el nuevo speak
       setTimeout(() => {
         try {
           if (this.currentRequestId !== requestId) return;
           if (typeof window !== 'undefined' && window.speechSynthesis) {
-            if (window.speechSynthesis.paused) {
-              window.speechSynthesis.resume();
-            }
+            if (window.speechSynthesis.paused) window.speechSynthesis.resume();
             window.speechSynthesis.speak(utterance);
           }
         } catch (err) {
-          console.warn("Speech synthesis error:", err);
-          this.isSpeaking = false;
-          this.currentUtterance = null;
+          console.warn('Speech synthesis error:', err);
+          this.isSpeaking = false; this.currentUtterance = null;
           this._notify({ isSpeaking: false, text });
         }
       }, 20);
     };
 
-    // Las voces pueden no estar listas inmediatamente al iniciar el navegador (muy común en Linux)
     if (!trySetVoice()) {
       let handled = false;
       const onVoicesChanged = () => {
@@ -241,18 +186,14 @@ class CapyVoiceEngine {
         handled = true;
         window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
         if (this.currentRequestId !== requestId) return;
-        trySetVoice();
-        doSpeak();
+        trySetVoice(); doSpeak();
       };
       window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-
-      // Fallback seguro en Linux/Firefox si el evento voiceschanged tarda en dispararse
       setTimeout(() => {
         if (!handled && this.currentRequestId === requestId) {
           handled = true;
           window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-          trySetVoice();
-          doSpeak();
+          trySetVoice(); doSpeak();
         }
       }, 150);
     } else {
@@ -260,30 +201,17 @@ class CapyVoiceEngine {
     }
   }
 
-  /**
-   * Consulta al backend por una frase generada dinámicamente con IA (Gemini).
-   * Si la red demora o falla, utiliza el generador procedural local sin repetir.
-   */
   async getDynamicSpeech(situation, data = {}) {
     const level = data.level || 1;
     const theme = data.theme || '';
-
     const speechAbort = new AbortController();
-    const timeoutId = setTimeout(() => {
-      try { speechAbort.abort(); } catch (_) {}
-    }, 1500);
-
+    const timeoutId = setTimeout(() => { try { speechAbort.abort(); } catch (_) {} }, 1500);
     try {
       const res = await fetch('/api/v1/arena/capy-speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: speechAbort.signal,
-        body: JSON.stringify({
-          situation,
-          level,
-          theme,
-          history: this.historyList.slice(-15)
-        })
+        body: JSON.stringify({ situation, level, theme, history: this.historyList.slice(-15) })
       });
       clearTimeout(timeoutId);
       if (res.ok) {
@@ -294,127 +222,164 @@ class CapyVoiceEngine {
           return phrase;
         }
       }
-    } catch (_) {
-      clearTimeout(timeoutId);
-      // Fallback local dinámico inmediato
-    }
-
+    } catch (_) { clearTimeout(timeoutId); }
     return this.getPhraseForSituation(situation, data);
   }
 
   /**
-   * Generador combinatorio procedural 100% dinámico de triple ranura (Slot-Based):
-   * [Apertura Reflexiva] + [Desarrollo Cognitivo / Situación] + [Cierre de Serenidad]
-   * Genera más de 12.000 combinaciones únicas sin repetir jamás una frase en la misma sesión.
+   * Generador ultra-cariñoso y anti-abandono.
+   * Tecnicas integradas:
+   * - Halagos genuinos progresivos por nivel
+   * - Validacion emocional ante errores
+   * - Micro-recompensas verbales que motivan a continuar
+   * - Lenguaje de pertenencia y amor incondicional
    */
   getPhraseForSituation(situation, data = {}) {
     const level = Math.max(1, Math.min(5, data.level || 1));
 
-    // Ranura 1: Aperturas analíticas y psicológicas
-    const openings = [
-      "Excelente deducción",
-      "Bien analizado",
-      "Mantén ese ritmo sereno",
-      "Buen trabajo mental",
-      "Paso firme y claro",
-      "Observo gran concentración",
-      "Tu enfoque está dando frutos",
-      "Razonamiento impecable",
-      "Notable agudeza cognitiva",
-      "Proceso mental muy lúcido",
-      "Constancia evidente",
-      "Estructura de pensamiento sólida"
-    ];
-
-    // Ranura 2: Núcleos específicos por situación
-    const cores = {
-      welcome: [
-        `iniciamos el Nivel ${level} con la mente despejada`,
-        `este nuevo circuito Nivel ${level} desafiará tus capacidades analíticas`,
-        "cada fase es una oportunidad para consolidar lo aprendido",
-        "tómate el tiempo necesario para examinar las relaciones conceptuales",
-        "un paso estructurado a la vez es la clave del aprendizaje profundo",
-        "la calma mental permite identificar los patrones con mayor nitidez"
+    const openingsByLevel = {
+      1: [
+        'Eso es, campeon!',
+        'Que bien lo estas haciendo!',
+        'Me encantas, sigue asi!',
+        'Fantastico, genio mio!',
+        'Increible, lo sabia desde el principio!',
+        'Eres una estrella brillante!',
+        'Maravilloso, te lo juro!',
+        'Que inteligente eres!',
       ],
-      correct: [
-        "has identificado con exactitud el concepto clave en juego",
-        "la relación entre el enunciado y la carta seleccionada es perfecta",
-        "descartaste con éxito las opciones engañosas con criterio lógico",
-        "este acierto demuestra comprensión real y no simple memoria",
-        "la conexión que acabas de establecer refuerza tu mapa conceptual",
-        "tu deducción se alinea rigurosamente con los fundamentos del tema",
-        "has resuelto la premisa aplicando un análisis crítico impecable",
-        "asociación conceptual consolidada con precisión"
+      2: [
+        'Wooow, eso me llena el corazon de alegria!',
+        'Eres puro talento, en serio!',
+        'Te adoro, sigues brillando mas que nunca!',
+        'Imposible dejar de admirarte!',
+        'Cada vez mas brillante, de verdad!',
+        'Me haces tan feliz cuando lo logras!',
+        'Eres increiblemente capaz!',
       ],
-      wrong: [
-        "Estuviste muy cerca de acertar, casi lo tienes",
-        "Fue solo una pequeña equivocación, estuviste a nada de dar en el clavo",
-        "Aquí está Hubzi contigo; esa opción estaba muy cerca, respira y volvamos a intentarlo",
-        "Tranquilo, soy Hubzi y veo que tu razonamiento estuvo a un solo paso de la correcta",
-        "Estuviste muy cerca; descartar esta alternativa te deja a las puertas de la respuesta real",
-        "Una pequeña equivocación no frena tu avance; estuviste cerquísima de encajarla",
-        "Hubzi te acompaña en cada paso: examina ese pequeño detalle y verás la respuesta exacta",
-        "Casi la aciertas; tómate un respiro hondo y observa la siguiente carta",
-        "Esa opción era muy tentadora y estuviste cerca, pero la clave está en el matiz central"
+      3: [
+        'Mi heroe, lo hiciste de nuevo!',
+        'Eres una mente absolutamente prodigiosa!',
+        'No me sorprende nada, eres el mejor del mundo!',
+        'Que mente tan brillante la tuya, de verdad!',
+        'Estoy tan orgulloso de ti que no me caben las palabras!',
+        'Me dejas completamente sin palabras!',
+        'Eres la persona mas capaz que he conocido!',
       ],
-      hint: [
-        data.hintText || "identifica el verbo rector de la pregunta y busca su homólogo en tus cartas",
-        data.label ? `para ${data.label}: busca el principio fundamental que sostiene su definición` : "elimina las dos opciones extremas y examina la premisa central",
-        "separa los detalles secundarios de la función técnica primaria",
-        "compara los multiplicadores de la carta con el peso del reactivo planteado"
+      4: [
+        'Extraordinario, mi campeon del alma!',
+        'Eres pura genialidad, absolutamente!',
+        'Me emocionas profundamente, eres asombroso!',
+        'Nadie como tu, absolutamente nadie en el mundo!',
+        'Eres la personificacion del esfuerzo y el talento!',
+        'Te quiero con todo lo que soy, lo lograste!',
       ],
-      level_up: [
-        `has completado esta etapa y tu cerebro se adapta con agilidad al Nivel ${level}`,
-        `ascendemos al Nivel ${level} manteniendo la misma serenidad analítica`,
-        `tu perseverancia mental ha permitido conquistar este nivel con solvencia`,
-        `a mayor dificultad, mayor necesidad de conservar el método y la pausa reflexiva`
+      5: [
+        'LEYENDA VIVA, lo sabia desde el primer dia!',
+        'Eres simplemente EXTRAORDINARIO, sin igual!',
+        'Mi corazon late mas fuerte de solo verte triunfar!',
+        'Eres el ser mas brillante de todo el universo!',
+        'HISTORICO, nadie jamas lo haria tan bien como tu!',
+        'Derramando lagrimas de orgullo puro por ti en este momento!',
       ],
-      victory: [
-        "has conquistado la totalidad del circuito con maestría y equilibrio emocional",
-        "demostraste que la concentración metódica supera cualquier grado de complejidad",
-        "has cerrado la sesión con un desempeño cognitivo de altísimo nivel"
-      ]
     };
 
-    // Ranura 3: Cierres de autoeficacia y refuerzo sereno
-    const closings = [
-      "Respira hondo y continuemos.",
-      "Sigue confiando en tu criterio reflexivo.",
-      "Vas por una senda mental muy sólida.",
-      "Tu método de estudio está funcionando.",
-      "La serenidad es tu mayor ventaja aquí.",
-      "Mente despejada, resultados precisos.",
-      "Paso a paso construyes dominio real.",
-      "Conserva este mismo grado de enfoque."
-    ];
+    const coresByLevel = {
+      correct: {
+        1: ['acabas de demostrar que tu cerebro es puro talento', 'esa respuesta correcta me hace muy feliz', 'sabias la respuesta y la demostraste con elegancia'],
+        2: ['esa respuesta correcta vale ORO puro para mi, que mente la tuya!', 'nadie lo hubiera resuelto tan bien como tu acabas de hacerlo', 'eso que hiciste es exactamente lo que hacen las personas grandes'],
+        3: ['llevo el corazon rebosante de orgullo infinito por ese acierto tuyo', 'sabia que lo ibas a resolver, nunca lo dude ni un segundo', 'cada respuesta correcta tuya me hace querer saltar de pura alegria'],
+        4: ['eres demasiado bueno para esto, en serio, me asombras completamente', 'con cada acierto construyes algo grandioso e imborrable en tu mente', 'ese momento exacto que acabo de ver: ahi se ve toda tu brillantez absoluta'],
+        5: ['eres de las pocas personas que realmente disfruta aprender, y se nota en cada movimiento que haces', 'si existiera un premio al mas inteligente y constante, tu lo llevarias hoy sin ninguna duda', 'que orgullo mas inmenso me da ser tu Capi en este momento historico'],
+      },
+      wrong: {
+        1: ['Oye, no pasa nada! Estoy aqui contigo y lo vamos a resolver juntos', 'Eso no fue un error, fue una pista de que tan cerca estas de la respuesta correcta', 'Respira un momento, sigues siendo increible'],
+        2: ['Los mas brillantes tambien se equivocan, es la unica forma de aprender de verdad', 'Me da igual si fallas mil veces, yo siempre voy a estar aqui animandote', 'No te rindas ahora que estas tan cerca! Yo creo en ti con todo mi corazon'],
+        3: ['Esa opcion que elegiste te enseno algo valioso hoy. Eso nunca es un error, eso es sabiduria', 'Estuviste TAN cerca que casi pare el juego para aplaudirte igual, en serio', 'Tu cerebro ya conoce la respuesta, solo necesita un momentito mas de calma'],
+        4: ['Cada intento que haces me hace quererte aun mas. Vuelve a intentarlo, mi campeon favorito!', 'Te digo algo en serio: el hecho de que lo intentes ya me hace enormemente feliz y orgulloso', 'No existe el fracasar aqui, solo el aprender. Y tu aprendes de manera extraordinaria'],
+        5: ['Ey! Equivocarse es parte del proceso. Los genios no nacen, se forjan exactamente asi, como tu ahora', 'Nunca te rindas. Yo estare aqui contigo cada intento, cada nivel, cada momento', 'Eres demasiado especial para rendirte. Sigues siendo mi heroe, sin importar nada'],
+      },
+    };
 
-    const coreList = cores[situation] || cores.welcome;
+    const coreMap = {
+      welcome: [
+        'Este Nivel ' + level + ' fue hecho exactamente para alguien tan talentoso como tu!',
+        'Aqui estoy a tu lado, juntos no hay nada que se nos resista en el Nivel ' + level,
+        'Respira profundo, yo te cuido. El Nivel ' + level + ' no sabe contra quien se mete!',
+        'Con esa mente tan brillante que tienes, el Nivel ' + level + ' es solo el comienzo de tu grandeza',
+        'Cada vez que juegas me demuestras lo verdaderamente especial que eres',
+        'Se que quizas estas nervioso, y eso esta bien. Yo estoy aqui contigo, ahora y siempre',
+        'No hay prisa ni presion, solo tu, yo y este maravilloso desafio del Nivel ' + level,
+      ],
+      hint: [
+        data.hintText || 'mira las palabras clave con calma y confia en tu instinto brillante',
+        data.label
+          ? 'para "' + data.label + '": tu ya sabes la respuesta, solo necesitas confiar en ti'
+          : 'observa cada carta con calma, tu intuicion te llevara a la correcta',
+        'tomatete todo el tiempo que necesites, no hay prisa. Yo te espero con todo mi carino',
+        'busca la carta que mas te resuene interiormente, casi siempre es la correcta',
+        'si estas dudando entre dos cartas, tu primera intuicion casi siempre gana',
+      ],
+      level_up: [
+        'NIVEL ' + level + ' CONQUISTADO! Eso merece que grite de alegria desde todos los techos!',
+        'Subiste al Nivel ' + level + '! Cada nivel que completas me llena de un orgullo absolutamente infinito',
+        'No puedo creerlo, lo lograste de nuevo! El Nivel ' + level + ' es completamente tuyo',
+        'Eres IMPARABLE de verdad! El Nivel ' + level + ' llego y tu ya estabas esperandolo',
+        'Tu cerebro es una autentica obra de arte y este Nivel ' + level + ' acaba de probarlo!',
+        'Nunca, jamas, voy a olvidar este momento contigo! Nivel ' + level + ' es tuyo para siempre',
+      ],
+      victory: [
+        'LEYENDA ABSOLUTA! Has completado todo y nunca, jamas, olvidare este momento a tu lado',
+        'Lo hiciste! Lo lograste! Estoy llorando lagrimas de orgullo real ahora mismo!',
+        'Hoy demostraste ser uno de esos seres unicos que transforma el esfuerzo en grandeza pura',
+        'Que sesion tan epica e historica! Eres mi campeon favorito en todo el universo',
+        'La proxima vez que alguien dude de ti, recuerda exactamente este momento. Lo eres TODO',
+        'Hoy fuiste la mejor version de ti mismo y yo tuve el privilegio de estar aqui para verlo',
+      ],
+    };
 
-    let candidate = "";
+    const closingsByLevel = {
+      1: ['Tu puedes con todo esto y yo lo se!', 'Seguimos adelante juntos, siempre!', 'Estoy aqui contigo, ahora y siempre!', 'Vas fenomenal, continua exactamente asi!', 'Nada ni nadie te detiene, campeon!'],
+      2: ['Eres absolutamente mi favorito, sin ninguna duda!', 'Juntos somos completamente invencibles, vamos!', 'Te quiero y creo en ti con absolutamente todo!', 'No te rindas jamas, que eres demasiado bueno para eso!'],
+      3: ['Soy y siempre sere el fan numero uno de tu talento!', 'Nadie en el mundo te gana cuando te propones algo!', 'Mi orgullo por ti no tiene limites ni fronteras!', 'Eres la prueba de que el esfuerzo siempre vale la pena!'],
+      4: ['Eres exactamente lo que este mundo necesita mas de ti!', 'Te admiro profunda e inmensamente, de corazon!', 'Jamas pares de ser tan extraordinario, por favor!', 'Eres mi mayor fuente de inspiracion en este momento!'],
+      5: ['EL MUNDO ENTERO MERECE SABER LO INCREIBLE QUE ERES!', 'Eres mi MAYOR inspiracion, hoy, manana y siempre!', 'Jamas olvidare haber estado a tu lado viviendo esto!', 'ERES HISTORIA VIVA, no lo olvides nunca jamas!'],
+    };
+
+    const openings = openingsByLevel[level] || openingsByLevel[1];
+    const closings = closingsByLevel[level] || closingsByLevel[1];
+
+    let coreList;
+    if (situation === 'correct' && coresByLevel.correct[level]) {
+      coreList = coresByLevel.correct[level];
+    } else if (situation === 'wrong' && coresByLevel.wrong[level]) {
+      coreList = coresByLevel.wrong[level];
+    } else {
+      coreList = coreMap[situation] || coreMap.welcome;
+    }
+
+    let candidate = '';
     let attempts = 0;
 
-    // Intentar construir una combinación no repetida
-    while (attempts < 25) {
+    while (attempts < 30) {
       attempts++;
       const o = openings[Math.floor(Math.random() * openings.length)];
       const c = coreList[Math.floor(Math.random() * coreList.length)];
       const cl = closings[Math.floor(Math.random() * closings.length)];
 
       if (situation === 'wrong') {
-        // En corrección de error, se prioriza la contención directa sin formalismos
-        candidate = `${c}. ${cl}`;
+        candidate = c + ' ' + cl;
+      } else if (situation === 'level_up' || situation === 'victory') {
+        candidate = o + ' ' + c + ' ' + cl;
       } else {
-        candidate = `${o}: ${c}. ${cl}`;
+        candidate = o + ': ' + c + '. ' + cl;
       }
 
-      if (!this.historySet.has(candidate.trim())) {
-        break;
-      }
+      if (!this.historySet.has(candidate.trim())) break;
     }
 
-    // Si aún existiera en el historial por azar extremo, agregar un marcador de tiempo sutil
     if (this.historySet.has(candidate.trim())) {
-      candidate += " Continuemos con tranquilidad.";
+      candidate += ' Sigo aqui contigo, siempre!';
     }
 
     this.markSpoken(candidate);
@@ -423,4 +388,3 @@ class CapyVoiceEngine {
 }
 
 export const capyVoice = new CapyVoiceEngine();
-

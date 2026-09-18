@@ -364,7 +364,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           )}
 
           {/* Botón de Enviar */}
-          <div className="pt-2">
+          <div className="pt-2 space-y-2">
             <button
               type="submit"
               disabled={isLoading}
@@ -392,6 +392,34 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   <span>Crear Cuenta y Comenzar</span>
                 </>
               )}
+            </button>
+
+            {/* Ingreso Directo sin registrarse (Modo Invitado) */}
+            <button
+              type="button"
+              onClick={() => {
+                const guestUser = {
+                  id: `guest_${Date.now().toString(36)}`,
+                  email: 'invitado@hubzi.app',
+                  username: 'Invitado',
+                  gender: 'masculino',
+                  age: 20,
+                  avatar: 'capy_fan',
+                  voice_preference: 'auto',
+                  assigned_voice_gender: 'female',
+                  is_guest: true,
+                  created_at: new Date().toISOString()
+                };
+                localStorage.setItem('hubzy_current_user', JSON.stringify(guestUser));
+                setSuccessMsg('¡Ingreso directo concedido! Bienvenido.');
+                setTimeout(() => {
+                  onAuthSuccess(guestUser);
+                }, 400);
+              }}
+              className="w-full py-2.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800/90 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>Ingresar Directo (Sin Registro / Invitado)</span>
             </button>
           </div>
         </form>
