@@ -310,8 +310,9 @@ def verify_password(stored_password_hash: str, provided_password: str) -> bool:
     except Exception:
         return False
 
-# Almacén de fallback en memoria para sesiones y usuarios
+# Almacén de fallback en memoria para sesiones, usuarios y carpetas locales
 in_memory_auth_users = {}
+in_memory_study_folders: Dict[str, Any] = {}
 
 @app.post("/api/v1/auth/register", response_model=AuthResponse, tags=["Authentication"])
 async def auth_register(payload: UserAuthRegisterRequest):
@@ -619,12 +620,21 @@ async def list_folders(user_id: Optional[str] = Query(None, description="ID del 
                 folders.append(doc)
         except Exception as e:
             logger.error(f"Error listando carpetas de MongoDB: {e}")
+
+    # Fallback en memoria si no hay base de datos o está vacía
+    if not folders and in_memory_study_folders:
+        for f in in_memory_study_folders.values():
+            if not user_id or f.get("user_id") == user_id:
+                folders.append(f)
+
     return {"folders": folders}
 
 @app.post("/api/v1/folders", status_code=status.HTTP_201_CREATED, tags=["Folders"])
 async def create_folder(payload: FolderCreateRequest):
     """Crea una nueva carpeta temática de estudio vinculada exclusivamente a su usuario."""
+    folder_id = f"folder_{payload.name.lower().replace(' ', '_')}_{secrets.token_hex(4)}"
     new_folder = {
+        "id": folder_id,
         "name": payload.name,
         "description": payload.description,
         "icon": payload.icon or "folder",
@@ -636,17 +646,17 @@ async def create_folder(payload: FolderCreateRequest):
     }
     if db_manager.db is not None:
         try:
-            res = await db_manager.db["study_folders"].insert_one(new_folder)
+            res = await db_manager.db["study_folders"].insert_one(dict(new_folder))
             new_folder["id"] = str(res.inserted_id)
             if "_id" in new_folder:
                 del new_folder["_id"]
             return new_folder
         except Exception as e:
             logger.error(f"Error guardando carpeta en MongoDB: {e}")
-            raise HTTPException(status_code=500, detail="No se pudo guardar la carpeta.")
-    else:
-        new_folder["id"] = f"folder_{payload.name.lower().replace(' ', '_')}"
-        return new_folder
+
+    # Almacenar en memoria local cuando no hay MongoDB
+    in_memory_study_folders[new_folder["id"]] = new_folder
+    return new_folder
 
 
 class AddDocsToFolderRequest(BaseModel):
@@ -654,7 +664,7 @@ class AddDocsToFolderRequest(BaseModel):
 
 @app.post("/api/v1/folders/{folder_id}/documents", tags=["Folders"])
 async def add_documents_to_folder(folder_id: str, payload: AddDocsToFolderRequest):
-    """Guarda documentos dentro de una carpeta en MongoDB."""
+    """Guarda documentos dentro de una carpeta en MongoDB o fallback local."""
     if db_manager.db is not None:
         try:
             from bson import ObjectId
@@ -666,6 +676,10 @@ async def add_documents_to_folder(folder_id: str, payload: AddDocsToFolderReques
             return {"status": "documents_added", "count": len(payload.documents)}
         except Exception as e:
             logger.warning(f"Error agregando documentos a carpeta en MongoDB: {e}")
+
+    if folder_id in in_memory_study_folders:
+        in_memory_study_folders[folder_id].setdefault("documents", []).extend(payload.documents)
+        return {"status": "documents_added", "count": len(payload.documents)}
     return {"status": "acknowledged"}
 
 class AddGameToFolderRequest(BaseModel):
@@ -673,7 +687,7 @@ class AddGameToFolderRequest(BaseModel):
 
 @app.post("/api/v1/folders/{folder_id}/games", tags=["Folders"])
 async def add_game_to_folder(folder_id: str, payload: AddGameToFolderRequest):
-    """Guarda una partida o juego generado dentro de la carpeta en MongoDB."""
+    """Guarda una partida o juego generado dentro de la carpeta en MongoDB o fallback local."""
     if db_manager.db is not None:
         try:
             from bson import ObjectId
@@ -685,6 +699,10 @@ async def add_game_to_folder(folder_id: str, payload: AddGameToFolderRequest):
             return {"status": "game_added"}
         except Exception as e:
             logger.warning(f"Error agregando juego a carpeta en MongoDB: {e}")
+
+    if folder_id in in_memory_study_folders:
+        in_memory_study_folders[folder_id].setdefault("games", []).append(payload.game)
+        return {"status": "game_added"}
     return {"status": "acknowledged"}
 
 @app.delete("/api/v1/folders/{folder_id}/documents/{doc_id}", tags=["Folders"])
@@ -722,12 +740,17 @@ async def delete_document_from_folder(folder_id: str, doc_id: str):
         except Exception as e:
             logger.error(f"Error eliminando documento de carpeta en MongoDB: {e}")
             raise HTTPException(status_code=500, detail=f"Error al eliminar documento: {str(e)}")
-            
+
+    if folder_id in in_memory_study_folders:
+        docs = in_memory_study_folders[folder_id].get("documents", [])
+        in_memory_study_folders[folder_id]["documents"] = [d for d in docs if d.get("id") != doc_id and d.get("name") != doc_id]
+        return {"status": "document_deleted", "doc_id": doc_id}
+
     return {"status": "acknowledged"}
 
 @app.delete("/api/v1/folders/{folder_id}", tags=["Folders"])
 async def delete_folder(folder_id: str):
-    """Elimina una carpeta completa de estudio y todos sus documentos en MongoDB."""
+    """Elimina una carpeta completa de estudio y todos sus documentos en MongoDB o local."""
     if db_manager.db is not None:
         try:
             from bson import ObjectId
@@ -738,7 +761,9 @@ async def delete_folder(folder_id: str):
         except Exception as e:
             logger.error(f"Error eliminando carpeta de MongoDB: {e}")
             raise HTTPException(status_code=500, detail="Error al eliminar la carpeta.")
-    return {"status": "acknowledged"}
+
+    in_memory_study_folders.pop(folder_id, None)
+    return {"status": "folder_deleted", "folder_id": folder_id}
 
 
 @app.post("/api/v1/folders/{folder_id}/upload-document", tags=["Folders"])
@@ -809,6 +834,17 @@ async def upload_document_to_folder(
             )
         except Exception as e:
             logger.warning(f"Error guardando documento en MongoDB: {e}")
+    else:
+        if folder_id in in_memory_study_folders:
+            in_memory_study_folders[folder_id].setdefault("documents", []).append(doc_record)
+        else:
+            in_memory_study_folders[folder_id] = {
+                "id": folder_id,
+                "name": folder_id.replace("folder_", "").replace("_", " ").title(),
+                "documents": [doc_record],
+                "games": [],
+                "created_at": "now"
+            }
 
     # Devolver metadatos sin el texto completo (para el frontend)
     return {
@@ -846,12 +882,6 @@ async def generate_game_from_folder(
     Nivel 4: Semi-difícil (15 preguntas).
     Nivel 5: Difícil (20 preguntas).
     """
-    if db_manager.db is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Base de datos no disponible. Verifica la conexión a MongoDB."
-        )
-
     level_defaults = {
         1: (3, "facil"),
         2: (5, "seminormal"),
@@ -863,25 +893,29 @@ async def generate_game_from_folder(
     final_qc = question_count if question_count is not None else def_qc
     final_diff = difficulty if difficulty is not None else def_diff
 
-    # Obtener la carpeta y sus documentos desde MongoDB
+    # Obtener la carpeta y sus documentos
     folder_doc = None
-    try:
-        from bson import ObjectId
+    if db_manager.db is not None:
         try:
-            folder_doc = await db_manager.db["study_folders"].find_one({"_id": ObjectId(folder_id)})
-        except Exception:
-            folder_doc = None
+            from bson import ObjectId
+            try:
+                folder_doc = await db_manager.db["study_folders"].find_one({"_id": ObjectId(folder_id)})
+            except Exception:
+                folder_doc = None
 
-        if not folder_doc:
-            folder_doc = await db_manager.db["study_folders"].find_one({"$or": [{"id": folder_id}, {"_id": folder_id}]})
-    except Exception as e:
-        logger.error(f"Error consultando carpeta {folder_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error consultando la carpeta: {str(e)}")
+            if not folder_doc:
+                folder_doc = await db_manager.db["study_folders"].find_one({"$or": [{"id": folder_id}, {"_id": folder_id}]})
+        except Exception as e:
+            logger.error(f"Error consultando carpeta {folder_id}: {e}")
+
+    # Fallback si no hay base de datos o no se encontró en MongoDB
+    if not folder_doc and folder_id in in_memory_study_folders:
+        folder_doc = in_memory_study_folders[folder_id]
 
     if not folder_doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Carpeta '{folder_id}' no encontrada en la base de datos."
+            detail=f"Carpeta '{folder_id}' no encontrada."
         )
 
     documents = folder_doc.get("documents", [])
@@ -1032,7 +1066,7 @@ async def speak_zen_voice(payload: SpeechRequest):
     - Si el usuario es hombre -> Voz femenina dulce y maternal.
     - Si la usuaria es mujer -> Voz masculina sabia y serena.
     """
-    audio_bytes = voice_service.generate_speech(
+    audio_bytes = await voice_service.generate_speech(
         payload.text,
         voice_id=payload.voice_id,
         profile=payload.profile or "loving_psychologist",

@@ -106,14 +106,8 @@ export default function ArcadeArena() {
     }
   });
 
-  // Modal de Login / Registro (se abre si no hay usuario autenticado)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
-    try {
-      return !localStorage.getItem('hubzy_current_user');
-    } catch {
-      return true;
-    }
-  });
+  // Modal de Login / Registro (siempre inicia abierto en el Login al cargar la aplicación)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
 
   // Modal secundario de edición de perfil (género, edad, apodo)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);

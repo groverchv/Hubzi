@@ -8,14 +8,43 @@ import {
   EyeOff, 
   LogIn, 
   UserPlus, 
-  Sparkles, 
   ShieldCheck, 
-  Heart, 
   AlertCircle,
   GraduationCap,
-  Volume2
+  Volume2,
+  VolumeX,
+  School,
+  Briefcase,
+  Play,
+  CheckCircle2,
+  Zap
 } from 'lucide-react';
 import capybara3dImg from '../assets/capybara_3d.jpg';
+import { capyVoice } from '../utils/capyVoice';
+
+const STUDY_STAGES = [
+  {
+    id: 'school',
+    title: 'Secundaria',
+    icon: School,
+    defaultAge: 16,
+    badge: '12-17 años'
+  },
+  {
+    id: 'college',
+    title: 'Universidad',
+    icon: GraduationCap,
+    defaultAge: 21,
+    badge: '18-25 años'
+  },
+  {
+    id: 'professional',
+    title: 'Profesional',
+    icon: Briefcase,
+    defaultAge: 29,
+    badge: '26+ años'
+  }
+];
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
@@ -25,23 +54,84 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [gender, setGender] = useState('masculino');
-  const [age, setAge] = useState('20');
+  const [age, setAge] = useState('21');
+  const [studyStage, setStudyStage] = useState('college');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Estados de UI
+  // Estados de UI y prueba de voz
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [isPreviewSpeaking, setIsPreviewSpeaking] = useState(false);
 
   if (!isOpen) return null;
 
   const isMaleUser = gender === 'masculino';
-  const assignedVoiceLabel = isMaleUser ? 'Voz Femenina dulce (Capi)' : 'Voz Masculina sabia (Capi)';
+  const assignedVoiceTitle = isMaleUser 
+    ? 'Voz Femenina (Dulce y Maternal)' 
+    : 'Voz Masculina (Cálida y Protectora)';
 
   const handleToggleMode = (newMode) => {
     setMode(newMode);
     setErrorMsg(null);
     setSuccessMsg(null);
+    capyVoice.stop();
+    setIsPreviewSpeaking(false);
+  };
+
+  // Probar la voz en tiempo real
+  const handleTestVoicePreview = async () => {
+    if (isPreviewSpeaking) {
+      capyVoice.stop();
+      setIsPreviewSpeaking(false);
+      return;
+    }
+
+    const testName = username.trim() || 'estudiante';
+    const previewPhrase = isMaleUser
+      ? `¡Hola ${testName}! Soy Capi. Voy a cuidar de tu mente y acompañarte en cada desafío.`
+      : `¡Hola ${testName}! Soy Capi. Cuenta conmigo para mantener la calma y superar cada reto.`;
+
+    setIsPreviewSpeaking(true);
+    try {
+      await capyVoice.speak(previewPhrase, {
+        user_gender: gender,
+        voice_gender: isMaleUser ? 'female' : 'male',
+        profile: 'loving_psychologist'
+      });
+    } finally {
+      setIsPreviewSpeaking(false);
+    }
+  };
+
+  // Ingreso directo inmediato sin requerir registro previo
+  const handleDirectAccess = () => {
+    capyVoice.stop();
+    let user = null;
+    try {
+      const saved = localStorage.getItem('hubzy_current_user');
+      if (saved) user = JSON.parse(saved);
+    } catch (_) {}
+
+    if (!user) {
+      user = {
+        id: `user_guest_${Date.now()}`,
+        email: 'invitado@hubzi.local',
+        username: username.trim() || 'Estudiante',
+        gender: gender || 'masculino',
+        age: parseInt(age, 10) || 21,
+        avatar: 'capy_fan',
+        voice_preference: 'auto',
+        assigned_voice_gender: (gender || 'masculino') === 'masculino' ? 'female' : 'male',
+        created_at: 'now'
+      };
+      localStorage.setItem('hubzy_current_user', JSON.stringify(user));
+    }
+
+    setSuccessMsg('Ingreso directo concedido.');
+    setTimeout(() => {
+      onAuthSuccess(user);
+    }, 300);
   };
 
   const handleSubmit = async (e) => {
@@ -73,6 +163,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
 
     setIsLoading(true);
+    capyVoice.stop();
 
     try {
       const endpoint = mode === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/register';
@@ -99,7 +190,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       if (res.ok && data.user) {
         setSuccessMsg(mode === 'login' ? '¡Bienvenido de vuelta!' : '¡Cuenta creada con éxito!');
         
-        // Guardar token y usuario
         if (data.token) {
           localStorage.setItem('hubzy_auth_token', data.token);
         }
@@ -112,21 +202,20 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         setErrorMsg(data.detail || 'Ocurrió un error al procesar tu solicitud.');
       }
     } catch (err) {
-      console.warn("Error en autenticación API, intentando fallback:", err);
-      // Fallback local en caso de desconexión momentánea de red
+      console.warn("Error de conexión API, usando modo local:", err);
       const fallbackUser = {
         id: `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
         email: cleanEmail,
-        username: mode === 'register' ? username.trim() : cleanEmail.split('@')[0],
+        username: mode === 'register' ? username.trim() : (cleanEmail.split('@')[0] || 'Estudiante'),
         gender: mode === 'register' ? gender : 'masculino',
-        age: mode === 'register' ? parseInt(age, 10) : 20,
+        age: mode === 'register' ? parseInt(age, 10) : 21,
         avatar: 'capy_fan',
         voice_preference: 'auto',
         assigned_voice_gender: (mode === 'register' ? gender : 'masculino') === 'masculino' ? 'female' : 'male',
         created_at: 'now'
       };
       localStorage.setItem('hubzy_current_user', JSON.stringify(fallbackUser));
-      setSuccessMsg('Acceso local concedido.');
+      setSuccessMsg('Acceso concedido.');
       setTimeout(() => {
         onAuthSuccess(fallbackUser);
       }, 500);
@@ -136,299 +225,352 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 20 }}
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.92, y: 20 }}
-        className="relative w-full max-w-md rounded-3xl bg-gradient-to-b from-[#151f30] to-[#0d1422] border-2 border-cyan-500/50 p-6 sm:p-7 text-slate-100 shadow-[0_0_60px_rgba(6,182,212,0.35)] overflow-hidden"
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className={`relative w-full rounded-2xl bg-[#0f172a] border border-slate-700 p-5 sm:p-6 text-slate-100 shadow-2xl overflow-hidden ${
+          mode === 'register' ? 'max-w-xl' : 'max-w-md'
+        }`}
       >
-        {/* Glow de fondo */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Header con Capibara y Título */}
-        <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-slate-700/70">
-          <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-cyan-400 shadow-md shrink-0 bg-slate-800">
-            <img src={capybara3dImg} alt="Capi Guardián" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono font-black uppercase text-cyan-400 tracking-wider">
-                Portal de Acceso
-              </span>
-              <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50 text-[9px] font-mono text-cyan-300 font-bold">
+        {/* Cabecera limpia y sólida */}
+        <div className="flex items-center justify-between gap-4 mb-4 pb-3.5 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-800">
+              <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <span className="text-[11px] font-mono font-semibold uppercase text-cyan-400">
                 Hubzi Arena
               </span>
+              <h2 className="text-lg sm:text-xl font-bold text-white leading-tight">
+                {mode === 'login' ? 'Iniciar Sesión' : 'Registro de Cuenta'}
+              </h2>
             </div>
-            <h2 className="text-xl font-black text-white tracking-wide mt-0.5">
-              {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
-            </h2>
           </div>
-        </div>
 
-        {/* Selector de Pestañas (Login / Registro) */}
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 mb-5">
-          <button
-            type="button"
-            onClick={() => handleToggleMode('login')}
-            className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              mode === 'login'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Ingresar</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleToggleMode('register')}
-            className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              mode === 'register'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Registrarme</span>
-          </button>
+          {/* Pestañas Sólidas (Sin degradado) */}
+          <div className="flex p-1 rounded-xl bg-[#1e293b] border border-slate-700">
+            <button
+              type="button"
+              onClick={() => handleToggleMode('login')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                mode === 'login'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleMode('register')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                mode === 'register'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Registro
+            </button>
+          </div>
         </div>
 
         {/* Mensajes de Alerta / Éxito */}
         <AnimatePresence>
           {errorMsg && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/60 text-rose-200 text-xs flex items-center gap-2.5"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="mb-3.5 p-2.5 rounded-xl bg-red-950/80 border border-red-700 text-red-200 text-xs flex items-center gap-2"
             >
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span className="leading-snug">{errorMsg}</span>
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{errorMsg}</span>
             </motion.div>
           )}
 
           {successMsg && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/60 text-emerald-200 text-xs flex items-center gap-2.5"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="mb-3.5 p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-200 text-xs flex items-center gap-2"
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="leading-snug">{successMsg}</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="font-semibold">{successMsg}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-3.5">
-          
-          {/* Campo Nombre de Usuario (Solo en Registro) */}
-          {mode === 'register' && (
+        {/* FORMULARIO */}
+        {mode === 'login' ? (
+          /* ================= LOGIN ================= */
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-purple-400" />
-                <span>Nombre o Apodo</span>
+              <label className="block text-xs text-slate-300 font-medium mb-1 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-slate-400" />
+                <span>Correo Electrónico</span>
               </label>
               <input
-                type="text"
+                type="email"
                 required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ej. Alex, Sofía, Mateo..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 focus:border-purple-400 focus:outline-none text-white text-xs font-medium placeholder:text-slate-500 transition-colors"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu.correo@ejemplo.com"
+                className="w-full px-3 py-2 rounded-xl bg-[#1e293b] border border-slate-700 focus:border-blue-500 text-white text-xs placeholder:text-slate-500 transition-colors outline-none"
               />
             </div>
-          )}
 
-          {/* Campo Correo Electrónico */}
-          <div>
-            <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Correo Electrónico</span>
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu.correo@ejemplo.com"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 focus:border-cyan-400 focus:outline-none text-white text-xs font-medium placeholder:text-slate-500 transition-colors"
-            />
-          </div>
+            <div>
+              <label className="block text-xs text-slate-300 font-medium mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Contraseña</span>
+                </span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 pr-10 rounded-xl bg-[#1e293b] border border-slate-700 focus:border-blue-500 text-white text-xs font-mono placeholder:text-slate-500 transition-colors outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
-          {/* Campo Contraseña con Toggle de Ojo */}
-          <div>
-            <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-400" />
-                <span>Contraseña</span>
-              </span>
-              {mode === 'register' && (
-                <span className="text-[10px] text-slate-400 font-normal">Mín. 6 caracteres</span>
-              )}
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900/90 border border-slate-700 focus:border-amber-400 focus:outline-none text-white text-xs font-mono placeholder:text-slate-500 transition-colors"
-              />
+            <div className="pt-2">
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer disabled:opacity-50"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {isLoading ? (
+                  <span>Verificando...</span>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Iniciar Sesión</span>
+                  </>
+                )}
               </button>
             </div>
-          </div>
-
-          {/* Opciones de Perfil (Solo en Registro) */}
-          {mode === 'register' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="space-y-3 pt-1 border-t border-slate-800"
-            >
-              {/* Selector de Género */}
+          </form>
+        ) : (
+          /* ================= REGISTRO: UN SOLO PASO ================= */
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Fila 1: Nombre y Correo en 2 columnas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
-                  Sexo / Género
+                <label className="block text-xs text-slate-300 font-medium mb-1 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Nombre o Apodo</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setGender('masculino')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
-                      gender === 'masculino'
-                        ? 'bg-sky-950/80 border-sky-400 text-sky-200 shadow-sm'
-                        : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <span>Hombre</span>
-                    <span className="text-[9px] font-mono text-pink-400">Voz Capi Fem.</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setGender('femenino')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
-                      gender === 'femenino'
-                        ? 'bg-rose-950/80 border-rose-400 text-rose-200 shadow-sm'
-                        : 'bg-slate-900/60 border-slate-700 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <span>Mujer</span>
-                    <span className="text-[9px] font-mono text-cyan-400">Voz Capi Masc.</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Selector de Edad */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Edad: <strong className="text-amber-300">{age} años</strong></span>
-                  </label>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {parseInt(age, 10) < 18 ? 'Escolar' : parseInt(age, 10) <= 25 ? 'Universitario' : 'Adulto'}
-                  </span>
-                </div>
                 <input
-                  type="range"
-                  min="10"
-                  max="70"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Ej. Martín, Sofía..."
+                  className="w-full px-3 py-2 rounded-xl bg-[#1e293b] border border-slate-700 focus:border-blue-500 text-white text-xs placeholder:text-slate-500 transition-colors outline-none"
                 />
               </div>
 
-              {/* Indicador de voz complementaria asignada */}
-              <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center gap-2">
-                <Volume2 className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span className="text-[11px] text-slate-300 font-mono">
-                  Asignado: <strong className="text-cyan-300">{assignedVoiceLabel}</strong>
+              <div>
+                <label className="block text-xs text-slate-300 font-medium mb-1 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Correo Electrónico</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu.correo@ejemplo.com"
+                  className="w-full px-3 py-2 rounded-xl bg-[#1e293b] border border-slate-700 focus:border-blue-500 text-white text-xs placeholder:text-slate-500 transition-colors outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Fila 2: Contraseña */}
+            <div>
+              <label className="block text-xs text-slate-300 font-medium mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Contraseña</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Mínimo 6 caracteres</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 pr-10 rounded-xl bg-[#1e293b] border border-slate-700 focus:border-blue-500 text-white text-xs font-mono placeholder:text-slate-500 transition-colors outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Fila 3: Sexo / Género */}
+            <div>
+              <label className="block text-xs text-slate-300 font-medium mb-1">
+                Sexo / Género (Para adaptar la voz de Capi)
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setGender('masculino')}
+                  className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                    gender === 'masculino'
+                      ? 'bg-[#1e293b] border-blue-500 text-white'
+                      : 'bg-[#1e293b]/60 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="text-xs font-bold flex items-center justify-between">
+                    <span>Hombre</span>
+                    <span className="text-[10px] text-cyan-400 font-mono">Voz Femenina</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Voz maternal y dulce</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setGender('femenino')}
+                  className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                    gender === 'femenino'
+                      ? 'bg-[#1e293b] border-blue-500 text-white'
+                      : 'bg-[#1e293b]/60 border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="text-xs font-bold flex items-center justify-between">
+                    <span>Mujer</span>
+                    <span className="text-[10px] text-cyan-400 font-mono">Voz Masculina</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Voz sabia y protectora</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Fila 4: Nivel de Estudio en 3 chips sólidos */}
+            <div>
+              <label className="block text-xs text-slate-300 font-medium mb-1">
+                Nivel Académico
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {STUDY_STAGES.map((st) => {
+                  const Icon = st.icon;
+                  const isSelected = studyStage === st.id;
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => {
+                        setStudyStage(st.id);
+                        setAge(String(st.defaultAge));
+                      }}
+                      className={`p-2 rounded-xl border text-center transition-colors cursor-pointer flex flex-col items-center gap-0.5 ${
+                        isSelected
+                          ? 'bg-[#1e293b] border-blue-500 text-white'
+                          : 'bg-[#1e293b]/60 border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 text-cyan-400" />
+                      <span className="text-xs font-semibold">{st.title}</span>
+                      <span className="text-[9px] text-slate-400">{st.badge}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Fila 5: Barra sólida de prueba de voz */}
+            <div className="p-2.5 rounded-xl bg-[#1e293b] border border-slate-700 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Volume2 className={`w-4 h-4 text-cyan-400 ${isPreviewSpeaking ? 'animate-pulse' : ''}`} />
+                <span className="text-xs text-slate-200">
+                  {assignedVoiceTitle}
                 </span>
               </div>
-            </motion.div>
-          )}
 
-          {/* Botón de Enviar */}
-          <div className="pt-2 space-y-2">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 cursor-pointer ${
-                isLoading 
-                  ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                  : mode === 'login'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-[0_0_25px_rgba(6,182,212,0.4)]'
-                  : 'bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white shadow-[0_0_25px_rgba(168,85,247,0.4)]'
-              }`}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                  <span>Procesando...</span>
-                </div>
-              ) : mode === 'login' ? (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  <span>Iniciar Sesión en Hubzi</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  <span>Crear Cuenta y Comenzar</span>
-                </>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={handleTestVoicePreview}
+                className={`px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  isPreviewSpeaking
+                    ? 'bg-red-900 border-red-700 text-white'
+                    : 'bg-slate-700 hover:bg-slate-600 border-slate-600 text-white'
+                }`}
+              >
+                {isPreviewSpeaking ? (
+                  <>
+                    <VolumeX className="w-3.5 h-3.5" />
+                    <span>Pausar</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3 h-3 fill-current" />
+                    <span>Probar Voz</span>
+                  </>
+                )}
+              </button>
+            </div>
 
-            {/* Ingreso Directo sin registrarse (Modo Invitado) */}
-            <button
-              type="button"
-              onClick={() => {
-                const guestUser = {
-                  id: `guest_${Date.now().toString(36)}`,
-                  email: 'invitado@hubzi.app',
-                  username: 'Invitado',
-                  gender: 'masculino',
-                  age: 20,
-                  avatar: 'capy_fan',
-                  voice_preference: 'auto',
-                  assigned_voice_gender: 'female',
-                  is_guest: true,
-                  created_at: new Date().toISOString()
-                };
-                localStorage.setItem('hubzy_current_user', JSON.stringify(guestUser));
-                setSuccessMsg('¡Ingreso directo concedido! Bienvenido.');
-                setTimeout(() => {
-                  onAuthSuccess(guestUser);
-                }, 400);
-              }}
-              className="w-full py-2.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800/90 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(6,182,212,0.25)]"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Ingresar Directo (Sin Registro / Invitado)</span>
-            </button>
-          </div>
-        </form>
+            {/* Botón de Submit Registro (Sólido) */}
+            <div className="pt-1">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <span>Creando cuenta...</span>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Crear Cuenta</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
 
-        {/* Footer / Nota de privacidad de documentos */}
-        <div className="mt-4 pt-3 border-t border-slate-800/80 text-center">
-          <p className="text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            <span>Tus documentos y carpetas son 100% privados e independientes</span>
+        {/* Botón de Ingreso Directo (Sólido, sin degradado) */}
+        <div className="mt-3.5 pt-3 border-t border-slate-800">
+          <button
+            type="button"
+            onClick={handleDirectAccess}
+            className="w-full py-2.5 px-4 rounded-xl bg-[#1e293b] hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-slate-200 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-400" />
+            <span>Ingreso Directo</span>
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-2.5 text-center">
+          <p className="text-[10px] text-slate-500 font-mono flex items-center justify-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-slate-400" />
+            <span>Tus carpetas de estudio son 100% privadas</span>
           </p>
         </div>
       </motion.div>
