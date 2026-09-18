@@ -26,6 +26,8 @@ import {
   HelpCircle,
   Mic,
   MicOff,
+  Music,
+  Music2,
   LogIn as LogInIcon,
   Folder as FolderIcon,
   User as UserIcon,
@@ -44,7 +46,9 @@ import { useArenaSocket } from '../hooks/useArenaSocket';
 import capybara3dImg from '../assets/capybara_3d.jpg';
 import { capyAudio } from '../utils/capyAudio';
 import { capyVoice } from '../utils/capyVoice';
+import { hubziAmbient } from '../utils/hubziAmbient';
 import { detectDomainCategory, resolveDynamicIcon } from '../utils/domainIcons';
+import { STATIC_ADMIN_GAME } from '../utils/staticAdminGame';
 
 
 // 5 NIVELES DE PROGRESIÓN PEDAGÓGICA Y DIFICULTAD
@@ -83,6 +87,7 @@ export default function ArcadeArena() {
   const [capySpeech, setCapySpeech] = useState({ text: '', isVisible: false, mood: 'idle' });
   const [isCapySpeaking, setIsCapySpeaking] = useState(false);
   const [isCapyMuted, setIsCapyMuted] = useState(false);
+  const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
   const capySpeechTimeoutRef = React.useRef(null);
   const speakTimeoutRef = React.useRef(null);
 
@@ -172,8 +177,13 @@ export default function ArcadeArena() {
         }, 3200);
       }
     });
+    // Sincronización de estado de música ambient
+    const unsubscribeAmbient = hubziAmbient.subscribe((state) => {
+      setIsAmbientPlaying(state.isPlaying);
+    });
     return () => {
       unsubscribe();
+      unsubscribeAmbient();
       if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
     };
   }, []);
@@ -694,6 +704,23 @@ export default function ArcadeArena() {
     setIsGeneratingArena(true);
     setSuccessNotif(`Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}]...`);
 
+    // Si la carpeta corresponde al documento estático de administración o no hay conexión con el backend
+    const isStaticAdmin = targetFolder.id === 'folder_administracion_default' || 
+                          targetFolder.name?.toLowerCase().includes('administra') ||
+                          targetFolder.documents?.some(d => d.name?.toLowerCase().includes('administracion'));
+
+    if (isStaticAdmin && STATIC_ADMIN_GAME.levels[targetLevel]) {
+      const staticLevelData = STATIC_ADMIN_GAME.levels[targetLevel];
+      const success = applyBoardData(staticLevelData, targetFolder.name || 'Administración General', targetLevel);
+      if (success) {
+        setCurrentLevel(targetLevel);
+        setIsGeneratingArena(false);
+        setSuccessNotif(`Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) [administracion.pdf] listo.`);
+        setTimeout(() => setSuccessNotif(null), 4000);
+        return true;
+      }
+    }
+
     try {
       const res = await fetch(
         `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${force ? '&force=true' : ''}`,
@@ -711,11 +738,27 @@ export default function ArcadeArena() {
         }
       } else {
         const err = await res.json().catch(() => ({}));
+        if (STATIC_ADMIN_GAME.levels[targetLevel]) {
+          const fallbackData = STATIC_ADMIN_GAME.levels[targetLevel];
+          applyBoardData(fallbackData, targetFolder.name || 'Administración General', targetLevel);
+          setCurrentLevel(targetLevel);
+          setSuccessNotif(`Nivel ${targetLevel} listo (reactivos de administracion.pdf).`);
+          setTimeout(() => setSuccessNotif(null), 4000);
+          return true;
+        }
         setSuccessNotif(`${err.detail || 'No se pudieron generar los reactivos del nivel.'}`);
         setTimeout(() => setSuccessNotif(null), 5000);
       }
     } catch (e) {
-      console.warn("Error cargando nivel:", e);
+      console.warn("Error cargando nivel, usando reactivos estáticos de administracion.pdf:", e);
+      if (STATIC_ADMIN_GAME.levels[targetLevel]) {
+        const fallbackData = STATIC_ADMIN_GAME.levels[targetLevel];
+        applyBoardData(fallbackData, targetFolder.name || 'Administración General', targetLevel);
+        setCurrentLevel(targetLevel);
+        setSuccessNotif(`Nivel ${targetLevel} listo (reactivos de administracion.pdf).`);
+        setTimeout(() => setSuccessNotif(null), 4000);
+        return true;
+      }
       setSuccessNotif("Error al conectarse con el servidor.");
       setTimeout(() => setSuccessNotif(null), 5000);
     } finally {
@@ -1665,6 +1708,25 @@ export default function ArcadeArena() {
               title={isCapyMuted ? "Activar voz de Hubzi" : "Silenciar voz de Hubzi"}
             >
               {isCapyMuted ? <VolumeX className="w-3 h-3 text-rose-400" /> : <Volume2 className="w-3 h-3 text-cyan-300" />}
+            </button>
+
+            {/* Botón Música Ambient Calmante */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                hubziAmbient.toggle();
+              }}
+              className={`p-1 rounded-full border transition-all duration-300 shadow-md cursor-pointer ${
+                isAmbientPlaying
+                  ? 'bg-purple-900/90 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-2 ring-purple-400/40'
+                  : 'bg-slate-900/90 border-slate-700 hover:border-purple-400 text-slate-400 hover:text-purple-300'
+              }`}
+              title={isAmbientPlaying ? "Detener música calmante" : "Reproducir música ambient calmante"}
+            >
+              {isAmbientPlaying
+                ? <Music2 className="w-3 h-3 text-purple-300 animate-pulse" />
+                : <Music className="w-3 h-3" />
+              }
             </button>
           </div>
 

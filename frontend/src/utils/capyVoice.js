@@ -90,28 +90,29 @@ class CapyVoiceEngine {
   }
 
   /**
-   * Reproduce voz de Capi Psicólogo:
-   * - Si el usuario es Hombre -> Voz Femenina dulce y maternal.
-   * - Si la usuaria es Mujer -> Voz Masculina sabia y serena.
+   * Reproduce voz de Capi Psicólogo usando 100% síntesis LOCAL del navegador.
+   * Cero latencia, sin llamadas al backend ni a ElevenLabs.
+   * - Usuario Hombre → Voz Femenina
+   * - Usuaria Mujer  → Voz Masculina
    */
-  async speak(text, options = {}) {
+  speak(text, options = {}) {
     if (!text || this.isMuted) return;
 
-    // Asignar un ID secuencial único a esta solicitud
+    // ID único para anti-colisión
     const requestId = ++this.currentRequestId;
 
-    // Detener de inmediato cualquier emisión previa
+    // Cortar cualquier voz previa inmediatamente
     this.stop();
 
     this.markSpoken(text);
     this.isSpeaking = true;
     this._notify({ isSpeaking: true, text, mood: options.mood || 'talking' });
 
-    // Determinar la asignación de voz según el perfil del usuario
+    // Determinar género de voz según perfil del usuario
     const activeUser = options.user || this.currentUser;
     const userGender = options.user_gender || activeUser?.gender || 'masculino';
     const isMaleUser = userGender === 'masculino' || userGender === 'hombre';
-    
+
     let voiceGender = options.voice_gender;
     if (!voiceGender) {
       if (activeUser?.voice_preference && activeUser.voice_preference !== 'auto') {
@@ -121,152 +122,81 @@ class CapyVoiceEngine {
       }
     }
 
-    const cacheKey = `${text}_${options.profile || 'loving'}_${options.stress_level || 0}_${voiceGender}`;
-
-    // 1. Verificar si ya tenemos el audio MP3 en caché de memoria
-    if (this.audioCache.has(cacheKey)) {
-      try {
-        if (this.currentRequestId !== requestId) return; // Se inició otra locución en el intervalo
-        const audioUrl = this.audioCache.get(cacheKey);
-        const audio = new Audio(audioUrl);
-        this.currentAudio = audio;
-        audio.onended = () => {
-          if (this.currentRequestId === requestId) {
-            this.isSpeaking = false;
-            this._notify({ isSpeaking: false, text });
-          }
-        };
-        audio.onerror = () => {
-          if (this.currentRequestId === requestId) {
-            this.isSpeaking = false;
-            this._notify({ isSpeaking: false, text });
-          }
-        };
-        await audio.play();
-        return;
-      } catch (err) {
-        console.warn("Error reproduciendo audio cacheado de Capi:", err);
-      }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      this.isSpeaking = false;
+      this._notify({ isSpeaking: false, text });
+      return;
     }
 
-    // 2. Solicitar al backend Hubzy con ElevenLabs / Edge-TTS adaptativo
-    this.abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => {
-      try { this.abortController.abort(); } catch (_) {}
-    }, 2200);
+    window.speechSynthesis.cancel();
 
-    try {
-      const response = await fetch('/api/v1/voice/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: this.abortController.signal,
-        body: JSON.stringify({
-          text,
-          profile: options.profile || 'loving_psychologist',
-          stress_level: options.stress_level !== undefined ? options.stress_level : null,
-          user_gender: userGender,
-          voice_gender: voiceGender
-        })
-      });
-      clearTimeout(fetchTimeout);
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES';
+    utterance.rate = options.stress_level && options.stress_level >= 0.6 ? 0.82 : 0.90;
 
-      // Si llegó otra solicitud mientras se esperaba la respuesta de red, descartar
-      if (this.currentRequestId !== requestId) return;
+    // Seleccionar la mejor voz española disponible según género
+    const trySetVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) return false;
 
-      if (response.ok) {
-        const blob = await response.blob();
-        if (this.currentRequestId !== requestId) return;
-
-        const audioUrl = URL.createObjectURL(blob);
-        this.audioCache.set(cacheKey, audioUrl);
-
-        const audio = new Audio(audioUrl);
-        this.currentAudio = audio;
-        audio.onended = () => {
-          if (this.currentRequestId === requestId) {
-            this.isSpeaking = false;
-            this._notify({ isSpeaking: false, text });
-          }
-        };
-        audio.onerror = () => {
-          if (this.currentRequestId === requestId) {
-            this.isSpeaking = false;
-            this._notify({ isSpeaking: false, text });
-          }
-        };
-        await audio.play();
-        return;
-      }
-    } catch (apiErr) {
-      clearTimeout(fetchTimeout);
-      if (apiErr.name === 'AbortError') {
-        console.info("Voz de backend tomó más de 2.2s, usando síntesis de voz en tiempo real del navegador.");
+      let esVoice = null;
+      if (voiceGender === 'male') {
+        esVoice =
+          voices.find(v => v.lang.startsWith('es') && (
+            v.name.includes('Jorge') || v.name.includes('Pablo') ||
+            v.name.includes('Diego') || v.name.includes('Alvaro') ||
+            v.name.includes('Raul') || v.name.includes('Male') || v.name.includes('Hombre')
+          )) ||
+          voices.find(v => v.lang.startsWith('es') && v.name.includes('Alonso')) ||
+          voices.find(v => v.lang === 'es-ES') ||
+          voices.find(v => v.lang.startsWith('es'));
+        utterance.pitch = 0.92;
       } else {
-        console.warn("Backend TTS no disponible, activando síntesis de respaldo inmediata:", apiErr);
+        esVoice =
+          voices.find(v => v.lang.startsWith('es') && (
+            v.name.includes('Monica') || v.name.includes('Paulina') ||
+            v.name.includes('Helena') || v.name.includes('Sabina') ||
+            v.name.includes('Lucia') || v.name.includes('Female') || v.name.includes('Mujer')
+          )) ||
+          voices.find(v => v.lang === 'es-ES' && v.name.includes('a')) ||
+          voices.find(v => v.lang.startsWith('es'));
+        utterance.pitch = 1.20;
       }
-    }
 
-    if (this.currentRequestId !== requestId) return;
+      if (esVoice) utterance.voice = esVoice;
+      return true;
+    };
 
-    // 3. Fallback inteligente: Web Speech Synthesis del navegador con voz complementaria
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'es-ES';
-        utterance.rate = options.stress_level && options.stress_level >= 0.6 ? 0.82 : 0.92;
-        
-        const voices = window.speechSynthesis.getVoices();
-        let esVoice = null;
-        if (voiceGender === 'male') {
-          // Buscar voz masculina española
-          esVoice = voices.find(v => v.lang.startsWith('es') && (
-            v.name.includes('Jorge') || v.name.includes('Pablo') || v.name.includes('Diego') || 
-            v.name.includes('Alvaro') || v.name.includes('Raul') || v.name.includes('Male') || v.name.includes('Hombre')
-          ));
-          utterance.pitch = 0.95; // Tono más grave, sereno y protector
-        } else {
-          // Buscar voz femenina española
-          esVoice = voices.find(v => v.lang.startsWith('es') && (
-            v.name.includes('Monica') || v.name.includes('Paulina') || v.name.includes('Helena') || 
-            v.name.includes('Sabina') || v.name.includes('Lucia') || v.name.includes('Female') || v.name.includes('Mujer')
-          ));
-          utterance.pitch = 1.30; // Cálido y tierno femenino
-        }
-
-        if (!esVoice) {
-          esVoice = voices.find(v => v.lang.startsWith('es'));
-        }
-        if (esVoice) utterance.voice = esVoice;
-
-        utterance.onend = () => {
-          if (this.currentRequestId === requestId) {
-            this.isSpeaking = false;
-            this._notify({ isSpeaking: false, text });
-          }
-        };
-        utterance.onerror = () => {
-          if (this.currentRequestId === requestId) {
-            this.isSpeaking = false;
-            this._notify({ isSpeaking: false, text });
-          }
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } catch (speechErr) {
-        console.warn("SpeechSynthesis error:", speechErr);
-        if (this.currentRequestId === requestId) {
-          this.isSpeaking = false;
-          this._notify({ isSpeaking: false, text });
-        }
+    utterance.onend = () => {
+      if (this.currentRequestId === requestId) {
+        this.isSpeaking = false;
+        this._notify({ isSpeaking: false, text });
       }
+    };
+    utterance.onerror = () => {
+      if (this.currentRequestId === requestId) {
+        this.isSpeaking = false;
+        this._notify({ isSpeaking: false, text });
+      }
+    };
+
+    // Las voces pueden no estar listas inmediatamente al iniciar el navegador
+    if (!trySetVoice()) {
+      // Esperar que se carguen las voces y reintentar
+      const onVoicesChanged = () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        if (this.currentRequestId !== requestId) return;
+        trySetVoice();
+        try { window.speechSynthesis.speak(utterance); } catch (_) {}
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+      // También intentar de inmediato por si ya están disponibles
+      try { window.speechSynthesis.speak(utterance); } catch (_) {}
     } else {
-      setTimeout(() => {
-        if (this.currentRequestId === requestId) {
-          this.isSpeaking = false;
-          this._notify({ isSpeaking: false, text });
-        }
-      }, 3000);
+      try { window.speechSynthesis.speak(utterance); } catch (_) {
+        this.isSpeaking = false;
+        this._notify({ isSpeaking: false, text });
+      }
     }
   }
 

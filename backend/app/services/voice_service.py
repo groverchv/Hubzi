@@ -27,6 +27,7 @@ EDGE_VOICE_MALE = "es-ES-AlvaroNeural"           # Masculina serena y empática
 class VoiceService:
     def __init__(self):
         self.api_key = settings.ELEVENLABS_API_KEY
+        self.elevenlabs_quota_exceeded = False
 
     def determine_voice_gender(
         self, 
@@ -131,27 +132,18 @@ class VoiceService:
             backup_voice_2 = MALE_VOICE_BACKUP2
             edge_voice_name = EDGE_VOICE_MALE
 
-        # 2. Si hay API key de ElevenLabs, intentar
-        if self.api_key and len(self.api_key.strip()) > 5:
-            logger.info(
-                f"Sintetizando voz con ElevenLabs (genero: {target_gender}, voz: {primary_voice}, vel: {speed}x)..."
-            )
+        # 2. Si hay API key de ElevenLabs y no se ha agotado la cuota, intentar
+        if self.api_key and len(self.api_key.strip()) > 5 and not self.elevenlabs_quota_exceeded:
             res_bytes = self._call_elevenlabs(primary_voice, payload)
             if res_bytes:
                 return res_bytes
 
-            if primary_voice != backup_voice_1:
+            if not self.elevenlabs_quota_exceeded and primary_voice != backup_voice_1:
                 res_bytes = self._call_elevenlabs(backup_voice_1, payload)
                 if res_bytes:
                     return res_bytes
 
-            if primary_voice != backup_voice_2:
-                res_bytes = self._call_elevenlabs(backup_voice_2, payload)
-                if res_bytes:
-                    return res_bytes
-
-        # 3. Respaldo Inmediato y de Calidad de Estudio: Edge-TTS Neural
-        logger.info(f"Sintetizando voz con Edge-TTS Neural ({edge_voice_name}, {target_gender})...")
+        # 3. Respaldo Inmediato y Ultra-Rápido: Edge-TTS Neural (Calidad Estudio sin latencia)
         edge_bytes = self._call_edge_tts(text, speed=speed, voice=edge_voice_name)
         if edge_bytes:
             return edge_bytes
@@ -160,7 +152,7 @@ class VoiceService:
 
     def _call_edge_tts(self, text: str, speed: float = 0.92, voice: str = EDGE_VOICE_FEMALE) -> Optional[bytes]:
         """
-        Sintetiza audio con Microsoft Edge Neural TTS en español.
+        Sintetiza audio con Microsoft Edge Neural TTS en español a velocidad ultra rápida.
         """
         try:
             import asyncio
@@ -188,7 +180,7 @@ class VoiceService:
                 if loop.is_running():
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor() as pool:
-                        return pool.submit(lambda: asyncio.run(_synthesize())).result(timeout=10)
+                        return pool.submit(lambda: asyncio.run(_synthesize())).result(timeout=6)
                 else:
                     return loop.run_until_complete(_synthesize())
             except RuntimeError:
@@ -198,7 +190,7 @@ class VoiceService:
             return None
 
     def _call_elevenlabs(self, v_id: str, payload: dict) -> Optional[bytes]:
-        if not self.api_key:
+        if not self.api_key or self.elevenlabs_quota_exceeded:
             return None
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{v_id}"
         headers = {
@@ -213,14 +205,17 @@ class VoiceService:
                 headers=headers,
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=12) as response:
+            with urllib.request.urlopen(req, timeout=3.5) as response:
                 if response.status == 200:
                     return response.read()
-                logger.error(f"ElevenLabs devolvió status code: {response.status}")
                 return None
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="ignore")
-            logger.error(f"Error HTTP ElevenLabs ({v_id}): {e.code} - {err_body}")
+            if e.code == 401 and "quota_exceeded" in err_body:
+                logger.warning("Cuota de ElevenLabs agotada. Activando Edge-TTS Neural instantáneo permanentemente.")
+                self.elevenlabs_quota_exceeded = True
+            else:
+                logger.error(f"Error HTTP ElevenLabs ({v_id}): {e.code} - {err_body}")
             return None
         except Exception as e:
             logger.error(f"Error al conectar con ElevenLabs ({v_id}): {e}")

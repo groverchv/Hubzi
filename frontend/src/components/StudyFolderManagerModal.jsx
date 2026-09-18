@@ -53,16 +53,43 @@ export default function StudyFolderManagerModal({
   const [activeFolderView, setActiveFolderView] = useState(null); // folder object or null
   const fileInputRef = useRef(null);
 
+  // Carpeta por defecto con administracion.pdf integrado
+  const DEFAULT_ADMIN_FOLDER = {
+    id: "folder_administracion_default",
+    name: "Administración General",
+    description: "Origen y desarrollo de la administración (Perspectivas - UCB San Pablo). 11 páginas analizadas.",
+    created_at: "Listo para jugar",
+    user_id: currentUser?.id || "guest",
+    documents: [
+      {
+        id: "doc_administracion_pdf",
+        name: "administracion.pdf",
+        size: "245 KB",
+        uploaded_at: "Integrado",
+        is_processed: true,
+        extracted_text_preview: "La administración es una de las actividades humanas más importantes, encargada de organizar y dirigir el trabajo individual y colectivo..."
+      }
+    ],
+    games: []
+  };
+
   // Cargar las carpetas privadas del usuario activo desde el backend o localStorage
   useEffect(() => {
     if (!isOpen) return;
     const currentKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
     try {
       const saved = localStorage.getItem(currentKey);
-      if (saved) setFolders(JSON.parse(saved));
-      else setFolders([]);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.some(f => f.id === DEFAULT_ADMIN_FOLDER.id || f.name === DEFAULT_ADMIN_FOLDER.name)) {
+          parsed.unshift(DEFAULT_ADMIN_FOLDER);
+        }
+        setFolders(parsed);
+      } else {
+        setFolders([DEFAULT_ADMIN_FOLDER]);
+      }
     } catch {
-      setFolders([]);
+      setFolders([DEFAULT_ADMIN_FOLDER]);
     }
 
     const userIdParam = currentUser?.id ? `?user_id=${currentUser.id}` : '';
@@ -70,8 +97,12 @@ export default function StudyFolderManagerModal({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data && data.folders) {
-          setFolders(data.folders);
-          localStorage.setItem(currentKey, JSON.stringify(data.folders));
+          const list = data.folders;
+          if (!list.some(f => f.id === DEFAULT_ADMIN_FOLDER.id || f.name === DEFAULT_ADMIN_FOLDER.name)) {
+            list.unshift(DEFAULT_ADMIN_FOLDER);
+          }
+          setFolders(list);
+          localStorage.setItem(currentKey, JSON.stringify(list));
         }
       })
       .catch(() => {});
@@ -330,16 +361,7 @@ export default function StudyFolderManagerModal({
                   <FolderArchive className="w-8 h-8 text-amber-400" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
-                      <Lock className="w-3 h-3 text-amber-400" />
-                      Baúl Privado de {currentUser?.username || 'Estudio'}
-                    </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/70 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                      100% Exclusivo
-                    </span>
-                  </div>
+
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
                     Mis Carpetas de Estudio
                   </h2>

@@ -135,7 +135,11 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
 
         const audio = new Audio(audioUrl);
         currentAudioRef.current = audio;
-        await audio.play();
+        audio.play().catch((playErr) => {
+          if (playErr.name !== 'AbortError') {
+            console.warn("Audio play error:", playErr);
+          }
+        });
         return;
       }
     } catch (err) {
@@ -152,40 +156,32 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
     }
   };
 
-  // Precarga suave y secuencial de frases en segundo plano
+  // Precarga inmediata de todas las frases Zen para que no haya ningún retraso
   useEffect(() => {
     if (!isOpen) return;
 
     let isSubscribed = true;
     const phrasesToPreload = Object.values(ZEN_PHRASES);
 
-    const preloadNext = async (index) => {
-      if (!isSubscribed || index >= phrasesToPreload.length) return;
-      const phrase = phrasesToPreload[index];
-      if (!audioCacheRef.current.has(phrase)) {
-        try {
-          const res = await fetch('/api/v1/voice/speak', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: phrase, profile: 'zen' })
-          });
-          if (res.ok && isSubscribed) {
-            const blob = await res.blob();
-            const audioUrl = URL.createObjectURL(blob);
-            audioCacheRef.current.set(phrase, audioUrl);
-          }
-        } catch (e) {}
-      }
-      // Pequeño intervalo de 800ms entre precargas para no saturar la red
-      if (isSubscribed) {
-        setTimeout(() => preloadNext(index + 1), 800);
-      }
-    };
+    // Precargar en paralelo de inmediato
+    phrasesToPreload.forEach(async (phrase) => {
+      if (audioCacheRef.current.has(phrase)) return;
+      try {
+        const res = await fetch('/api/v1/voice/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: phrase, profile: 'zen' })
+        });
+        if (res.ok && isSubscribed) {
+          const blob = await res.blob();
+          const audioUrl = URL.createObjectURL(blob);
+          audioCacheRef.current.set(phrase, audioUrl);
+        }
+      } catch (e) {}
+    });
 
-    const timer = setTimeout(() => preloadNext(0), 1200);
     return () => {
       isSubscribed = false;
-      clearTimeout(timer);
     };
   }, [isOpen]);
 
@@ -196,12 +192,10 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
       setTimeLeft(BREATH_PHASES[0].duration);
       setCycleCount(1);
       setHasStarted(true);
-      // Limpiar caché para que se regeneren con los nuevos parámetros de voz terapéutica
-      audioCacheRef.current.clear();
 
       const introTimer = setTimeout(() => {
         speakVoice(ZEN_PHRASES.intro);
-      }, 600); // Pequeña pausa inicial para que el usuario vea el modal antes de escuchar la voz
+      }, 300); // Pequeña pausa inicial para que el usuario vea el modal antes de escuchar la voz
 
       return () => {
         clearTimeout(introTimer);
