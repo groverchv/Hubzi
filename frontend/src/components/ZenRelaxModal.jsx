@@ -48,14 +48,13 @@ const BREATH_PHASES = [
   }
 ];
 
-// Frases terapéuticas con pausas naturales (comas y puntos suspensivos guían el ritmo de la voz)
+// Frases terapéuticas concisas y sincronizadas con los tiempos exactos de respiración (4s, 7s, 8s)
 const ZEN_PHRASES = {
-  intro:  "Cierra los ojos... respira conmigo... Vamos a soltar todo lo que no necesitas... juntos.",
-  inhale: "Inhala... despacio... siente cómo el aire llena tu pecho... poco a poco.",
-  hold:   "Sostén el aire... con calma... tu mente se aquieta... todo está bien.",
-  exhale: "Exhala... muy despacio... suelta cualquier tensión... suelta cualquier pensamiento.",
-  cycle2: "Segundo ciclo... inhala de nuevo... profundo... y sereno.",
-  finish: "Maravilloso... tu mente está en paz... y tu cuerpo está listo. Confía en ti."
+  inhale: "Inhala despacio... llena tu pecho de aire...",
+  hold:   "Sostén el aire... con calma... siente la paz...",
+  exhale: "Exhala muy lento... suelta toda la tensión...",
+  cycle2: "Inhala otra vez... profundo y sereno...",
+  finish: "Excelente... tu mente está tranquila y en paz."
 };
 
 export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
@@ -64,207 +63,106 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
   const [cycleCount, setCycleCount] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
-  const [isVoiceLoading, setIsVoiceLoading] = useState(false);
 
   const totalCycles = 2; // Exactamente 2 repeticiones terapéuticas recomendadas
-  const currentPhase = BREATH_PHASES[phaseIndex];
-  const timerRef = useRef(null);
-  const currentAudioRef = useRef(null);
-  const audioCacheRef = useRef(new Map());
-  const activeRequestIdRef = useRef(0);
+  const currentPhase = BREATH_PHASES[phaseIndex] || BREATH_PHASES[0];
 
-  // Silenciar de inmediato cualquier audio en reproducción o voz residual
+  // Silenciar de inmediato cualquier voz en reproducción
   const stopAllAudio = () => {
-    if (currentAudioRef.current) {
-      try {
-        currentAudioRef.current.pause();
-        currentAudioRef.current.currentTime = 0;
-      } catch (e) {}
-      currentAudioRef.current = null;
-    }
-    // Cancelar y silenciar permanentemente el sintetizador nativo del navegador
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch (e) {}
-    }
+    capyVoice.stop();
   };
 
-  // Reproducción EXCLUSIVA de la voz hiper-realista de ElevenLabs
-  // Nunca se activa el sintetizador robótico del navegador para evitar doble voz
-  const speakVoice = async (text) => {
+  // Reproducción 100% LOCAL e instantánea de la voz terapéutica de Capi Zen
+  const speakVoice = (text) => {
     if (isMuted || !text) return;
-
-    // Incrementar ID para invalidar solicitudes que tarden y evitar que suenen desfasadas
-    const requestId = ++activeRequestIdRef.current;
-
-    // Detener cualquier audio que estuviese sonando
-    stopAllAudio();
-
-    // 1. Si ya está en caché en memoria, reproducir al instante (0ms latencia)
-    if (audioCacheRef.current.has(text)) {
-      try {
-        const audioUrl = audioCacheRef.current.get(text);
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-        await audio.play();
-      } catch (playErr) {
-        console.warn("Audio play error:", playErr);
-      }
-      return;
-    }
-
-    // 2. Solicitar al backend la voz sintetizada
-    try {
-      setIsVoiceLoading(true);
-      const res = await fetch('/api/v1/voice/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, profile: 'zen' })
-      });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        audioCacheRef.current.set(text, audioUrl);
-
-        // Si la fase ya cambió mientras se descargaba el audio, descartarlo
-        if (requestId !== activeRequestIdRef.current) {
-          return;
-        }
-
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-        audio.play().catch((playErr) => {
-          if (playErr.name !== 'AbortError') {
-            console.warn("Audio play error:", playErr);
-          }
-        });
-        return;
-      }
-    } catch (err) {
-      // Ignorar errores de red y activar fallback sin alarmas
-    } finally {
-      if (requestId === activeRequestIdRef.current) {
-        setIsVoiceLoading(false);
-      }
-    }
-
-    // 3. Fallback inmediato con síntesis suave si el backend no responde
-    if (requestId === activeRequestIdRef.current) {
-      capyVoice.speak(text, { profile: 'zen', stress_level: 0.7 });
-    }
+    capyVoice.stop();
+    capyVoice.speak(text, {
+      profile: 'zen',
+      mood: 'zen',
+      stress_level: 0.85
+    });
   };
 
-  // Precarga inmediata de todas las frases Zen para que no haya ningún retraso
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let isSubscribed = true;
-    const phrasesToPreload = Object.values(ZEN_PHRASES);
-
-    // Precargar en paralelo de inmediato
-    phrasesToPreload.forEach(async (phrase) => {
-      if (audioCacheRef.current.has(phrase)) return;
-      try {
-        const res = await fetch('/api/v1/voice/speak', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: phrase, profile: 'zen' })
-        });
-        if (res.ok && isSubscribed) {
-          const blob = await res.blob();
-          const audioUrl = URL.createObjectURL(blob);
-          audioCacheRef.current.set(phrase, audioUrl);
-        }
-      } catch (e) {}
-    });
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [isOpen]);
-
-  // Inicio automático de la sesión
+  // Inicio automático de la sesión al abrir el modal
   useEffect(() => {
     if (isOpen) {
       setPhaseIndex(0);
-      setTimeLeft(BREATH_PHASES[0].duration);
+      setTimeLeft(4);
       setCycleCount(1);
       setHasStarted(true);
 
-      const introTimer = setTimeout(() => {
-        speakVoice(ZEN_PHRASES.intro);
-      }, 300); // Pequeña pausa inicial para que el usuario vea el modal antes de escuchar la voz
+      const startTimer = setTimeout(() => {
+        speakVoice(ZEN_PHRASES.inhale);
+      }, 400);
 
       return () => {
-        clearTimeout(introTimer);
+        clearTimeout(startTimer);
         stopAllAudio();
       };
     } else {
+      setHasStarted(false);
       stopAllAudio();
     }
   }, [isOpen]);
 
-  // Contador regresivo y transición entre fases
+  // Contador regresivo a 1 segundo exacto
   useEffect(() => {
     if (!isOpen || !hasStarted) return;
 
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleNextPhase();
-          return 1;
-        }
-        const nextVal = prev - 1;
-        return nextVal;
-      });
+    const interval = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
     }, 1000);
 
-    return () => clearInterval(timerRef.current);
-  }, [isOpen, hasStarted, phaseIndex, cycleCount]);
+    return () => clearInterval(interval);
+  }, [isOpen, hasStarted]);
 
-  const handleNextPhase = () => {
+  // Transición sincronizada entre fases cuando el segundero llega a 0
+  useEffect(() => {
+    if (!isOpen || !hasStarted || timeLeft > 0) return;
+
     if (phaseIndex === 0) {
-      // Inhala -> Retén (7 segundos)
+      // Inhala (4s) terminado -> Pasar a Retén (7s)
       setPhaseIndex(1);
       setTimeLeft(7);
       speakVoice(ZEN_PHRASES.hold);
     } else if (phaseIndex === 1) {
-      // Retén -> Exhala (8 segundos)
+      // Retén (7s) terminado -> Pasar a Exhala (8s)
       setPhaseIndex(2);
       setTimeLeft(8);
       speakVoice(ZEN_PHRASES.exhale);
-    } else {
-      // Fin de ciclo
+    } else if (phaseIndex === 2) {
+      // Exhala (8s) terminado
       if (cycleCount < totalCycles) {
         setCycleCount(c => c + 1);
         setPhaseIndex(0);
         setTimeLeft(4);
         speakVoice(ZEN_PHRASES.cycle2);
       } else {
+        // Fin de los 2 ciclos terapéuticos
+        setHasStarted(false);
         speakVoice(ZEN_PHRASES.finish);
-        // Registrar sesión completada en MongoDB
         try {
           fetch('/api/v1/zen/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               log_type: 'breathing_4_7_8',
-              duration_seconds: 40,
-              notes: 'Pausa activa terapéutica completada con Capi Zen antes de la partida'
+              duration_seconds: 38,
+              notes: 'Pausa activa terapéutica completada con Capi Zen'
             })
           }).catch(() => {});
         } catch (e) {}
 
-        setTimeout(() => {
+        const completeTimer = setTimeout(() => {
           onComplete();
-        }, 2200);
+        }, 2800);
+        return () => clearTimeout(completeTimer);
       }
     }
-  };
+  }, [timeLeft, phaseIndex, cycleCount, totalCycles, isOpen, hasStarted]);
 
   const handleSkipNow = () => {
+    setHasStarted(false);
     stopAllAudio();
     onSkip ? onSkip() : onComplete();
   };
@@ -321,11 +219,18 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  stopAllAudio();
-                  setIsMuted(!isMuted);
+                  const nextMuted = !isMuted;
+                  setIsMuted(nextMuted);
+                  if (nextMuted) {
+                    stopAllAudio();
+                  } else {
+                    if (phaseIndex === 0) speakVoice(cycleCount === 1 ? ZEN_PHRASES.inhale : ZEN_PHRASES.cycle2);
+                    else if (phaseIndex === 1) speakVoice(ZEN_PHRASES.hold);
+                    else if (phaseIndex === 2) speakVoice(ZEN_PHRASES.exhale);
+                  }
                 }}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
-                title={isMuted ? "Activar voz de la IA" : "Silenciar voz"}
+                title={isMuted ? "Activar voz local de Capi" : "Silenciar voz"}
               >
                 {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
               </button>
@@ -342,7 +247,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
 
           {/* Indicador de Ciclo */}
           <div className="px-3.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-[10px] font-mono font-bold text-slate-300 tracking-wider mb-6">
-            CICLO DE RESPIRACIÓN {cycleCount} DE {totalCycles}
+            CICLO DE RESPIRACIÓN {Math.min(cycleCount, totalCycles)} DE {totalCycles}
           </div>
 
           {/* Círculo Principal de Respiración Animado */}
@@ -378,13 +283,13 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
 
               {/* Segundero Grande */}
               <motion.span 
-                key={timeLeft}
-                initial={{ scale: 1.3, opacity: 0 }}
+                key={`${phaseIndex}-${timeLeft}`}
+                initial={{ scale: 1.15, opacity: 0.8 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-4xl sm:text-5xl font-black font-mono tracking-tight"
                 style={{ color: currentPhase.borderColor }}
               >
-                {timeLeft}s
+                {Math.max(1, timeLeft)}s
               </motion.span>
 
               {/* Etiqueta de la fase */}

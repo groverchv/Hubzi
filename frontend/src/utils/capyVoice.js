@@ -128,53 +128,76 @@ class CapyVoiceEngine {
       return;
     }
 
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
-    utterance.rate = options.stress_level && options.stress_level >= 0.6 ? 0.82 : 0.90;
+    if (options.profile === 'zen' || options.mood === 'zen') {
+      utterance.rate = 0.82; // Ritmo pausado, sereno y terapéutico para ejercicios de respiración
+    } else {
+      utterance.rate = options.stress_level && options.stress_level >= 0.6 ? 0.85 : 0.92;
+    }
+
+    // Guardar referencia en el objeto para evitar que el Garbage Collector de Chrome corte la voz
+    this.currentUtterance = utterance;
 
     // Seleccionar la mejor voz española disponible según género
     const trySetVoice = () => {
       const voices = window.speechSynthesis.getVoices();
-      if (voices.length === 0) return false;
+      if (!voices || voices.length === 0) return false;
 
-      let esVoice = null;
-      if (voiceGender === 'male') {
-        esVoice =
-          voices.find(v => v.lang.startsWith('es') && (
-            v.name.includes('Jorge') || v.name.includes('Pablo') ||
-            v.name.includes('Diego') || v.name.includes('Alvaro') ||
-            v.name.includes('Raul') || v.name.includes('Male') || v.name.includes('Hombre')
-          )) ||
-          voices.find(v => v.lang.startsWith('es') && v.name.includes('Alonso')) ||
-          voices.find(v => v.lang === 'es-ES') ||
-          voices.find(v => v.lang.startsWith('es'));
-        utterance.pitch = 0.92;
-      } else {
-        esVoice =
-          voices.find(v => v.lang.startsWith('es') && (
-            v.name.includes('Monica') || v.name.includes('Paulina') ||
-            v.name.includes('Helena') || v.name.includes('Sabina') ||
-            v.name.includes('Lucia') || v.name.includes('Female') || v.name.includes('Mujer')
-          )) ||
-          voices.find(v => v.lang === 'es-ES' && v.name.includes('a')) ||
-          voices.find(v => v.lang.startsWith('es'));
-        utterance.pitch = 1.20;
+      const esVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+      let selected = null;
+
+      if (esVoices.length > 0) {
+        if (voiceGender === 'male') {
+          selected =
+            esVoices.find(v => /(jorge|pablo|diego|alvaro|raul|male|hombre|alonso|carlos|miguel)/i.test(v.name)) ||
+            esVoices.find(v => !/(monica|paulina|helena|sabina|lucia|laura|elena|rosa|female|mujer)/i.test(v.name)) ||
+            esVoices[0];
+          utterance.pitch = 0.95;
+        } else {
+          selected =
+            esVoices.find(v => /(monica|paulina|helena|sabina|lucia|female|mujer|laura|elena|rosa|zira)/i.test(v.name)) ||
+            esVoices.find(v => /(helena|sabina|monica|laura)/i.test(v.name)) ||
+            esVoices[0];
+          utterance.pitch = 1.08;
+        }
       }
 
-      if (esVoice) utterance.voice = esVoice;
+      if (selected) {
+        utterance.voice = selected;
+        utterance.lang = selected.lang || 'es-ES';
+      }
       return true;
     };
 
     utterance.onend = () => {
       if (this.currentRequestId === requestId) {
         this.isSpeaking = false;
+        this.currentUtterance = null;
         this._notify({ isSpeaking: false, text });
       }
     };
     utterance.onerror = () => {
       if (this.currentRequestId === requestId) {
+        this.isSpeaking = false;
+        this.currentUtterance = null;
+        this._notify({ isSpeaking: false, text });
+      }
+    };
+
+    const doSpeak = () => {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("Speech synthesis error:", err);
         this.isSpeaking = false;
         this._notify({ isSpeaking: false, text });
       }
@@ -182,21 +205,16 @@ class CapyVoiceEngine {
 
     // Las voces pueden no estar listas inmediatamente al iniciar el navegador
     if (!trySetVoice()) {
-      // Esperar que se carguen las voces y reintentar
       const onVoicesChanged = () => {
         window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
         if (this.currentRequestId !== requestId) return;
         trySetVoice();
-        try { window.speechSynthesis.speak(utterance); } catch (_) {}
+        doSpeak();
       };
       window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-      // También intentar de inmediato por si ya están disponibles
-      try { window.speechSynthesis.speak(utterance); } catch (_) {}
+      doSpeak();
     } else {
-      try { window.speechSynthesis.speak(utterance); } catch (_) {
-        this.isSpeaking = false;
-        this._notify({ isSpeaking: false, text });
-      }
+      doSpeak();
     }
   }
 

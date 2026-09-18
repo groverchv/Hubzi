@@ -1503,7 +1503,7 @@ export default function ArcadeArena() {
                   </div>
                 ) : (
                   <span className="text-[7.5px] text-cyan-400/80 font-mono">
-                    Voz ElevenLabs
+                    Voz Capi Local
                   </span>
                 )}
               </div>
