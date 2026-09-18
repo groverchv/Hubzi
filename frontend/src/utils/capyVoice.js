@@ -144,28 +144,51 @@ class CapyVoiceEngine {
     // Guardar referencia en el objeto para evitar que el Garbage Collector de Chrome corte la voz
     this.currentUtterance = utterance;
 
-    // Seleccionar la mejor voz española disponible según género
+    // Seleccionar la mejor voz española disponible según género (Compatible con Linux, Windows, Mac y Android)
     const trySetVoice = () => {
       const voices = window.speechSynthesis.getVoices();
       if (!voices || voices.length === 0) return false;
 
-      const esVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+      // Detección universal de español: códigos ISO (es-ES, es_ES, es-MX, es, spa) y nombres en Linux (espeak-es, spanish, etc.)
+      const isSpanishVoice = (v) => {
+        const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
+        const name = (v.name || '').toLowerCase();
+        return (
+          lang.startsWith('es') ||
+          lang.startsWith('spa') ||
+          name.includes('spanish') ||
+          name.includes('español') ||
+          name.includes('castellano') ||
+          name.includes('espeak-es') ||
+          name.includes('es-es') ||
+          name.includes('es-la') ||
+          name.includes('es-419') ||
+          name.includes('(es)')
+        );
+      };
+
+      const esVoices = voices.filter(isSpanishVoice);
       let selected = null;
 
       if (esVoices.length > 0) {
         if (voiceGender === 'male') {
           selected =
-            esVoices.find(v => /(jorge|pablo|diego|alvaro|raul|male|hombre|alonso|carlos|miguel)/i.test(v.name)) ||
-            esVoices.find(v => !/(monica|paulina|helena|sabina|lucia|laura|elena|rosa|female|mujer)/i.test(v.name)) ||
+            esVoices.find(v => /(jorge|pablo|diego|alvaro|raul|male|hombre|alonso|carlos|miguel|\+m\d|man)/i.test(v.name)) ||
+            esVoices.find(v => !/(monica|paulina|helena|sabina|lucia|laura|elena|rosa|female|mujer|\+f\d|woman)/i.test(v.name)) ||
             esVoices[0];
-          utterance.pitch = 0.95;
+          utterance.pitch = 0.92;
         } else {
           selected =
-            esVoices.find(v => /(monica|paulina|helena|sabina|lucia|female|mujer|laura|elena|rosa|zira)/i.test(v.name)) ||
-            esVoices.find(v => /(helena|sabina|monica|laura)/i.test(v.name)) ||
+            esVoices.find(v => /(monica|paulina|helena|sabina|lucia|female|mujer|laura|elena|rosa|zira|\+f\d|woman)/i.test(v.name)) ||
             esVoices[0];
-          utterance.pitch = 1.08;
+          utterance.pitch = 1.14;
         }
+      } else {
+        // En Linux o sistemas sin paquete de voces español específico,
+        // usar la voz predeterminada del sistema aplicando fonética española y pitch adaptativo
+        const defaultVoice = voices.find(v => v.default) || voices[0];
+        selected = defaultVoice;
+        utterance.pitch = voiceGender === 'male' ? 0.90 : 1.15;
       }
 
       if (selected) {
@@ -191,28 +214,47 @@ class CapyVoiceEngine {
     };
 
     const doSpeak = () => {
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-      try {
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn("Speech synthesis error:", err);
-        this.isSpeaking = false;
-        this._notify({ isSpeaking: false, text });
-      }
+      // Buffer de 20ms: En Linux Speech Dispatcher y Chromium, un micro-delay permite procesar cancel() sin cortar el nuevo speak
+      setTimeout(() => {
+        try {
+          if (this.currentRequestId !== requestId) return;
+          if (typeof window !== 'undefined' && window.speechSynthesis) {
+            if (window.speechSynthesis.paused) {
+              window.speechSynthesis.resume();
+            }
+            window.speechSynthesis.speak(utterance);
+          }
+        } catch (err) {
+          console.warn("Speech synthesis error:", err);
+          this.isSpeaking = false;
+          this.currentUtterance = null;
+          this._notify({ isSpeaking: false, text });
+        }
+      }, 20);
     };
 
-    // Las voces pueden no estar listas inmediatamente al iniciar el navegador
+    // Las voces pueden no estar listas inmediatamente al iniciar el navegador (muy común en Linux)
     if (!trySetVoice()) {
+      let handled = false;
       const onVoicesChanged = () => {
+        if (handled) return;
+        handled = true;
         window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
         if (this.currentRequestId !== requestId) return;
         trySetVoice();
         doSpeak();
       };
       window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-      doSpeak();
+
+      // Fallback seguro en Linux/Firefox si el evento voiceschanged tarda en dispararse
+      setTimeout(() => {
+        if (!handled && this.currentRequestId === requestId) {
+          handled = true;
+          window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+          trySetVoice();
+          doSpeak();
+        }
+      }, 150);
     } else {
       doSpeak();
     }

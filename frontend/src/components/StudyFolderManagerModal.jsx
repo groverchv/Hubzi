@@ -23,7 +23,8 @@ import {
   CheckCircle2,
   Lock,
   ShieldCheck,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 
 const STORAGE_KEY = 'hubzy_user_study_folders';
@@ -52,6 +53,26 @@ export default function StudyFolderManagerModal({
   // Vista activa: 'list' (viendo todas las carpetas) o 'detail' (adentro de una carpeta específica)
   const [activeFolderView, setActiveFolderView] = useState(null); // folder object or null
   const fileInputRef = useRef(null);
+
+  // Estado de procesamiento de 5 segundos al iniciar juego
+  const [isProcessingGame, setIsProcessingGame] = useState(false);
+  const [processingCountdown, setProcessingCountdown] = useState(5);
+  const processingTimerRef = useRef(null);
+
+  // Limpiar temporizador al desmontar o cerrar modal
+  useEffect(() => {
+    return () => {
+      if (processingTimerRef.current) clearInterval(processingTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsProcessingGame(false);
+      setProcessingCountdown(5);
+      if (processingTimerRef.current) clearInterval(processingTimerRef.current);
+    }
+  }, [isOpen]);
 
   // Carpeta por defecto con administracion.pdf integrado
   const DEFAULT_ADMIN_FOLDER = {
@@ -310,13 +331,30 @@ export default function StudyFolderManagerModal({
   };
 
 
-  // Iniciar el juego directamente con los materiales analizados de la carpeta
+  // Iniciar el juego con procesamiento de 5 segundos
   const handlePlayDirectly = () => {
-    if (!activeFolderView) return;
-    onSelectFolder({
-      ...activeFolderView,
-      playDirectly: true
-    });
+    if (!activeFolderView || isProcessingGame) return;
+
+    setIsProcessingGame(true);
+    setProcessingCountdown(5);
+
+    let secondsLeft = 5;
+    if (processingTimerRef.current) clearInterval(processingTimerRef.current);
+
+    processingTimerRef.current = setInterval(() => {
+      secondsLeft -= 1;
+      if (secondsLeft > 0) {
+        setProcessingCountdown(secondsLeft);
+      } else {
+        clearInterval(processingTimerRef.current);
+        processingTimerRef.current = null;
+        setIsProcessingGame(false);
+        onSelectFolder({
+          ...activeFolderView,
+          playDirectly: true
+        });
+      }
+    }, 1000);
   };
 
 
@@ -677,13 +715,16 @@ export default function StudyFolderManagerModal({
                     ))}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Barra Inferior con Opciones de Juego */}
+                  {/* Barra Inferior con Opciones de Juego */}
             <div className="p-5 border-t-2 border-[#223147] bg-[#111927] flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-300">
                 {(() => {
+                  if (isProcessingGame) return (
+                    <span className="flex items-center gap-2 font-semibold text-emerald-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>Procesando preguntas y tablero... ({processingCountdown}s)</span>
+                    </span>
+                  );
                   const readyDocs = (activeFolderView.documents || []).filter(d => !d.isUploading);
                   const uploadingDocs = (activeFolderView.documents || []).filter(d => d.isUploading);
                   if (uploadingDocs.length > 0) return (
@@ -710,19 +751,30 @@ export default function StudyFolderManagerModal({
                 {/* Iniciar el juego directamente con los archivos procesados de la carpeta */}
                 {(() => {
                   const readyCount = (activeFolderView.documents || []).filter(d => !d.isUploading).length;
-                  const isDisabled = readyCount === 0;
+                  const isDisabled = readyCount === 0 || isProcessingGame;
                   return (
                     <button
                       disabled={isDisabled}
                       onClick={handlePlayDirectly}
                       className={`w-full sm:w-auto px-7 py-3 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 transition-all ${
-                        isDisabled
+                        isDisabled && !isProcessingGame
                           ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-50'
+                          : isProcessingGame
+                          ? 'bg-emerald-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.6)] cursor-wait font-black'
                           : 'bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-slate-950 shadow-[0_5px_0_#065f46] active:translate-y-1 active:shadow-none cursor-pointer'
                       }`}
                     >
-                      <Gamepad2 className="w-5 h-5 stroke-[2.5]" />
-                      <span>Iniciar Juego Directamente</span>
+                      {isProcessingGame ? (
+                        <>
+                          <Loader2 className="w-5 h-5 stroke-[2.5] animate-spin text-slate-950" />
+                          <span>Procesando... {processingCountdown}s</span>
+                        </>
+                      ) : (
+                        <>
+                          <Gamepad2 className="w-5 h-5 stroke-[2.5]" />
+                          <span>Iniciar Juego Directamente</span>
+                        </>
+                      )}
                     </button>
                   );
                 })()}
