@@ -7,21 +7,83 @@
   --color-oat: #F5EFEB;
   --color-sand: #EFE9E1;
   --color-clay: #A08C78;
+
+  /* Paleta Estilo Card Clash / Arcade */
+  --color-arcade-navy: #122443;
+  --color-arcade-navy-dark: #0a162b;
+  --color-arcade-navy-light: #1e3a6c;
+  --color-arcade-orange: #FF7A00;
+  --color-arcade-orange-shadow: #D45B00;
+  --color-arcade-orange-light: #FF9B38;
+  --color-arcade-green: #48C838;
+  --color-arcade-green-shadow: #28871E;
+  --color-arcade-green-light: #67DC59;
+  --color-arcade-yellow: #FFB400;
+  --color-arcade-yellow-shadow: #D48800;
+  --color-arcade-blue: #1C8FE8;
+  --color-arcade-cyan: #45B1E8;
 }
 
-/* Custom 3D Isometric Viewport & Studio Board Theme (Matching Reference Image) */
+/* Custom 3D Sky & Fluffy Cloud Environment (Card Clash Inspired for Focus & Immersion) */
 body {
-  background-color: #f6f4ee;
-  background-image: 
-    linear-gradient(rgba(203, 213, 225, 0.45) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(203, 213, 225, 0.45) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background: linear-gradient(180deg, #1886e4 0%, #30a5f7 42%, #68c4fc 78%, #a4e0fe 100%);
   color: #1e293b;
   font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   margin: 0;
   height: 100vh;
   overflow: hidden;
   user-select: none;
+  position: relative;
+}
+
+/* Capa de Nubes Suaves Animadas Flotantes */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Nubes en el fondo con movimiento suave zen */
+body::before {
+  background-image: 
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.90) 0%, rgba(255, 255, 255, 0.75) 90px, transparent 150px),
+    radial-gradient(circle at 24% 28%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.65) 120px, transparent 190px),
+    radial-gradient(circle at 82% 16%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.70) 110px, transparent 180px),
+    radial-gradient(circle at 92% 26%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.60) 130px, transparent 200px),
+    radial-gradient(circle at 8% 80%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.65) 160px, transparent 250px),
+    radial-gradient(circle at 18% 88%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.55) 180px, transparent 280px),
+    radial-gradient(circle at 85% 82%, rgba(255, 255, 255, 0.90) 0%, rgba(255, 255, 255, 0.65) 170px, transparent 260px),
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.50) 0%, rgba(255, 255, 255, 0.20) 80px, transparent 140px);
+  filter: blur(12px);
+  opacity: 0.92;
+  animation: cloudsFloat 38s ease-in-out infinite alternate;
+}
+
+/* Nubes en primer plano para dar profundidad dimensional */
+body::after {
+  background-image: 
+    radial-gradient(circle at 12% 24%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.80) 70px, transparent 120px),
+    radial-gradient(circle at 88% 22%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.75) 85px, transparent 140px),
+    radial-gradient(circle at 6% 82%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.70) 120px, transparent 190px),
+    radial-gradient(circle at 94% 84%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.70) 130px, transparent 200px);
+  filter: blur(4px);
+  opacity: 0.85;
+  animation: cloudsFloatSlow 50s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes cloudsFloat {
+  0% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-12px) scale(1.03); }
+  100% { transform: translateY(8px) scale(0.98); }
+}
+
+@keyframes cloudsFloatSlow {
+  0% { transform: translateX(0px) translateY(0px); }
+  50% { transform: translateX(18px) translateY(-8px); }
+  100% { transform: translateX(-14px) translateY(10px); }
 }
 
 /* Perspectiva 3D inclinada hacia la mesa con relieve isométrico suave */
@@ -48,4 +110,100 @@ body {
 .glow-purple {
   box-shadow: 0 4px 20px -2px rgba(168, 85, 247, 0.35);
 }
+
+/* === ESTILOS ARCADE CARD CLASH === */
+
+/* Fondo rayado diagonal (como los banners de Multiplayer y Singleplayer) */
+.bg-striped-diagonal {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.15) 12px,
+    transparent 12px,
+    transparent 24px
+  );
+}
+
+/* Botón Banner Naranja (Singleplayer style) */
+.btn-arcade-banner-orange {
+  background-color: var(--color-arcade-orange);
+  border-top: 4px solid var(--color-arcade-orange-light);
+  border-bottom: 5px solid var(--color-arcade-orange-shadow);
+  color: white;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 0 var(--color-arcade-navy);
+  transition: all 0.1s ease-in-out;
+}
+.btn-arcade-banner-orange:active {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 var(--color-arcade-navy);
+}
+
+/* Botón Banner Verde (Multiplayer style) */
+.btn-arcade-banner-green {
+  background-color: var(--color-arcade-green);
+  border-top: 4px solid var(--color-arcade-green-light);
+  border-bottom: 5px solid var(--color-arcade-green-shadow);
+  color: white;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 0 var(--color-arcade-navy);
+  transition: all 0.1s ease-in-out;
+}
+.btn-arcade-banner-green:active {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 var(--color-arcade-navy);
+}
+
+/* Botón Píldora Marina con Borde Naranja (Play Tutorial / Save Progress style) */
+.btn-arcade-pill {
+  position: relative;
+  background-color: var(--color-arcade-navy);
+  border: 3px solid #0a162b;
+  border-bottom: 5px solid #060d1b;
+  color: #ffffff;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  transition: all 0.12s ease-in-out;
+}
+.btn-arcade-pill::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -8px;
+  width: calc(100% + 16px);
+  height: calc(100% + 12px);
+  background: var(--color-arcade-orange);
+  border-radius: inherit;
+  z-index: -1;
+  box-shadow: 0 3px 0 var(--color-arcade-orange-shadow);
+}
+.btn-arcade-pill:active {
+  transform: translateY(2px);
+}
+
+/* Botón Arcade Sólido Universal */
+.btn-arcade-solid {
+  background-color: var(--color-arcade-navy);
+  color: white;
+  border: 3px solid #0f1c34;
+  border-bottom: 5px solid #070e1b;
+  box-shadow: 0 4px 0 #050a13;
+  transition: all 0.1s ease-in-out;
+}
+.btn-arcade-solid:hover {
+  background-color: #1a335e;
+}
+.btn-arcade-solid:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #050a13;
+}
+
+/* Borde Arcade Contundente */
+.border-arcade {
+  border: 3.5px solid var(--color-arcade-navy);
+  box-shadow: 0 4px 0 rgba(18, 36, 67, 0.4);
+}
+
 

@@ -13,7 +13,15 @@ except ImportError:
     genai_types = None
     GENAI_AVAILABLE = False
 
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    Groq = None
+    GROQ_AVAILABLE = False
+
 from app.core.config import settings
+
 
 logger = logging.getLogger("hubzy.psychology_service")
 
@@ -177,12 +185,23 @@ Devuelve ÚNICAMENTE un objeto JSON válido con la siguiente estructura:
 class PsychologyNLPService:
     def __init__(self):
         self.client = None
+        self.groq_client = None
+
+        if GROQ_AVAILABLE and settings.GROQ_API_KEY:
+            try:
+                self.groq_client = Groq(api_key=settings.GROQ_API_KEY)
+                logger.info("Psychology NLP Service conectado a Groq Cloud para análisis ultrarrápido.")
+            except Exception as e:
+                self.groq_client = None
+                logger.warning(f"No se pudo inicializar Groq en PsychologyService: {e}")
+
         if GENAI_AVAILABLE and settings.GEMINI_API_KEY:
             try:
                 self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
                 logger.info("Psychology NLP Service conectado a Gemini con SDK google-genai.")
             except Exception as e:
                 logger.warning(f"No se pudo inicializar Gemini para PsychologyService: {e}")
+
 
     def analyze_emotional_state(self, text: str, context: Optional[Dict[str, Any]] = None) -> PsychologyAnalysisResult:
         """
@@ -291,8 +310,8 @@ class PsychologyNLPService:
 
     def _gemini_clinical_evaluation(self, text: str, context: Optional[Dict[str, Any]] = None) -> Optional[PsychologyAnalysisResult]:
         """
-        Ejecuta el pipeline de NLP psicológico con Gemini para captar sutilezas emocionales,
-        ironía, fatiga o sobrecarga mental.
+        Ejecuta el pipeline de NLP psicológico con Groq o Gemini para captar sutilezas emocionales,
+        ironía, fatiga o sobrecarga mental con latencia mínima.
         """
         context_str = ""
         if context:
@@ -300,7 +319,43 @@ class PsychologyNLPService:
 
         user_content = f"Mensaje del estudiante (voz/texto):\n\"{text}\"{context_str}"
 
+        # 1. Intentar con Groq primero (velocidad instantánea)
+        if self.groq_client:
+            for g_model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+                try:
+                    chat_comp = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[
+                            {"role": "system", "content": PSYCHOLOGY_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_content}
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.3,
+                        max_tokens=350
+                    )
+                    raw_text = (chat_comp.choices[0].message.content or "").strip()
+                    if raw_text:
+                        data = json.loads(raw_text)
+                        return PsychologyAnalysisResult(
+                            stress_level=float(data.get("stress_level", 0.2)),
+                            stress_category=str(data.get("stress_category", "calm")),
+                            emotion_detected=str(data.get("emotion_detected", "calma")),
+                            cognitive_distortion=data.get("cognitive_distortion"),
+                            needs_somatic_intervention=bool(data.get("needs_somatic_intervention", False)),
+                            recommended_intervention=str(data.get("recommended_intervention", "cognitive_reframe")),
+                            empathic_response=str(data.get("empathic_response", "Estoy contigo para ayudarte a aprender con serenidad.")),
+                            clinical_rationale=str(data.get("clinical_rationale", f"Intervención rápida calibrada con {g_model}.")),
+                            is_crisis=bool(data.get("is_crisis", False))
+                        )
+                except Exception as ge:
+                    logger.debug(f"Groq psychology eval ({g_model}) no disponible: {ge}")
+
+        # 2. Si Groq no está disponible, usar Gemini
+        if not self.client:
+            return None
+
         for model_name in GEMINI_FALLBACK_MODELS:
+
             try:
                 response = self.client.models.generate_content(
                     model=model_name,

@@ -11,9 +11,23 @@ except ImportError:
     genai_types = None
     GENAI_AVAILABLE = False
 
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    Groq = None
+    GROQ_AVAILABLE = False
+
 from app.core.config import settings
 
 logger = logging.getLogger("hubzy.ai_service")
+
+# Modelos ultrarrápidos de Groq
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+]
+
 
 # Directivas pedagógicas por nivel de juego
 LEVEL_DESCRIPTIONS = {
@@ -140,6 +154,18 @@ GEMINI_FALLBACK_MODELS = [
 class AIService:
     def __init__(self):
         self.client = None
+        self.groq_client = None
+
+        # Groq Client (Ultra fast inference)
+        if GROQ_AVAILABLE and settings.GROQ_API_KEY:
+            try:
+                self.groq_client = Groq(api_key=settings.GROQ_API_KEY)
+                logger.info("Groq Cloud client inicializado correctamente para respuestas ultrarrápidas.")
+            except Exception as e:
+                self.groq_client = None
+                logger.warning(f"No se pudo inicializar Groq Client: {e}")
+
+        # Google Gemini Client
         if GENAI_AVAILABLE and settings.GEMINI_API_KEY:
             try:
                 self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -152,6 +178,7 @@ class AIService:
                 logger.warning("google-genai no está instalado. Instala con: pip install google-genai")
             else:
                 logger.warning("GEMINI_API_KEY no configurada en el entorno.")
+
 
     def extract_concepts_from_text(
         self, 
@@ -166,10 +193,10 @@ class AIService:
         y parsea el JSON resultante para generar preguntas dinámicas de examen
         calibradas exactamente al nivel (1 a 5), dificultad y número de preguntas.
         """
-        if not self.client:
+        if not self.groq_client and not self.client:
             raise RuntimeError(
-                "GEMINI_API_KEY no está configurada en el servidor. "
-                "Agrega la clave en el archivo .env para procesar el material dinámicamente con IA."
+                "Ni GROQ_API_KEY ni GEMINI_API_KEY están configuradas en el servidor. "
+                "Agrega al menos una clave en el archivo .env para procesar el material dinámicamente con IA."
             )
 
         # Analizar el documento COMPLETO sin truncar arbitrariamente (hasta 500k caracteres)
@@ -195,6 +222,35 @@ class AIService:
             f"Texto del documento:\n{full_text}"
         )
 
+        # =====================================================================
+        # 1. PRIORIDAD: GROQ (Velocidad ultrarrápida / baja latencia ~300+ tok/s)
+        # =====================================================================
+        if self.groq_client:
+            for g_model in GROQ_MODELS:
+                try:
+                    logger.info(f"⚡ Invocando Groq ultrarrápido con modelo '{g_model}' (nivel: {level}, {question_count} preguntas)...")
+                    chat_completion = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[
+                            {"role": "system", "content": dynamic_sys_instruction},
+                            {"role": "user", "content": prompt}
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.85 if variation_seed > 0 else 0.3,
+                    )
+                    raw_text = (chat_completion.choices[0].message.content or "").strip()
+                    parsed_json = json.loads(raw_text)
+                    logger.info(f"⚡ Reactivos generados exitosamente con Groq ({g_model}) a máxima velocidad.")
+                    return parsed_json
+                except Exception as ge:
+                    logger.warning(f"Groq ({g_model}) falló o alcanzó límite: {ge}. Intentando siguiente...")
+
+        # =====================================================================
+        # 2. FALLBACK: GOOGLE GEMINI
+        # =====================================================================
+        if not self.client:
+            raise RuntimeError("Groq falló y Gemini no está configurado.")
+
         last_error = None
         for model_name in GEMINI_FALLBACK_MODELS:
             try:
@@ -204,6 +260,7 @@ class AIService:
                     "temperature": 0.85 if variation_seed > 0 else 0.4,
                     "response_mime_type": "application/json",
                 }
+
                 if hasattr(genai_types, 'ThinkingConfig'):
                     try:
                         config_kwargs["thinking_config"] = genai_types.ThinkingConfig(thinking_budget=0)
@@ -546,6 +603,39 @@ class AIService:
         }
         sit_desc = situation_prompts.get(situation, "Intervención psicológica de apoyo en el estudio.")
 
+        # 1. Intentar primero con Groq (latencia prácticamente instantánea ~80ms)
+        if self.groq_client:
+            for g_model in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]:
+                try:
+                    sys_instruction = (
+                        "Eres Capi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
+                        "Tu objetivo es reducir la ansiedad ante exámenes y optimizar el rendimiento del estudiante.\n"
+                        f"NIVEL COGNITIVO: Nivel {level}/5. Enfoque: {psy_desc}\n"
+                        f"SITUACIÓN: {sit_desc}\n"
+                        f"TEMA DE ESTUDIO: '{theme or 'Materia'}'\n"
+                        f"{avoid_clause}\n"
+                        "REGLAS OBLIGATORIAS:\n"
+                        "1. NO uses piropos ni apelativos empalagosos.\n"
+                        "2. Mantén un tono cálido, profesional, sereno y psicológicamente seguro.\n"
+                        "3. Escribe exactamente UNA o DOS oraciones concisas (15 a 25 palabras máximo).\n"
+                        "4. Devuelve SOLO el texto plano para síntesis de voz, sin comillas ni asteriscos."
+                    )
+                    chat_comp = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[
+                            {"role": "system", "content": sys_instruction},
+                            {"role": "user", "content": f"Genera una frase de apoyo para la situación: {situation} (Nivel {level})"}
+                        ],
+                        max_tokens=65,
+                        temperature=0.85
+                    )
+                    content = (chat_comp.choices[0].message.content or "").strip().replace('"', '').replace('*', '')
+                    if content and content not in history:
+                        return content
+                except Exception as ge:
+                    logger.debug(f"Groq speech ({g_model}) no disponible: {ge}")
+
+        # 2. Respaldo con Gemini
         if self.client:
             sys_instruction = (
                 "Eres Capi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
@@ -566,6 +656,7 @@ class AIService:
                 try:
                     resp = self.client.models.generate_content(
                         model=model_name,
+
                         contents=f"Genera una frase de apoyo psicológico para la situación: {situation} (Nivel {level})",
                         config=genai_types.GenerateContentConfig(
                             system_instruction=sys_instruction,

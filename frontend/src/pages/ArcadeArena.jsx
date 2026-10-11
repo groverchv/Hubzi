@@ -31,6 +31,7 @@ import {
   LogIn as LogInIcon,
   Folder as FolderIcon,
   User as UserIcon,
+  Home,
   X
 } from 'lucide-react';
 import GameCard from '../components/GameCard';
@@ -42,6 +43,9 @@ import ZenRelaxModal from '../components/ZenRelaxModal';
 import StudyFolderManagerModal from '../components/StudyFolderManagerModal';
 import UserAuthModal from '../components/UserAuthModal';
 import AuthModal from '../components/AuthModal';
+import TutorialModal from '../components/TutorialModal';
+import VictoryModal from '../components/VictoryModal';
+import WelcomeScreen from '../components/WelcomeScreen';
 import { useArenaSocket } from '../hooks/useArenaSocket';
 import capybara3dImg from '../assets/capybara_3d.jpg';
 import { capyAudio } from '../utils/capyAudio';
@@ -106,14 +110,11 @@ export default function ArcadeArena() {
     }
   });
 
-  // Modal de Login / Registro (se abre si no hay usuario autenticado)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
-    try {
-      return !localStorage.getItem('hubzy_current_user');
-    } catch {
-      return true;
-    }
-  });
+  // Pantalla Inicial de Bienvenida (Estilo Card Clash)
+  const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(true);
+
+  // Modal de Login / Registro
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Modal secundario de edición de perfil (género, edad, apodo)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -128,6 +129,9 @@ export default function ArcadeArena() {
 
   // Modales (Flujo: 1. Autenticación -> 2. Carpetas/Material -> 3. Zen Relax -> 4. Juego en Vivo)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
+  const [victoryStats, setVictoryStats] = useState({ accuracy: 100, totalQuestions: 5 });
   const [activeFolder, setActiveFolder] = useState(null);
   const [isRelaxModalOpen, setIsRelaxModalOpen] = useState(false);
   const [zenOffer, setZenOffer] = useState({ show: false, category: '', distortion: '', emotion: '' });
@@ -1304,15 +1308,59 @@ export default function ArcadeArena() {
     setIsGeneratingArena(false);
   };
 
+  // SI LA PANTALLA DE BIENVENIDA ESTÁ ACTIVA, SE MUESTRA EXCLUSIVAMENTE ELLA (SIN EL TABLERO NI EL JUEGO ABAJO)
+  if (isWelcomeScreenVisible) {
+    return (
+      <div className="relative w-screen h-screen overflow-hidden select-none">
+        <WelcomeScreen
+          isLoggedIn={Boolean(currentUser)}
+          username={currentUser?.username || currentUser?.email?.split('@')[0]}
+          onOpenLogin={() => setIsAuthModalOpen(true)}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
+          onContinue={() => {
+            if (!currentUser) {
+              // Si no inició sesión, NO avanza a la arena ni carpetas. Abre login.
+              setIsAuthModalOpen(true);
+              return;
+            }
+            setIsWelcomeScreenVisible(false);
+            setIsFolderModalOpen(true);
+          }}
+        />
+
+        {/* Modal de Tutorial cuando se abre desde la bienvenida */}
+        <TutorialModal
+          isOpen={isTutorialOpen}
+          onClose={() => setIsTutorialOpen(false)}
+        />
+
+        {/* Modal de Login cuando se toca Iniciar Sesión desde la bienvenida */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => {
+            // Al presionar la X, permanece en la pantalla de bienvenida y NO entra al juego
+            setIsAuthModalOpen(false);
+            setIsWelcomeScreenVisible(true);
+          }}
+          onAuthSuccess={(user) => {
+            setCurrentUser(user);
+            setIsAuthModalOpen(false);
+            capyVoice.currentUser = user;
+            setIsWelcomeScreenVisible(false);
+            setIsFolderModalOpen(true);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden flex flex-col justify-between select-none">
       
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
       <AuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => {
-          if (currentUser) setIsAuthModalOpen(false);
-        }}
+        onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={(user) => {
           setCurrentUser(user);
           setIsAuthModalOpen(false);
@@ -1336,6 +1384,11 @@ export default function ArcadeArena() {
       <StudyFolderManagerModal
         isOpen={isFolderModalOpen}
         currentUser={currentUser}
+        onClose={() => setIsFolderModalOpen(false)}
+        onBackToMenu={() => {
+          setIsFolderModalOpen(false);
+          setIsWelcomeScreenVisible(true);
+        }}
         onSelectFolder={async (folder) => {
           setActiveFolder(folder);
           setIsFolderModalOpen(false);
@@ -1675,9 +1728,9 @@ export default function ArcadeArena() {
       </AnimatePresence>
 
 
-      {/* ENTORNO 3D */}
-      <div className="absolute right-0 top-1/4 w-36 h-96 bg-gradient-to-l from-amber-700/80 via-amber-900/60 to-transparent border-l-4 border-amber-500/40 rounded-l-3xl pointer-events-none transform skew-y-6 opacity-80" />
-      <div className="absolute right-24 bottom-1/3 w-48 h-28 bg-gradient-to-l from-cyan-400/40 via-cyan-400/10 to-transparent transform -rotate-12 blur-lg pointer-events-none" />
+      {/* ENTORNO 3D & ILUMINACIÓN ATMOSFÉRICA CARD CLASH */}
+      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[700px] h-48 bg-radial from-white/40 via-sky-300/15 to-transparent blur-3xl pointer-events-none" />
+      <div className="absolute right-0 top-1/3 w-64 h-64 bg-radial from-amber-300/20 via-orange-400/10 to-transparent blur-3xl pointer-events-none" />
 
       {/* GUARDIÁN TÁCTICO 3D ZEN INTERACTIVO / HABLA CON ELEVENLABS Y REACCIONA SEGÚN LA SITUACIÓN */}
       <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center select-none pointer-events-auto">
@@ -1736,19 +1789,19 @@ export default function ArcadeArena() {
           )}
         </AnimatePresence>
 
-        {/* BANNER INTERACTIVO DE PSICOLOGÍA Y ALIVIO DE ESTRÉS */}
+        {/* BANNER INTERACTIVO DE APOYO DE ESTUDIO */}
         <AnimatePresence>
           {zenOffer.show && (
             <motion.div
               initial={{ opacity: 0, y: 15, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.9 }}
-              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-2xl bg-gradient-to-br from-emerald-950/98 via-teal-950/95 to-slate-900/98 border-2 border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.6)] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left"
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-2xl bg-gradient-to-br from-[#122443] via-[#0a162b] to-slate-900 border-3 border-[#1e3a6c] shadow-[0_8px_0_#050a13] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left text-white"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-emerald-300 font-mono flex items-center gap-1.5">
-                  <Wind className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                  Capi Zen • Calma
+                <span className="text-[10px] font-black uppercase text-[#FFB400] font-mono flex items-center gap-1.5">
+                  <Wind className="w-3.5 h-3.5 text-[#FFB400] animate-pulse" />
+                  Hubzy • Pausa de Estudio
                 </span>
                 <button
                   onClick={() => setZenOffer({ ...zenOffer, show: false })}
@@ -1758,20 +1811,20 @@ export default function ArcadeArena() {
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <p className="text-[10.5px] text-emerald-100 leading-snug">
+              <p className="text-[10.5px] text-slate-200 leading-snug font-bold">
                 {zenOffer.distortion
-                  ? `Detecté "${zenOffer.distortion}". Tranquilo, un error es solo un dato, no define tu capacidad.`
-                  : 'Siento tensión en tu voz amiguito. ¿Hacemos 30 segundos de respiración guiada para oxigenar tu mente?'}
+                  ? `¡No te preocupes por ese detalle! Repasar los errores es la mejor forma de fijar el concepto.`
+                  : '¡Buen ritmo de estudio! ¿Hacemos 30 segundos de pausa para despejar la mente y volver con todo?'}
               </p>
               <button
                 onClick={() => {
                   setZenOffer({ ...zenOffer, show: false });
                   setIsRelaxModalOpen(true);
                 }}
-                className="w-full py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-[10px] tracking-wide uppercase shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                className="w-full py-2 px-3 rounded-xl bg-[#48C838] hover:bg-[#57d847] border-2 border-[#67dc59] border-b-3 border-b-[#28871E] text-white font-black text-[10px] tracking-wide uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 transition-all"
               >
-                <Sparkles className="w-3 h-3 text-slate-950" />
-                Respirar 4-7-8 con Capi
+                <Sparkles className="w-3 h-3 text-white" />
+                Pausar y Respirar con Hubzy
               </button>
             </motion.div>
           )}
@@ -2070,23 +2123,23 @@ export default function ArcadeArena() {
                 : 'text-emerald-300'
               }`}>
                 {isCapySad ? (
-                  <><Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> CAPI TE ABRAZA</>
+                  <><Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> HUBZY TE APOYA</>
                 ) : capyMood === 'dancing' ? (
-                  <><span className="text-[9px]">🎵</span> CAPI BAILANDO</>
+                  <><span className="text-[9px]">🎵</span> HUBZY MOTIVADO</>
                 ) : capyMood === 'celebrating' ? (
-                  <><span className="text-[9px]">🎉</span> CAPI CELEBRA</>
+                  <><span className="text-[9px]">🎉</span> HUBZY CELEBRA</>
                 ) : capyMood === 'love' ? (
-                  <><Heart className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> CAPI TE QUIERE</>
+                  <><Heart className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> HUBZY CONTIGO</>
                 ) : capyMood === 'happy' ? (
-                  <><Sparkles className="w-2.5 h-2.5 text-emerald-400" /> CAPI FELIZ</>
+                  <><Sparkles className="w-2.5 h-2.5 text-emerald-400" /> HUBZY GENIAL</>
                 ) : capyMood === 'thinking' ? (
-                  <><span className="text-[9px]">💭</span> CAPI PENSANDO</>
+                  <><span className="text-[9px]">💭</span> HUBZY PENSANDO</>
                 ) : capyMood === 'surprised' ? (
-                  <><Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" /> CAPI SORPRENDIDO</>
+                  <><Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" /> HUBZY ASOMBRADO</>
                 ) : isCapySpeaking ? (
-                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> CAPI HABLA</>
+                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> HUBZY EXPLICA</>
                 ) : (
-                  <><Sparkles className="w-2.5 h-2.5 text-cyan-400 animate-pulse" /> CAPI PSICÓLOGO</>
+                  <><Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" /> HUBZY • TU AMIGO DE ESTUDIO</>
                 )}
               </span>
             </div>
@@ -2173,29 +2226,62 @@ export default function ArcadeArena() {
 
 
 
-      {/* BARRA SUPERIOR CON CONTROLES LIMPIOS */}
+      {/* BARRA SUPERIOR CON CONTROLES LIMPIOS ESTILO CARD CLASH */}
       <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
+        {/* BOTÓN VOLVER AL MENÚ PRINCIPAL */}
+        <button
+          onClick={() => {
+            setIsFolderModalOpen(false);
+            setIsWelcomeScreenVisible(true);
+          }}
+          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+          title="Volver a la pantalla de bienvenida / Menú de Inicio"
+        >
+          <Home className="w-4 h-4 text-[#FFB400]" />
+          <span className="hidden sm:inline">Menú</span>
+        </button>
+
+        {/* BOTÓN CÓMO JUGAR / TUTORIAL (ESTILO CARD CLASH PLAY TUTORIAL) */}
+        <button
+          onClick={() => setIsTutorialOpen(true)}
+          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#FF7A00] active:translate-y-1 active:shadow-none cursor-pointer"
+          title="Ver tutorial rápido de cómo jugar"
+        >
+          <BookOpen className="w-4 h-4 text-[#FFB400]" />
+          <span className="hidden lg:inline">Tutorial</span>
+        </button>
+
+        {/* BOTÓN CARPETAS / MATERIALES */}
+        <button
+          onClick={() => setIsFolderModalOpen(true)}
+          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+          title="Abrir baúl de carpetas y subir nuevos documentos"
+        >
+          <FolderIcon className="w-4 h-4 text-[#45B1E8]" />
+          <span className="hidden lg:inline">Carpetas</span>
+        </button>
+
         {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
         {currentUser ? (
-          <div className="flex items-center gap-1 bg-[#131d2b]/95 border-2 border-cyan-400/70 rounded-2xl p-0.5 shadow-[0_3px_0_#0e3c54]">
+          <div className="flex items-center gap-1 bg-[#122443] border-3 border-[#0a162b] rounded-2xl p-1 shadow-[0_4px_0_#050a13]">
             <button
               onClick={() => setIsUserModalOpen(true)}
-              className="px-2.5 py-1 text-cyan-200 text-xs font-bold transition-all flex items-center gap-2 hover:bg-[#1a283a] rounded-xl cursor-pointer group"
+              className="px-2.5 py-1 text-white text-xs font-black transition-all flex items-center gap-2 hover:bg-[#1a335e] rounded-xl cursor-pointer group"
               title="Configurar perfil de usuario, edad y voz de Capi"
             >
-              <UserIcon className={`w-4 h-4 shrink-0 ${currentUser?.gender === 'femenino' ? 'text-rose-400' : 'text-sky-400'}`} />
+              <UserIcon className={`w-4 h-4 shrink-0 ${currentUser?.gender === 'femenino' ? 'text-amber-400' : 'text-cyan-300'}`} />
               <div className="flex flex-col text-left leading-tight">
-                <span className="text-[11px] font-black font-mono text-white group-hover:text-cyan-300 truncate max-w-[90px]">
+                <span className="text-[11px] font-black uppercase text-white truncate max-w-[90px]">
                   {currentUser?.username || currentUser?.email?.split('@')[0] || 'Mi Perfil'}
                 </span>
-                <span className="text-[8.5px] font-mono text-cyan-400 truncate max-w-[90px]">
+                <span className="text-[8.5px] font-mono text-amber-300 truncate max-w-[90px]">
                   {currentUser?.email ? currentUser.email : `${currentUser?.age}a • ${currentUser?.gender === 'femenino' ? 'Voz Masc.' : 'Voz Fem.'}`}
                 </span>
               </div>
             </button>
             <button
               onClick={handleLogout}
-              className="p-1.5 hover:bg-rose-950/80 hover:text-rose-300 text-slate-400 rounded-xl transition-colors cursor-pointer"
+              className="p-1.5 hover:bg-rose-900/80 hover:text-rose-200 text-slate-300 rounded-xl transition-colors cursor-pointer"
               title="Cerrar sesión de esta cuenta"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -2204,61 +2290,46 @@ export default function ArcadeArena() {
         ) : (
           <button
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 border-2 border-cyan-300 text-slate-950 font-black text-xs transition-all flex items-center gap-2 shadow-[0_3px_0_#0284c7] active:translate-y-0.5 active:shadow-none cursor-pointer"
+            className="px-4 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-3 border-[#0a162b] border-b-4 text-white font-black text-xs uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_#FF7A00] active:translate-y-1 active:shadow-none cursor-pointer"
             title="Iniciar sesión o registrarse con correo y contraseña"
           >
-            <LogInIcon className="w-4 h-4 text-slate-950" />
+            <LogInIcon className="w-4 h-4 text-amber-400" />
             <span>Iniciar Sesión</span>
           </button>
         )}
 
-
-
-
-        {/* BOTÓN REINICIAR (GENERA NUEVAS PREGUNTAS) */}
+        {/* BOTÓN REINICIAR (ESTILO CARD CLASH CON VERDE ESMERALDA Y BORDE GRUESO) */}
         <button
           onClick={handleRestartWithNewQuestions}
-          className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border-2 border-emerald-300 text-white text-xs font-black transition-all flex items-center gap-2 shadow-[0_3px_0_#064e3b] active:translate-y-0.5 active:shadow-none cursor-pointer"
+          className="px-3.5 py-2 rounded-2xl bg-[#48C838] hover:bg-[#3bb82b] border-2 border-[#67dc59] border-b-4 border-b-[#28871e] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_#122443] active:translate-y-1 active:shadow-none cursor-pointer"
           title="Reiniciar partida y generar un nuevo conjunto de preguntas de este documento"
         >
-          <RotateCcw className="w-4 h-4 text-emerald-200" />
-          <span className="hidden sm:inline font-black tracking-wide">Reiniciar Preguntas</span>
-          <span className="sm:hidden">Reiniciar</span>
-        </button>
-
-        {/* BOTÓN TERMINAR PARTIDA (REGRESA AL INICIO) */}
-        <button 
-          onClick={handleTerminateGame}
-          className="px-3.5 py-2 rounded-2xl bg-[#2e171f] hover:bg-[#3d1e29] border-2 border-rose-500/70 text-rose-200 text-xs font-black transition-all flex items-center gap-2 shadow-[0_3px_0_#9f1239] active:translate-y-0.5 active:shadow-none cursor-pointer"
-          title="Terminar partida actual y volver al baúl de carpetas"
-        >
-          <LogOut className="w-3.5 h-3.5 text-rose-400" />
-          <span className="hidden md:inline">Terminar Partida</span>
-          <span className="md:hidden">Salir</span>
+          <RotateCcw className="w-4 h-4 text-white" />
+          <span className="hidden sm:inline font-black tracking-wide">Reiniciar</span>
         </button>
       </div>
 
-      {/* Marcadores de Puntuación, Nivel Actual y Progreso del Estudiante */}
+      {/* Marcadores de Puntuación, Nivel Actual y Progreso del Estudiante estilo Card Clash */}
       <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
         {/* Indicador de Nivel 1 a 5 */}
         {(() => {
           const lvlInfo = GAME_LEVELS.find(l => l.level === currentLevel) || GAME_LEVELS[0];
           return (
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-purple-950/95 to-indigo-950/95 border border-purple-400/80 px-3 py-1 rounded-xl shadow-lg backdrop-blur-sm" title={`Nivel ${currentLevel} de 5: ${lvlInfo.name}`}>
-              <Trophy className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-              <span className="text-[10px] font-mono font-bold text-purple-300 uppercase">
+            <div className="flex items-center gap-1.5 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]" title={`Nivel ${currentLevel} de 5: ${lvlInfo.name}`}>
+              <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />
+              <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider">
                 NIVEL {currentLevel}/5:
               </span>
-              <span className="text-xs font-black font-mono text-purple-200">
-                {lvlInfo.name} ({lvlInfo.questions} preg.)
+              <span className="text-xs font-black text-white uppercase tracking-wide">
+                {lvlInfo.name} ({lvlInfo.questions})
               </span>
             </div>
           );
         })()}
 
-        <div className="flex items-center gap-2 bg-slate-900/90 border border-emerald-400/80 px-3 py-1 rounded-xl shadow-lg" title="Progreso del Circuito">
-          <span className="text-[10px] font-mono text-emerald-300 font-bold uppercase">Progreso:</span>
-          <span className="text-sm font-black font-mono text-emerald-400">
+        <div className="flex items-center gap-2 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]" title="Progreso del Circuito">
+          <span className="text-[10px] font-black uppercase text-[#48C838] tracking-wider">Progreso:</span>
+          <span className="text-sm font-black text-white">
             {Object.values(nodes).filter(n => Boolean(n.placedCard)).length} / {Object.keys(nodes).length || 3}
           </span>
         </div>
@@ -2320,160 +2391,183 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-      {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
-      <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-1 sm:my-auto px-2 z-10 overflow-visible">
-        
-        {/* Carcasa Octogonal Externa con Extrusión de Sombra 3D */}
-        <div 
-          className="table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] p-3 sm:p-4 flex flex-col justify-between"
-          style={{
-            clipPath: 'polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)',
-            boxShadow: '0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)'
-          }}
-        >
-
-          {/* Superficie Interior Biselada del Tablero */}
-          <div 
-            className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 pointer-events-none"
-            style={{
-              clipPath: 'polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)',
-              backgroundImage: 'linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)',
-              backgroundSize: '32px 32px'
-            }}
-          />
-
-          {/* ========================================================= */}
-          {/* MÓDULOS DECORATIVOS COLORIDOS INCRUSTADOS EN LOS BORDES */}
-          {/* ========================================================= */}
-
-          {/* 1. ESQUINA SUPERIOR IZQUIERDA: Bisel Azul Pizarra Oscuro */}
-          <div className="absolute top-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#1e293b] to-[#334155] border border-[#475569] shadow-md transform -rotate-[35deg] pointer-events-none">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse" />
-            <span className="w-5 h-1 rounded-full bg-slate-300/60" />
-          </div>
-
-          {/* 2. ESQUINA SUPERIOR DERECHA: Bisel Naranja Coral Vivo */}
-          <div className="absolute top-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ea580c] to-[#f97316] border border-[#fb923c] shadow-md transform rotate-[35deg] pointer-events-none">
-            <div className="w-2 h-2 rounded-full bg-amber-200 shadow-[0_0_8px_#fde68a]" />
-            <span className="w-5 h-1 rounded-full bg-white/70" />
-          </div>
-
-          {/* 3. ESQUINA INFERIOR IZQUIERDA: Bisel Índigo / Morado */}
-          <div className="absolute bottom-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#312e81] to-[#4f46e5] border border-[#6366f1] shadow-md transform rotate-[35deg] pointer-events-none">
-            <div className="w-2 h-2 rounded-full bg-indigo-200 shadow-[0_0_8px_#c7d2fe]" />
-            <span className="w-5 h-1 rounded-full bg-white/60" />
-          </div>
-
-          {/* 4. ESQUINA INFERIOR DERECHA: Bisel Dorado / Mostaza */}
-          <div className="absolute bottom-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ca8a04] to-[#eab308] border border-[#facc15] shadow-md transform -rotate-[35deg] pointer-events-none">
-            <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff]" />
-            <span className="w-5 h-1 rounded-full bg-amber-950/40" />
-          </div>
-
-          {/* 5. LATERAL IZQUIERDO: Placa Modular Salmón con Sensor Central y Ranuras */}
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#f87171] to-[#fb923c] border-2 border-[#fdba74] shadow-[0_4px_12px_rgba(248,113,113,0.35)] pointer-events-none">
-            <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70 flex items-center justify-center">
-              <div className="w-1 h-4 rounded-full bg-white" />
+      {/* SI EL JUEGO NO HA INICIADO: NO MOSTRAR LA TABLA NI EL MAZO VACÍO, MOSTRAR PASOS PARA INICIAR */}
+      {Object.keys(nodes).length === 0 ? (
+        <div className="flex-1 flex items-center justify-center w-full px-4 z-20 my-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-xl bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border-4 border-[#122443] shadow-[0_20px_40px_rgba(18,36,67,0.2),0_10px_0_#122443] flex flex-col items-center text-center relative overflow-hidden"
+          >
+            {/* Cabecera / Banner estilizado */}
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 border-3 border-[#122443] flex items-center justify-center text-white mb-4 shadow-[0_6px_0_#122443]">
+              <Sparkles className="w-9 h-9 animate-bounce text-white drop-shadow" />
             </div>
-            <div className="w-4 h-4 rounded-lg bg-[#b91c1c]/50 border border-white/80 flex items-center justify-center shadow-inner">
-              <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
+
+            <div className="inline-block px-4 py-1 rounded-full bg-orange-100 border-2 border-orange-400 text-orange-800 font-black text-[11px] tracking-wider uppercase mb-2">
+              Hubzy • Tu Amigo de Estudio
             </div>
-            <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70" />
-          </div>
 
-          {/* 6. LATERAL DERECHO: Bahía Profunda Oscura con Indicador Triángulo / Flecha */}
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#0f172a] to-[#1e293b] border-2 border-[#475569] shadow-[0_4px_12px_rgba(15,23,42,0.45)] pointer-events-none">
-            <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
-            <div className="w-4 h-4 rounded-lg bg-orange-500 border border-orange-300 flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.8)]">
-              <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-white ml-0.5" />
+            <h2 className="text-2xl sm:text-3xl font-black text-[#122443] tracking-wide uppercase mb-2">
+              ¡Aún no has iniciado tu partida!
+            </h2>
+            <p className="text-slate-600 font-medium text-sm sm:text-base max-w-md mb-6 leading-relaxed">
+              El tablero y tus cartas de batalla se generarán automáticamente a partir de lo que desees estudiar hoy.
+            </p>
+
+            {/* Pasos requeridos con diseño arcade */}
+            <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-left">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
+                <span className="w-6 h-6 rounded-full bg-[#122443] text-white text-xs font-black flex items-center justify-center">1</span>
+                <span className="font-bold text-xs text-slate-800 uppercase">Abre tus carpetas</span>
+                <span className="text-[11px] text-slate-500">Haz clic en el botón de carpetas de estudio.</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
+                <span className="w-6 h-6 rounded-full bg-[#FF7A00] text-white text-xs font-black flex items-center justify-center">2</span>
+                <span className="font-bold text-xs text-slate-800 uppercase">Sube tu tema</span>
+                <span className="text-[11px] text-slate-500">Carga un PDF, video, audio o documento.</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
+                <span className="w-6 h-6 rounded-full bg-[#48C838] text-white text-xs font-black flex items-center justify-center">3</span>
+                <span className="font-bold text-xs text-slate-800 uppercase">Genera el circuito</span>
+                <span className="text-[11px] text-slate-500">Presiona "Iniciar Juego" y que comience el duelo.</span>
+              </div>
             </div>
-            <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
-          </div>
 
-          {/* 7. BORDE SUPERIOR: Conectores de Hardware Metálicos */}
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-6 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
-            <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
-            <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-          </div>
-
-          {/* 8. BORDE INFERIOR: Conector de Ranura de Cartas */}
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-10 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
-            <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]" />
-            <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
-          </div>
-
-
-
-          {/* PANTALLA TÁCTICA CON DISTRIBUCIÓN ESPACIAL ABIERTA */}
-          <div className="w-full h-full rounded-2xl bg-[#f8fafc]/70 border border-slate-300/80 p-3 sm:p-4 flex flex-col justify-between relative overflow-hidden">
+            {/* Botón de acción principal Card Clash */}
+            <button
+              onClick={() => setIsFolderModalOpen(true)}
+              className="btn-arcade-banner-orange w-full sm:w-auto px-8 py-3.5 rounded-2xl text-base font-black uppercase tracking-wider flex items-center justify-center gap-3 cursor-pointer shadow-lg active:scale-95 transition-transform"
+            >
+              <FolderIcon className="w-5 h-5 text-white" />
+              <span>Abrir Carpetas y Seleccionar Tema</span>
+            </button>
+          </motion.div>
+        </div>
+      ) : (
+        <>
+          {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
+          <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-1 sm:my-auto px-2 z-10 overflow-visible">
             
-            <div className="flex items-center justify-between border-b border-slate-300/70 pb-2 z-10">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300">
-                  {boardInfo?.theme || 'Circuito de Estudio'}
-                </span>
-                <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-700 font-mono uppercase">
-                  {boardInfo?.title || 'Tablero de Aprendizaje'}
-                </h1>
+            {/* Carcasa Octogonal Externa con Extrusión de Sombra 3D */}
+            <div 
+              className="table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] p-3 sm:p-4 flex flex-col justify-between"
+              style={{
+                clipPath: 'polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)',
+                boxShadow: '0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)'
+              }}
+            >
+
+              {/* Superficie Interior Biselada del Tablero */}
+              <div 
+                className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 pointer-events-none"
+                style={{
+                  clipPath: 'polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)',
+                  backgroundImage: 'linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)',
+                  backgroundSize: '32px 32px'
+                }}
+              />
+
+              {/* MÓDULOS DECORATIVOS COLORIDOS INCRUSTADOS EN LOS BORDES */}
+              {/* 1. ESQUINA SUPERIOR IZQUIERDA */}
+              <div className="absolute top-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#1e293b] to-[#334155] border border-[#475569] shadow-md transform -rotate-[35deg] pointer-events-none">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse" />
+                <span className="w-5 h-1 rounded-full bg-slate-300/60" />
               </div>
 
-              {/* Selector / Barra de 5 Niveles */}
-              <div className="hidden sm:flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-xl border border-slate-300 shadow-sm">
-                {GAME_LEVELS.map((lvl) => {
-                  const isCurrent = lvl.level === currentLevel;
-                  const isCompleted = lvl.level < currentLevel;
-                  return (
-                    <button
-                      key={lvl.level}
-                      onClick={() => handleJumpToLevel(lvl.level)}
-                      className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all cursor-pointer ${
-                        isCurrent
-                          ? 'bg-orange-500 text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)] scale-105'
-                          : isCompleted
-                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-400'
-                          : 'bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200'
-                      }`}
-                      title={`Nivel ${lvl.level}: ${lvl.name} (${lvl.questions} preguntas)`}
-                    >
-                      {isCompleted && <Check className="w-2.5 h-2.5 inline mr-1 text-emerald-600" />}
-                      N{lvl.level}: {lvl.name}
-                    </button>
-                  );
-                })}
+              {/* 2. ESQUINA SUPERIOR DERECHA */}
+              <div className="absolute top-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ea580c] to-[#f97316] border border-[#fb923c] shadow-md transform rotate-[35deg] pointer-events-none">
+                <div className="w-2 h-2 rounded-full bg-amber-200 shadow-[0_0_8px_#fde68a]" />
+                <span className="w-5 h-1 rounded-full bg-white/70" />
               </div>
-            </div>
 
+              {/* 3. ESQUINA INFERIOR IZQUIERDA */}
+              <div className="absolute bottom-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#312e81] to-[#4f46e5] border border-[#6366f1] shadow-md transform rotate-[35deg] pointer-events-none">
+                <div className="w-2 h-2 rounded-full bg-indigo-200 shadow-[0_0_8px_#c7d2fe]" />
+                <span className="w-5 h-1 rounded-full bg-white/60" />
+              </div>
 
-            {/* ÁREA CENTRAL DE NODOS DISTRIBUIDOS LIBREMENTE */}
-            <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center">
-              {Object.keys(nodes).length === 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center justify-center text-center p-6 rounded-3xl bg-white/80 border border-slate-300 max-w-md backdrop-blur-sm shadow-lg"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-orange-100 border border-orange-300 flex items-center justify-center text-orange-600 mb-4 shadow-md">
-                    <UploadCloud className="w-8 h-8 text-orange-500 animate-bounce" />
+              {/* 4. ESQUINA INFERIOR DERECHA */}
+              <div className="absolute bottom-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ca8a04] to-[#eab308] border border-[#facc15] shadow-md transform -rotate-[35deg] pointer-events-none">
+                <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff]" />
+                <span className="w-5 h-1 rounded-full bg-amber-950/40" />
+              </div>
+
+              {/* 5. LATERAL IZQUIERDO */}
+              <div className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#f87171] to-[#fb923c] border-2 border-[#fdba74] shadow-[0_4px_12px_rgba(248,113,113,0.35)] pointer-events-none">
+                <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70 flex items-center justify-center">
+                  <div className="w-1 h-4 rounded-full bg-white" />
+                </div>
+                <div className="w-4 h-4 rounded-lg bg-[#b91c1c]/50 border border-white/80 flex items-center justify-center shadow-inner">
+                  <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
+                </div>
+                <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70" />
+              </div>
+
+              {/* 6. LATERAL DERECHO */}
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#0f172a] to-[#1e293b] border-2 border-[#475569] shadow-[0_4px_12px_rgba(15,23,42,0.45)] pointer-events-none">
+                <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
+                <div className="w-4 h-4 rounded-lg bg-orange-500 border border-orange-300 flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.8)]">
+                  <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-white ml-0.5" />
+                </div>
+                <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
+              </div>
+
+              {/* 7. BORDE SUPERIOR */}
+              <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-6 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
+                <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
+                <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
+              </div>
+
+              {/* 8. BORDE INFERIOR */}
+              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-10 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
+                <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]" />
+                <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
+              </div>
+
+              {/* PANTALLA TÁCTICA CON DISTRIBUCIÓN ESPACIAL ABIERTA */}
+              <div className="w-full h-full rounded-2xl bg-[#f8fafc]/70 border border-slate-300/80 p-3 sm:p-4 flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-300/70 pb-2 z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300">
+                      {boardInfo?.theme || 'Circuito de Estudio'}
+                    </span>
+                    <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-700 font-mono uppercase">
+                      {boardInfo?.title || 'Tablero de Aprendizaje'}
+                    </h1>
                   </div>
-                  <h3 className="text-base font-bold text-slate-700 font-mono uppercase tracking-wide">
-                    Circuito Sin Inicializar
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-                    Sube tus documentos (PDF, audio, imágenes o YouTube) para que Gemini y el motor RAG construyan las preguntas, conceptos y nodos en tiempo real.
-                  </p>
-                  <button
-                    onClick={() => setIsFolderModalOpen(true)}
-                    className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-bold font-mono text-xs uppercase tracking-wider flex items-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
-                  >
-                    <FolderIcon className="w-4 h-4" />
-                    <span>Mis Carpetas de Estudio</span>
-                  </button>
-                </motion.div>
-              ) : (
-                <>
-                  {/* Conexiones de red con flechas de flujo — exactamente como en la imagen de referencia */}
+
+                  {/* Selector / Barra de 5 Niveles */}
+                  <div className="hidden sm:flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-xl border border-slate-300 shadow-sm">
+                    {GAME_LEVELS.map((lvl) => {
+                      const isCurrent = lvl.level === currentLevel;
+                      const isCompleted = lvl.level < currentLevel;
+                      return (
+                        <button
+                          key={lvl.level}
+                          onClick={() => handleJumpToLevel(lvl.level)}
+                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all cursor-pointer ${
+                            isCurrent
+                              ? 'bg-orange-500 text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)] scale-105'
+                              : isCompleted
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-400'
+                              : 'bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200'
+                          }`}
+                          title={`Nivel ${lvl.level}: ${lvl.name} (${lvl.questions} preguntas)`}
+                        >
+                          {isCompleted && <Check className="w-2.5 h-2.5 inline mr-1 text-emerald-600" />}
+                          N{lvl.level}: {lvl.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ÁREA CENTRAL DE NODOS */}
+                <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center">
+                  {/* Conexiones de red con flechas de flujo */}
                   <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                       <marker id="arrow-coral" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
@@ -2504,7 +2598,7 @@ export default function ArcadeArena() {
                     })}
                   </svg>
 
-                  {/* Render de los Nodos Distribuidos por Toda la Pantalla */}
+                  {/* Render de los Nodos */}
                   {Object.values(nodes).map((node) => (
                     <div
                       key={node.id}
@@ -2535,83 +2629,85 @@ export default function ArcadeArena() {
                       </div>
                     </div>
                   ))}
-                </>
-              )}
-            </div>
+                </div>
 
-            {/* Luces Neón de Piso */}
-            <div className="flex items-center justify-center gap-12 mt-1">
-              <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
-              <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* NOTIFICACIÓN FLOTANTE — roja si Capi está triste (respuesta incorrecta), cyan si correcto */}
-      <AnimatePresence>
-        {successNotif && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`absolute top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-2.5 rounded-2xl border-2 text-xs font-bold shadow-2xl flex items-center gap-2.5 backdrop-blur-md ${
-              isCapySad
-                ? 'bg-rose-950/95 border-rose-500 text-rose-200'
-                : 'bg-slate-900/95 border-cyan-400 text-cyan-200'
-            }`}
-          >
-            {isCapySad
-              ? <AlertTriangle className="w-4 h-4 text-rose-400 animate-bounce" />
-              : <Check className="w-4 h-4 text-cyan-300" />}
-            {successNotif}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-        {/* MANO DE CARTAS EN ABANICO CON ADAPTACIÓN PARA HASTA 26 CARTAS */}
-        <div className={`relative w-full flex flex-col items-center justify-center pb-2 z-40 transition-all duration-300 overflow-visible ${
-          !isActualTurn
-            ? 'opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed' 
-            : 'opacity-100'
-        }`}>
-
-        {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" (IDÉNTICO A LA IMAGEN DE REFERENCIA) */}
-        <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
-          
-          {/* Fondo con huecos/ranuras rectangulares empotradas (slots de cartas) */}
-          <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
-            {hand.map((card, idx) => (
-              <div 
-                key={`slot-${card.id || idx}`}
-                className="relative rounded-2xl p-1 bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner flex items-center justify-center"
-                style={{
-                  width: '86px',
-                  height: '112px'
-                }}
-              >
-                {/* Carta encajada en su hueco */}
-                <GameCard
-                  id={card.id}
-                  name={card.name}
-                  cost={card.cost}
-                  type={card.type}
-                  sourceType={card.sourceType}
-                  domain={card.domain}
-                  theme={card.theme || boardInfo?.theme}
-                  index={card.cardIndex ?? idx}
-                  rotation={0}
-                  zIndex={card.zIndex}
-                  isDraggable={isActualTurn}
-                  isSelected={false}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => handleCardClick(card)}
-                />
+                {/* Luces Neón de Piso */}
+                <div className="flex items-center justify-center gap-12 mt-1">
+                  <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
+                  <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
+                </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </div>
+
+          {/* MANO DE CARTAS EN ABANICO — SOLO SI HAY PARTIDA ACTIVA */}
+          {hand.length > 0 && (
+            <div className={`relative w-full flex flex-col items-center justify-center pb-2 z-40 transition-all duration-300 overflow-visible ${
+              !isActualTurn
+                ? 'opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed' 
+                : 'opacity-100'
+            }`}>
+              {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" */}
+              <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
+                <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
+                  {hand.map((card, idx) => (
+                    <div 
+                      key={`slot-${card.id || idx}`}
+                      className="relative rounded-2xl p-1 bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner flex items-center justify-center"
+                      style={{
+                        width: '86px',
+                        height: '112px'
+                      }}
+                    >
+                      <GameCard
+                        id={card.id}
+                        name={card.name}
+                        cost={card.cost}
+                        type={card.type}
+                        sourceType={card.sourceType}
+                        domain={card.domain}
+                        theme={card.theme || boardInfo?.theme}
+                        index={card.cardIndex ?? idx}
+                        rotation={0}
+                        zIndex={card.zIndex}
+                        isDraggable={isActualTurn}
+                        isSelected={false}
+                        onDragEnd={handleDragEnd}
+                        onClick={() => handleCardClick(card)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* MODAL DE TUTORIAL RÁPIDO INTERACTIVO */}
+      <TutorialModal
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
+      />
+
+      {/* MODAL DE VICTORIA Y ESTRELLAS CON EFECTO CONFETTI */}
+      <VictoryModal
+        isOpen={isVictoryModalOpen}
+        level={currentLevel}
+        accuracy={victoryStats.accuracy}
+        totalQuestions={victoryStats.totalQuestions}
+        onNextLevel={() => {
+          setIsVictoryModalOpen(false);
+          if (currentLevel < 5) {
+            setCurrentLevel(prev => prev + 1);
+          }
+        }}
+        onRetry={() => {
+          setIsVictoryModalOpen(false);
+          handleRestartWithNewQuestions();
+        }}
+        onReview={() => setIsVictoryModalOpen(false)}
+      />
 
     </div>
   );

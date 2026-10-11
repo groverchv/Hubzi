@@ -13,7 +13,8 @@ import {
   Heart, 
   AlertCircle,
   GraduationCap,
-  Volume2
+  Volume2,
+  X
 } from 'lucide-react';
 import capybara3dImg from '../assets/capybara_3d.jpg';
 
@@ -141,57 +142,67 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 20 }}
-        className="relative w-full max-w-md rounded-3xl bg-gradient-to-b from-[#151f30] to-[#0d1422] border-2 border-cyan-500/50 p-6 sm:p-7 text-slate-100 shadow-[0_0_60px_rgba(6,182,212,0.35)] overflow-hidden"
+        className="relative w-full max-w-md rounded-3xl bg-[#122443] border-4 border-[#0a162b] p-6 sm:p-7 text-white shadow-[0_12px_0_#050a13,0_20px_35px_rgba(0,0,0,0.6)] overflow-hidden"
       >
         {/* Glow de fondo */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#FF7A00]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[#48C838]/15 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Botón Cerrar (X) */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-30 p-2 rounded-2xl bg-[#0a162b] hover:bg-[#1a335e] border-2 border-[#1e3a6c] text-slate-300 hover:text-white shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+          title="Cerrar"
+        >
+          <X className="w-5 h-5 stroke-[2.5]" />
+        </button>
 
         {/* Header con Capibara y Título */}
-        <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-slate-700/70">
-          <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-cyan-400 shadow-md shrink-0 bg-slate-800">
+        <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[#1e3a6c]">
+          <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-3 border-[#FFB400] shadow-[0_4px_0_#D48800] shrink-0 bg-[#0a162b]">
             <img src={capybara3dImg} alt="Capi Guardián" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono font-black uppercase text-cyan-400 tracking-wider">
+              <span className="text-[10px] font-mono font-black uppercase text-[#FFB400] tracking-wider">
                 Portal de Acceso
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/50 text-[9px] font-mono text-cyan-300 font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] text-[9px] font-black text-white uppercase tracking-wider">
                 Hubzi Arena
               </span>
             </div>
-            <h2 className="text-xl font-black text-white tracking-wide mt-0.5">
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide mt-0.5 drop-shadow">
               {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
             </h2>
           </div>
         </div>
 
-        {/* Selector de Pestañas (Login / Registro) */}
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-900/90 border border-slate-700/80 mb-5">
+        {/* Selector de Pestañas (Login / Registro estilo Card Clash) */}
+        <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-[#0a162b] border-3 border-[#1e3a6c] mb-5">
           <button
             type="button"
             onClick={() => handleToggleMode('login')}
-            className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               mode === 'login'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#FF7A00] text-white border-b-3 border-[#D45B00] shadow-[0_2px_0_#050a13]'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
-            <LogIn className="w-3.5 h-3.5" />
+            <LogIn className="w-4 h-4" />
             <span>Ingresar</span>
           </button>
           <button
             type="button"
             onClick={() => handleToggleMode('register')}
-            className={`py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               mode === 'register'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#48C838] text-white border-b-3 border-[#28871E] shadow-[0_2px_0_#050a13]'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <UserPlus className="w-4 h-4" />
             <span>Registrarme</span>
           </button>
         </div>
@@ -363,38 +374,38 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </motion.div>
           )}
 
-          {/* Botón de Enviar */}
-          <div className="pt-2 space-y-2">
+          {/* Botón de Enviar (Estilo Botón Primario Arcade Card Clash) */}
+          <div className="pt-2 space-y-2.5">
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98 cursor-pointer ${
+              className={`w-full py-3.5 rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 border-3 transition-all cursor-pointer ${
                 isLoading 
-                  ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                  ? 'bg-slate-800 text-slate-500 border-[#1e3a6c] cursor-not-allowed'
                   : mode === 'login'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-[0_0_25px_rgba(6,182,212,0.4)]'
-                  : 'bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-white shadow-[0_0_25px_rgba(168,85,247,0.4)]'
+                  ? 'bg-[#FF7A00] hover:bg-[#ff8c1a] border-[#0a162b] border-b-5 border-b-[#D45B00] text-white shadow-[0_5px_0_#050a13] active:translate-y-1 active:shadow-none'
+                  : 'bg-[#48C838] hover:bg-[#57d847] border-[#0a162b] border-b-5 border-b-[#28871E] text-white shadow-[0_5px_0_#050a13] active:translate-y-1 active:shadow-none'
               }`}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>Procesando...</span>
                 </div>
               ) : mode === 'login' ? (
                 <>
-                  <LogIn className="w-4 h-4" />
+                  <LogIn className="w-4 h-4 text-white" />
                   <span>Iniciar Sesión en Hubzi</span>
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-4 h-4 text-white" />
                   <span>Crear Cuenta y Comenzar</span>
                 </>
               )}
             </button>
 
-            {/* Ingreso Directo sin registrarse (Modo Invitado) */}
+            {/* Ingreso Directo sin registrarse (Modo Invitado con Estilo Botón Píldora Marina) */}
             <button
               type="button"
               onClick={() => {
@@ -416,9 +427,9 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   onAuthSuccess(guestUser);
                 }, 400);
               }}
-              className="w-full py-2.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800/90 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm hover:shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+              className="w-full py-2.5 rounded-2xl bg-[#0a162b] hover:bg-[#122443] border-3 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none"
             >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 text-[#FFB400] animate-pulse" />
               <span>Ingresar Directo (Sin Registro / Invitado)</span>
             </button>
           </div>

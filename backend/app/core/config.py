@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # ElevenLabs
     ELEVENLABS_API_KEY: Optional[str] = None
 
+    # Groq Cloud
+    GROQ_API_KEY: Optional[str] = None
+
     class Config:
         env_file = ".env"
         case_sensitive = True
