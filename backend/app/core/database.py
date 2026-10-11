@@ -40,6 +40,15 @@ class DatabaseManager:
                 # Validar conexión
                 await self.mongo_client.admin.command('ping')
                 logger.info(f"Conectado exitosamente a MongoDB (BD: {settings.MONGODB_DB_NAME})")
+
+                # Crear índices de alto rendimiento si no existen
+                try:
+                    await self.db["cached_analyses"].create_index("content_hash", unique=True)
+                    await self.db["study_folders"].create_index([("user_id", 1), ("_id", -1)])
+                    await self.db["ai_training_dataset"].create_index("created_at")
+                    logger.info("Índices de MongoDB optimizados y verificados.")
+                except Exception as ie:
+                    logger.warning(f"Aviso al verificar índices de MongoDB: {ie}")
         except Exception as e:
             logger.error(f"Error conectando a MongoDB: {e}")
             self.db = None

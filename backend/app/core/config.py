@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # Groq Cloud
     GROQ_API_KEY: Optional[str] = None
 
+    # Stripe Payments
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_PUBLISHABLE_KEY: Optional[str] = None
+
     class Config:
         env_file = ".env"
         case_sensitive = True

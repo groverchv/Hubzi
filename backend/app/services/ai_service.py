@@ -97,11 +97,37 @@ CALIBRACIÓN DE DIFICULTAD Y PEDAGOGÍA:
 - {guideline}
 - Dificultad solicitada: {difficulty.upper()} (Nivel {level}/5).
 
+MANEJO INTELIGENTE DE CASOS ESPECIALES DE DOCUMENTOS:
+1. DOCUMENTOS BREVES O CON INFORMACIÓN COMPACTA:
+   - Si el documento tiene pocos conceptos para las {question_count} preguntas solicitadas:
+     * ESTÁ PROHIBIDO inventar conceptos ajenos al documento.
+     * En su lugar, aborda los conceptos presentes desde DIFERENTES ÁNGULOS COGNITIVOS:
+       (a) Definición/Significado exacto según el texto.
+       (b) Finalidad, Objetivo o Utilidad práctica.
+       (c) Procedimiento, Relación o Causa-Efecto.
+       (d) Requisitos, Características clave o Distinciones.
+     * Si resulta imposible llegar a {question_count} sin alucinar, entrega el máximo riguroso posible (mínimo 3).
+
+2. DIAPOSITIVAS Y LISTAS ESQUEMÁTICAS (BULLET POINTS):
+   - Si el texto está compuesto por viñetas breves o diapositivas resumidas:
+     * Formula reactivos de evaluación de clasificación, relaciones de pertenencia y discriminación conceptual.
+     * Ejemplo: "¿Cuál de los siguientes elementos es categorizado como X según la presentación?"
+
+3. FÓRMULAS, CIENCIAS EXACTAS Y PROCEDIMIENTOS:
+   - En documentos con ecuaciones, leyes físicas, algoritmos o matemáticas:
+     * Formula preguntas basadas en el rol de cada variable, condiciones de aplicación o significado de la fórmula descrita.
+     * La carta representa la fórmula, la variable o la regla exacta.
+
+4. TERMINOLOGÍA TÉCNICA E IDIOMAS (Latín, Inglés, Jerga Técnica):
+   - Respeta escrupulosamente los términos en su grafía y lenguaje original (ej. "habeas corpus", "machine learning", "turnaround").
+   - NO traduzcas términos clave si el documento los presenta en su denominación técnica internacional o legal.
+
 CRITERIOS PEDAGÓGICOS OBLIGATORIOS:
-1. Extrae EXACTAMENTE {question_count} conceptos, principios, fórmulas, procedimientos o tesis presentes EXPLÍCITAMENTE en el texto.
+1. Extrae hasta {question_count} conceptos, principios, fórmulas, procedimientos o tesis presentes EXPLÍCITAMENTE en el texto (o ángulos cognitivos distintos de los conceptos existentes).
 2. Para cada concepto genera:
    - "concept_name": El término técnico exacto tal como aparece en el documento (la carta respuesta del alumno).
    - "content": Síntesis de 1-2 líneas que explica POR QUÉ es la respuesta correcta, usando el lenguaje del propio documento.
+   - "source_quote": Cita literal textual de 1 renglón extraída directamente del texto que comprueba y fundamenta la respuesta (RIGOR VERÍDICO OBLIGATORIO).
    - "points_multiplier": "1x" (básico), "2x" (intermedio), "3x" (avanzado).
    - "node_question": REACTIVO DE EXAMEN REAL basado en el texto y calibrado a la dificultad indicada.
    - "node_hint": Pista nemotécnica que oriente al alumno hacia la respuesta SIN decir el nombre de la carta.
@@ -120,6 +146,7 @@ Estructura JSON requerida:
     {{
       "concept_name": "Término Técnico 1",
       "content": "Fundamentación extraída del texto...",
+      "source_quote": "Cita textual del texto que respalda esto...",
       "points_multiplier": "1x",
       "node_question": "¿Según el documento, qué establece...?",
       "node_hint": "Revisa la sección donde se explica..."
@@ -237,6 +264,7 @@ class AIService:
                         ],
                         response_format={"type": "json_object"},
                         temperature=0.85 if variation_seed > 0 else 0.3,
+                        timeout=8.0,
                     )
                     raw_text = (chat_completion.choices[0].message.content or "").strip()
                     parsed_json = json.loads(raw_text)
@@ -287,23 +315,43 @@ class AIService:
 
                 raw_text = (response.text or "").strip()
 
-                # Limpieza defensiva en caso de que venga envuelto en markdown
-                if raw_text.startswith("```json"):
-                    raw_text = raw_text[7:]
-                if raw_text.startswith("```"):
-                    raw_text = raw_text[3:]
-                if raw_text.endswith("```"):
-                    raw_text = raw_text[:-3]
-                raw_text = raw_text.strip()
+                # Limpieza y reparación defensiva de JSON
+                parsed_json = None
+                cleaned = raw_text
+                if cleaned.startswith("```json"):
+                    cleaned = cleaned[7:]
+                if cleaned.startswith("```"):
+                    cleaned = cleaned[3:]
+                if cleaned.endswith("```"):
+                    cleaned = cleaned[:-3]
+                cleaned = cleaned.strip()
 
-                parsed_json = json.loads(raw_text)
+                try:
+                    parsed_json = json.loads(cleaned)
+                except json.JSONDecodeError:
+                    # Intento de auto-reparación defensiva (cierre de llaves o corchetes faltantes)
+                    try:
+                        # Extraer el bloque JSON más exterior
+                        start_idx = cleaned.find("{")
+                        if start_idx != -1:
+                            sub = cleaned[start_idx:]
+                            # Si se cortó en medio de una cadena o array, intentar equilibrar llaves
+                            open_braces = sub.count("{") - sub.count("}")
+                            open_brackets = sub.count("[") - sub.count("]")
+                            repaired = sub + ("]" * max(0, open_brackets)) + ("}" * max(0, open_braces))
+                            parsed_json = json.loads(repaired)
+                    except Exception:
+                        pass
+
+                if not parsed_json or not isinstance(parsed_json, dict):
+                    raise json.JSONDecodeError("JSON no válido o no diccionario", raw_text, 0)
+
                 logger.info(f"Reactivos generados exitosamente con modelo '{model_name}'.")
                 return parsed_json
 
             except json.JSONDecodeError as jde:
                 logger.error(f"Error parseando JSON de Gemini ({model_name}): {jde} | Contenido: {raw_text[:500]}")
                 last_error = ValueError(f"La IA ({model_name}) no devolvió un formato JSON válido: {str(jde)}")
-                # Si falló el parseo de este modelo, intentamos el siguiente
                 continue
             except Exception as e:
                 err_str = str(e)
@@ -381,26 +429,52 @@ class AIService:
             try:
                 import io
                 from pypdf import PdfReader
+                from pypdf.errors import PdfReadError, FileNotDecryptedError
                 reader = PdfReader(io.BytesIO(file_bytes))
+                
+                # Verificar si el PDF está protegido con contraseña
+                if reader.is_encrypted:
+                    try:
+                        reader.decrypt("")
+                    except Exception:
+                        raise RuntimeError("El archivo PDF está protegido con contraseña. Por favor, sube una versión desbloqueada.")
+
                 pages = []
-                # Analizar TODAS las páginas del documento completo
                 for p in reader.pages:
                     t = p.extract_text()
                     if t:
                         pages.append(t)
                 pdf_text = "\n\n".join(pages).strip()
+            except (PdfReadError, FileNotDecryptedError) as pfe:
+                logger.warning(f"PDF encriptado o dañado en '{filename}': {pfe}")
+                raise RuntimeError("El archivo PDF está protegido con contraseña o dañado. Por favor, sube un archivo legible.")
             except Exception as pe:
                 logger.warning(f"Extracción directa pypdf falló para '{filename}': {pe}")
 
             # Si se obtuvo texto nativo suficiente, retornarlo de inmediato (0 costo y milisegundos)
             if len(pdf_text) >= 50:
-                logger.info(f"Extracción nativa pypdf exitosa para '{filename}' ({len(reader.pages)} páginas): {len(pdf_text)} caracteres")
+                logger.info(f"Extracción nativa pypdf exitosa para '{filename}': {len(pdf_text)} caracteres")
                 return pdf_text
-
 
             # Si el PDF es escaneado (sin capa de texto), activar OCR Multimodal con Gemini
             logger.info(f"PDF '{filename}' parece ser escaneado o imagen (longitud {len(pdf_text)}). Activando OCR Multimodal Gemini...")
             return self.extract_text_multimodal_ocr(file_bytes, "application/pdf")
+
+        # 2. DOCUMENTOS WORD (.docx)
+        if lower_name.endswith(".docx"):
+            try:
+                import io
+                import docx
+                doc = docx.Document(io.BytesIO(file_bytes))
+                full_paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+                for table in doc.tables:
+                    for row in table.rows:
+                        full_paragraphs.append(" | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()]))
+                docx_text = "\n".join(full_paragraphs).strip()
+                if len(docx_text) >= 20:
+                    return docx_text
+            except Exception as docx_err:
+                logger.warning(f"Error procesando .docx '{filename}': {docx_err}")
 
         # 2. IMÁGENES
         image_mimes = {

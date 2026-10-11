@@ -77,6 +77,22 @@ async def health_check():
     }
 
 
+# Caché L1 en memoria RAM de ultra-alta velocidad (sub-milisegundo, capacidad para 200 tableros recientes)
+L1_RAM_CACHE: Dict[str, Any] = {}
+L1_CACHE_MAX_SIZE = 200
+
+def get_from_l1_cache(signature_hash: str) -> Optional[GameBoardResponse]:
+    return L1_RAM_CACHE.get(signature_hash)
+
+def save_to_l1_cache(signature_hash: str, board: GameBoardResponse):
+    if len(L1_RAM_CACHE) >= L1_CACHE_MAX_SIZE:
+        try:
+            oldest_key = next(iter(L1_RAM_CACHE))
+            del L1_RAM_CACHE[oldest_key]
+        except Exception:
+            pass
+    L1_RAM_CACHE[signature_hash] = board
+
 # ==========================================
 # ENDPOINT: GENERAR Y GUARDAR TABLERO
 # ==========================================
@@ -92,8 +108,6 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
     calibrados al nivel (1 a 5) y cantidad requerida (3, 5, 8, 15, 20),
     ensambla el GameBoardResponse con el Builder y persiste el tablero y materiales
     en MongoDB y Qdrant Vector DB.
-    Si force_refresh=False y ya fue analizado previamente en MongoDB para ese nivel,
-    reutiliza el análisis al instante (0 ms de espera).
     """
     level = getattr(payload, 'level', 1) or 1
     question_count = getattr(payload, 'question_count', 3) or 3
@@ -103,13 +117,22 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
     cache_signature = f"{payload.text.strip()}_lvl{level}_qc{question_count}_{difficulty}"
     content_hash = hashlib.sha256(cache_signature.encode("utf-8")).hexdigest()
 
-    # 2. Reutilización instantánea: Consultar si ya existe un análisis para este nivel
+    # NIVEL 1 DE CACHÉ: Memoria RAM local (velocidad extrema < 2ms)
+    if not force_refresh:
+        l1_hit = get_from_l1_cache(content_hash)
+        if l1_hit:
+            logger.info(f"⚡⚡ [CACHE L1 - RAM HIT] ({content_hash[:8]}...): Tablero servido en sub-milisegundos desde memoria.")
+            return l1_hit
+
+    # NIVEL 2 DE CACHÉ: MongoDB persistente
     if not force_refresh and db_manager.db is not None:
         try:
             cached_doc = await db_manager.db["cached_analyses"].find_one({"content_hash": content_hash})
             if cached_doc and "board" in cached_doc:
-                logger.info(f"⚡ REUTILIZANDO ANÁLISIS PREVIO ({content_hash[:10]}... Nivel {level}, {question_count} reactivos): Tablero cargado desde caché en MongoDB.")
-                return GameBoardResponse(**cached_doc["board"])
+                logger.info(f"⚡ [CACHE L2 - MONGODB HIT] ({content_hash[:10]}... Nivel {level}, {question_count} reactivos): Tablero cargado desde caché en MongoDB.")
+                board_obj = GameBoardResponse(**cached_doc["board"])
+                save_to_l1_cache(content_hash, board_obj)
+                return board_obj
         except Exception as ce:
             logger.warning(f"Error consultando caché de análisis: {ce}")
 
@@ -131,13 +154,20 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
 
         builder = GameBoardBuilder(title=ai_data.get("title", "Tablero de Aprendizaje"))
         
+        seen_names = set()
         for idx, item in enumerate(concepts, start=1):
             card_id = f"card_{idx}"
             node_id = f"node_{idx}"
+            raw_cname = (item.get("concept_name") or f"Concepto {idx}").strip()
+            # Cortar a máximo 38 caracteres para evitar desbordamiento visual
+            cname = raw_cname[:38].strip()
+            if cname in seen_names:
+                cname = f"{cname} ({idx})"
+            seen_names.add(cname)
             
             builder.add_card(
                 card_id=card_id,
-                concept_name=item.get("concept_name", f"Concepto {idx}"),
+                concept_name=cname,
                 content=item.get("content", ""),
                 points_multiplier=item.get("points_multiplier", "1x")
             )
@@ -157,14 +187,18 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
             card_id = f"card_distractor_{d_idx + 1}"
             if d_idx < len(ai_distractors) and ai_distractors[d_idx].get("concept_name"):
                 d_item = ai_distractors[d_idx]
-                concept_name = d_item.get("concept_name")
+                raw_dname = (d_item.get("concept_name") or f"Distractor {d_idx + 1}").strip()
+                concept_name = raw_dname[:38].strip()
+                if concept_name in seen_names:
+                    concept_name = f"{concept_name} (Alt)"
                 content = d_item.get("content", "Concepto distractor no aplicable a los reactivos planteados.")
                 mult = d_item.get("points_multiplier", "1x")
             else:
                 # Fallback verosímil contextual
-                concept_name = f"Enfoque Antagónico {d_idx + 1}"
+                concept_name = f"Enfoque Alternativo {d_idx + 1}"
                 content = "Concepto no correspondiente a las preguntas del circuito."
                 mult = "1x"
+            seen_names.add(concept_name)
 
             builder.add_card(
                 card_id=card_id,
@@ -213,6 +247,32 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
                     upsert=True
                 )
                 logger.info(f"Tablero {board_result.id_tablero} guardado en MongoDB y en caché para reutilización futura.")
+                save_to_l1_cache(content_hash, board_result)
+
+                # 4. DATASET HUBZY: Guardar pares de entrenamiento para futuro Fine-Tuning de modelos propios
+                training_samples = []
+                for node in board_result.nodes:
+                    correct_card = next((c for c in board_result.cards if c.id_carta == node.id_carta_correcta), None)
+                    if correct_card:
+                        training_samples.append({
+                            "question": node.question,
+                            "hint": node.description,
+                            "target_concept": correct_card.nombre_concepto,
+                            "explanation": correct_card.contenido,
+                            "multiplier": correct_card.multiplicador_puntos
+                        })
+                if training_samples:
+                    await db_manager.db["ai_training_dataset"].insert_one({
+                        "content_hash": content_hash,
+                        "level": level,
+                        "difficulty": difficulty,
+                        "document_context_sample": payload.text[:1000],
+                        "samples": training_samples,
+                        "source_title": board_result.title,
+                        "quality_score": 1.0,
+                        "created_at": "now"
+                    })
+                    logger.info(f"🎓 {len(training_samples)} ejemplos pedagógicos archivados para el dataset de entrenamiento.")
             except Exception as dbe:
                 logger.warning(f"Error guardando tablero en MongoDB: {dbe}")
 
@@ -259,15 +319,38 @@ async def upload_and_generate_arena_board(
     
     if file:
         file_bytes = await file.read()
-        filename = file.filename or ""
         filename = file.filename or "archivo"
+
+        # 1. SEGURIDAD: Límite estricto de tamaño de archivo (25 MB)
+        MAX_FILE_SIZE = 25 * 1024 * 1024
+        if len(file_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"El archivo '{filename}' supera el tamaño máximo permitido de 25 MB."
+            )
+
+        # 2. SEGURIDAD: Verificación de Magic Bytes (rechazar binarios falsificados)
+        lower_f = filename.lower()
+        if lower_f.endswith(".pdf") and not file_bytes.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo PDF no tiene una cabecera binaria válida o está corrupto."
+            )
+        elif lower_f.endswith(".docx") and not file_bytes.startswith(b"PK\x03\x04"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo Word (.docx) no tiene una estructura de compresión válida."
+            )
+
         try:
             extracted_text = ai_service.extract_document_text(file_bytes, filename)
             logger.info(f"Texto extraído del archivo '{filename}': {len(extracted_text)} caracteres")
         except Exception as e:
             logger.warning(f"Error extrayendo texto u OCR de '{filename}': {e}")
-        except Exception as ee:
-            logger.warning(f"Error en extracción híbrida de '{filename}': {ee}")
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Error al procesar el archivo: {str(e)}"
+            )
 
     # Combinar con texto adicional si existe
     if raw_text and raw_text.strip():
@@ -613,7 +696,11 @@ async def list_folders(user_id: Optional[str] = Query(None, description="ID del 
             query = {}
             if user_id:
                 query["user_id"] = user_id
-            cursor = db_manager.db["study_folders"].find(query).sort("_id", -1)
+            # PROYECCIÓN OPTIMIZADA: Excluir campos pesados de texto plano almacenados en los documentos
+            cursor = db_manager.db["study_folders"].find(
+                query, 
+                {"documents.text": 0, "documents.full_text": 0}
+            ).sort("_id", -1)
             async for doc in cursor:
                 doc["id"] = str(doc["_id"])
                 del doc["_id"]
@@ -778,6 +865,28 @@ async def upload_document_to_folder(
     """
     file_bytes = await file.read()
     filename = file.filename or "archivo"
+
+    # 1. SEGURIDAD: Límite estricto de tamaño de archivo (25 MB)
+    MAX_FILE_SIZE = 25 * 1024 * 1024
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"El archivo '{filename}' supera el tamaño máximo permitido de 25 MB."
+        )
+
+    # 2. SEGURIDAD: Verificación de Magic Bytes (rechazar binarios falsificados)
+    lower_f = filename.lower()
+    if lower_f.endswith(".pdf") and not file_bytes.startswith(b"%PDF-"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo PDF no tiene una cabecera binaria válida o está corrupto."
+        )
+    elif lower_f.endswith(".docx") and not file_bytes.startswith(b"PK\x03\x04"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo Word (.docx) no tiene una estructura de compresión válida."
+        )
+
     extracted_text = ""
 
     try:
@@ -950,15 +1059,30 @@ async def generate_game_from_folder(
         f"{combined_text.strip()}_lvl{level}_qc{final_qc}_{final_diff}".encode("utf-8")
     ).hexdigest()
 
-    # 1. VERIFICAR SI LA CARPETA YA TIENE UN ANÁLISIS GUARDADO PARA ESTE NIVEL
-    if not force and db_manager.db is not None:
-        try:
-            cached_folder_analysis = await db_manager.db["cached_analyses"].find_one({"content_hash": folder_content_hash})
-            if cached_folder_analysis and "board" in cached_folder_analysis:
-                logger.info(f"⚡ REUTILIZANDO ANÁLISIS DE CARPETA '{folder_name}' (Nivel {level}, {final_qc} preguntas): Recuperado de MongoDB al instante.")
-                return GameBoardResponse(**cached_folder_analysis["board"])
-        except Exception as cache_err:
-            logger.warning(f"Error verificando análisis guardado de carpeta: {cache_err}")
+    # 1. VERIFICAR SI LA CARPETA YA TIENE UN TABLERO GUARDADO PARA ESTE NIVEL EN MONGODB O MEMORIA
+    if not force:
+        # A) Revisar si la carpeta ya tiene cached_boards indexado por nivel
+        cached_boards_dict = folder_doc.get("cached_boards", {})
+        lvl_key = f"level_{level}"
+        if lvl_key in cached_boards_dict:
+            logger.info(f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Tablero de '{folder_name}' ({lvl_key}) recuperado directamente de MongoDB.")
+            return GameBoardResponse(**cached_boards_dict[lvl_key])
+
+        # B) Revisar cached_board genérico si coincide con la cantidad requerida
+        existing_board = folder_doc.get("cached_board")
+        if existing_board and len(existing_board.get("nodes", [])) == final_qc:
+            logger.info(f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Tablero guardado de '{folder_name}' reutilizado.")
+            return GameBoardResponse(**existing_board)
+
+        # C) Revisar la colección global de análisis en MongoDB
+        if db_manager.db is not None:
+            try:
+                cached_folder_analysis = await db_manager.db["cached_analyses"].find_one({"content_hash": folder_content_hash})
+                if cached_folder_analysis and "board" in cached_folder_analysis:
+                    logger.info(f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Análisis global de '{folder_name}' ({folder_content_hash[:8]}) cargado.")
+                    return GameBoardResponse(**cached_folder_analysis["board"])
+            except Exception as cache_err:
+                logger.warning(f"Error verificando análisis guardado de carpeta: {cache_err}")
 
     logger.info(
         f"Generando juego para carpeta '{folder_name}' ({folder_id}) [Nivel {level} ({final_diff}), {final_qc} preguntas, force={force}]: "
@@ -983,32 +1107,22 @@ async def generate_game_from_folder(
         try:
             from bson import ObjectId
             query = {"_id": ObjectId(folder_id)} if len(folder_id) == 24 else {"id": folder_id}
+            lvl_field = f"cached_boards.level_{level}"
             await db_manager.db["study_folders"].update_one(
                 query,
                 {"$set": {
                     "cached_board": board_response.model_dump(),
+                    lvl_field: board_response.model_dump(),
                     "cached_content_hash": folder_content_hash,
                     "last_analyzed_at": "now"
                 }}
             )
-            logger.info(f"Análisis guardado exitosamente en la carpeta '{folder_name}' en MongoDB.")
+            logger.info(f"Análisis guardado exitosamente en la carpeta '{folder_name}' (Nivel {level}) en MongoDB.")
         except Exception as fe:
             logger.warning(f"Error guardando cached_board en la carpeta: {fe}")
 
     return board_response
 
-@app.delete("/api/v1/folders/{folder_id}", tags=["Folders"])
-async def delete_folder(folder_id: str):
-    """Elimina una carpeta de estudio."""
-    if db_manager.db is not None:
-        try:
-            from bson import ObjectId
-            query = {"_id": ObjectId(folder_id)} if len(folder_id) == 24 else {"id": folder_id}
-            await db_manager.db["study_folders"].delete_one(query)
-            return {"status": "deleted"}
-        except Exception as e:
-            logger.warning(f"Error eliminando carpeta: {e}")
-    return {"status": "acknowledged"}
 
 
 # ==========================================
@@ -1205,3 +1319,172 @@ async def websocket_arena_endpoint(websocket: WebSocket, room_id: str, client_id
     except Exception as e:
         logger.error(f"Error en WebSocket para {client_id} en sala {room_id}: {e}")
         connection_manager.disconnect(websocket, room_id)
+
+
+# ==========================================
+# ENDPOINTS: MONETIZACIÓN & SUSCRIPCIÓN STRIPE
+# ==========================================
+class CreateCheckoutSessionRequest(BaseModel):
+    user_id: str
+    email: Optional[str] = "estudiante@hubzi.app"
+    plan_id: str = "pro_monthly"
+    success_url: Optional[str] = "http://localhost:5173/?payment=success"
+    cancel_url: Optional[str] = "http://localhost:5173/?payment=cancelled"
+
+
+@app.post("/api/v1/payments/create-checkout-session", tags=["Monetization"])
+async def create_checkout_session(payload: CreateCheckoutSessionRequest):
+    """
+    Crea una sesión oficial de Stripe Checkout en modo Test para el Plan Hubzy Pro.
+    Devuelve la URL segura de pago de Stripe.
+    """
+    import stripe
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    if not stripe.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="La clave secreta de Stripe no está configurada."
+        )
+
+    try:
+        session = stripe.checkout.Session.create(
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": "Hubzy Pro (Estudiante Zen)",
+                            "description": "Documentos PDF ilimitados, batallas 1v1 y análisis de retención cognitiva con Capi IA.",
+                        },
+                        "unit_amount": 299, # $2.99 USD (~20 Bs)
+                    },
+                    "quantity": 1,
+                }
+            ],
+            mode="payment",
+            customer_email=payload.email if "@" in payload.email else None,
+            client_reference_id=payload.user_id,
+            success_url=f"{payload.success_url}&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=payload.cancel_url,
+            metadata={
+                "user_id": payload.user_id,
+                "plan_id": payload.plan_id
+            }
+        )
+
+        return {
+            "checkout_url": session.url,
+            "session_id": session.id,
+            "publishable_key": settings.STRIPE_PUBLISHABLE_KEY
+        }
+    except Exception as e:
+        logger.error(f"Error creando sesión de Stripe Checkout: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error en Stripe: {str(e)}"
+        )
+
+
+@app.get("/api/v1/payments/verify-session/{session_id}", tags=["Monetization"])
+async def verify_payment_session(session_id: str):
+    """
+    Verifica si una sesión de Stripe Checkout fue pagada exitosamente
+    y actualiza el estado del usuario a 'pro' en MongoDB.
+    """
+    import stripe
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        is_paid = session.payment_status == "paid"
+        user_id = session.client_reference_id or session.metadata.get("user_id")
+
+        if is_paid and user_id and db_manager.db is not None:
+            try:
+                from bson import ObjectId
+                query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
+                await db_manager.db["users"].update_one(
+                    query,
+                    {"$set": {
+                        "plan": "pro",
+                        "pro_since": session.created,
+                        "stripe_customer": session.customer
+                    }}
+                )
+                logger.info(f"Usuario {user_id} actualizado con éxito al Plan PRO.")
+            except Exception as dbe:
+                logger.warning(f"Error actualizando usuario PRO en BD: {dbe}")
+
+        return {
+            "status": "success" if is_paid else "pending",
+            "is_paid": is_paid,
+            "user_id": user_id,
+            "amount_total": session.amount_total,
+            "currency": session.currency
+        }
+    except Exception as e:
+        logger.error(f"Error verificando sesión Stripe: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al verificar pago: {str(e)}"
+        )
+
+
+@app.get("/api/v1/ai/training-dataset/stats", tags=["AI Evolution"])
+async def get_training_dataset_stats():
+    """
+    Retorna estadísticas del dataset pedagógico acumulado para el entrenamiento
+    y fine-tuning de modelos propios de Hubzy (Llama-3, Qwen, etc.).
+    """
+    count = 0
+    recent_titles = []
+    if db_manager.db is not None:
+        try:
+            count = await db_manager.db["ai_training_dataset"].count_documents({})
+            cursor = db_manager.db["ai_training_dataset"].find({}, {"source_title": 1, "created_at": 1}).sort("_id", -1).limit(5)
+            async for doc in cursor:
+                recent_titles.append(doc.get("source_title", "Sin título"))
+        except Exception as e:
+            logger.warning(f"Error consultando dataset de IA: {e}")
+
+    return {
+        "status": "ready",
+        "total_training_sessions": count,
+        "recent_topics": recent_titles,
+        "target_model_for_finetuning": "Qwen-2.5-7B / Llama-3.3-8B (LoRA)"
+    }
+
+
+@app.get("/api/v1/ai/training-dataset/export", tags=["AI Evolution"])
+async def export_training_dataset():
+    """
+    Exporta todos los pares de preguntas y conceptos en formato JSONL
+    listo para entrenar directamente con Unsloth, HuggingFace o vLLM.
+    """
+    jsonl_lines = []
+    if db_manager.db is not None:
+        try:
+            cursor = db_manager.db["ai_training_dataset"].find({}).limit(500)
+            async for doc in cursor:
+                for sample in doc.get("samples", []):
+                    line = {
+                        "instruction": f"Genera un reactivo universitario para evaluar el concepto '{sample.get('target_concept')}' con dificultad {doc.get('difficulty', 'normal')}.",
+                        "input": doc.get("document_context_sample", ""),
+                        "output": {
+                            "question": sample.get("question"),
+                            "hint": sample.get("hint"),
+                            "target_concept": sample.get("target_concept"),
+                            "explanation": sample.get("explanation")
+                        }
+                    }
+                    import json
+                    jsonl_lines.append(json.dumps(line, ensure_ascii=False))
+        except Exception as e:
+            logger.error(f"Error exportando dataset: {e}")
+
+    content = "\n".join(jsonl_lines)
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(content, media_type="application/jsonlines")
+
+

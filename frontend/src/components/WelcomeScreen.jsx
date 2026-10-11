@@ -20,6 +20,7 @@ export default function WelcomeScreen({
   onContinue,
   onOpenTutorial,
   onOpenLogin,
+  onStartDemo,
   isLoggedIn = false,
   username = ''
 }) {
@@ -123,55 +124,68 @@ export default function WelcomeScreen({
         </motion.div>
       </div>
 
-      {/* ── BANNER INFERIOR: BOTÓN CONTINUAR DESTACADO CON PROTECCIÓN DE SESIÓN ── */}
+      {/* ── BANNER INFERIOR: BOTONES CONTINUAR Y DEMO INMEDIATO ── */}
       <div className="relative w-full z-20 pb-5 px-4 sm:px-8">
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-xl mx-auto space-y-2.5">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onContinue}
-            className={`w-full py-4 sm:py-5 px-8 rounded-3xl flex items-center justify-between text-left cursor-pointer overflow-hidden relative shadow-[0_10px_0_#122443] transition-all ${
+            className={`w-full py-3.5 sm:py-4 px-6 sm:px-8 rounded-3xl flex items-center justify-between text-left cursor-pointer overflow-hidden relative shadow-[0_8px_0_#122443] transition-all ${
               isLoggedIn 
                 ? 'btn-arcade-banner-orange bg-striped-diagonal' 
-                : 'bg-[#1b2f52] border-4 border-[#0a162b] hover:bg-[#223b66]'
+                : 'bg-[#1b2f52] border-3 border-[#0a162b] hover:bg-[#223b66]'
             }`}
           >
-            <div className="flex items-center gap-4 relative z-10">
-              <div className={`w-14 h-14 rounded-2xl border-3 border-[#122443] flex items-center justify-center text-white ${
-                isLoggedIn ? 'bg-[#FF7A00] shadow-[0_4px_0_#D45B00]' : 'bg-[#FFB400] text-[#122443] shadow-[0_4px_0_#D48800]'
+            <div className="flex items-center gap-3.5 relative z-10">
+              <div className={`w-12 h-12 rounded-2xl border-3 border-[#122443] flex items-center justify-center text-white ${
+                isLoggedIn ? 'bg-[#FF7A00] shadow-[0_3px_0_#D45B00]' : 'bg-[#FFB400] text-[#122443] shadow-[0_3px_0_#D48800]'
               }`}>
                 {isLoggedIn ? (
-                  <Play className="w-8 h-8 text-white fill-current drop-shadow ml-0.5" />
+                  <Play className="w-7 h-7 text-white fill-current drop-shadow ml-0.5" />
                 ) : (
-                  <Lock className="w-7 h-7 text-[#122443] stroke-[2.8]" />
+                  <Lock className="w-6 h-6 text-[#122443] stroke-[2.8]" />
                 )}
               </div>
               <div>
-                <h3 className="text-2xl sm:text-3xl font-black text-white tracking-wider uppercase drop-shadow flex items-center gap-2">
+                <h3 className="text-xl sm:text-2xl font-black text-white tracking-wider uppercase drop-shadow flex items-center gap-2">
                   CONTINUAR
                   {!isLoggedIn && (
-                    <span className="text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full bg-[#FF7A00] text-white border-2 border-[#122443] font-black uppercase">
-                      Bloqueado
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FF7A00] text-white border-2 border-[#122443] font-black uppercase">
+                      Cuenta Requerida
                     </span>
                   )}
                 </h3>
-                <p className={`text-xs sm:text-sm font-black drop-shadow-sm ${isLoggedIn ? 'text-orange-100' : 'text-amber-300'}`}>
+                <p className={`text-xs font-black drop-shadow-sm ${isLoggedIn ? 'text-orange-100' : 'text-amber-300'}`}>
                   {isLoggedIn 
-                    ? 'Entrar a la Arena de Aprendizaje con Hubzy' 
-                    : 'Inicia sesión primero para desbloquear la Arena'}
+                    ? 'Ir a tus carpetas y materiales de estudio' 
+                    : 'Inicia sesión para gestionar tus documentos'}
                 </p>
               </div>
             </div>
 
-            <div className={`w-12 h-12 rounded-2xl border-3 border-[#0a162b] flex items-center justify-center text-white shadow-md relative z-10 ${
+            <div className={`w-10 h-10 rounded-2xl border-3 border-[#0a162b] flex items-center justify-center text-white shadow-md relative z-10 ${
               isLoggedIn ? 'bg-[#122443]' : 'bg-[#0a162b]'
             }`}>
               {isLoggedIn ? (
-                <ArrowRight className="w-7 h-7 stroke-[3]" />
+                <ArrowRight className="w-6 h-6 stroke-[3]" />
               ) : (
-                <Lock className="w-5 h-5 text-amber-400 stroke-[2.5]" />
+                <Lock className="w-4 h-4 text-amber-400 stroke-[2.5]" />
               )}
             </div>
+          </motion.button>
+
+          {/* BOTÓN MVP ZERO-FRICTION: PARTIDA DEMO INSTANTÁNEA */}
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={onStartDemo}
+            className="w-full py-2.5 px-5 rounded-2xl bg-[#0a162b]/95 hover:bg-[#122443] border-2 border-[#FFB400]/70 border-b-4 border-b-[#050a13] text-white flex items-center justify-center gap-2.5 shadow-[0_4px_0_#050a13] cursor-pointer transition-all"
+          >
+            <Sparkles className="w-4 h-4 text-[#FFB400] animate-pulse" />
+            <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#FFB400]">
+              PROBAR AHORA (Administración General)
+            </span>
           </motion.button>
         </div>
       </div>

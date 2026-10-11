@@ -13,6 +13,15 @@ services:
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
 
+  mongodb:
+    image: mongo:7.0
+    container_name: hubzy-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_storage:/data/db
+
   backend:
     build:
       context: ./backend
@@ -24,12 +33,13 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - MONGODB_URI=${MONGODB_URI:-mongodb://localhost:27017}
+      - MONGODB_URI=mongodb://mongodb:27017
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-hubzy_db}
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
+      - mongodb
       - qdrant
 
   frontend:
@@ -50,3 +60,5 @@ services:
 
 volumes:
   qdrant_storage:
+  mongodb_storage:
+

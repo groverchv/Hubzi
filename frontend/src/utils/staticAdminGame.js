@@ -18,7 +18,7 @@ export const STATIC_ADMIN_GAME = {
   levels: {
     1: {
       level: 1,
-      title: "Simulacro: ORIGEN Y DESARROLLO DE LA ADMINISTRACIÓN - Nivel Fácil",
+      title: "ORIGEN Y DESARROLLO DE LA ADMINISTRACIÓN - Nivel Fácil",
       difficulty: "facil",
       nodes: [
         {

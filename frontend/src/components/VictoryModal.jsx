@@ -119,6 +119,36 @@ export default function VictoryModal({
           </div>
         </div>
 
+        {/* Micro-evaluación de Alivio Emocional / Estrés (KPI Central del MVP) */}
+        <div className="w-full p-3 rounded-2xl bg-[#0a162b] border-2 border-[#1e3a6c] mb-4 text-center">
+          <p className="text-[11px] font-black uppercase tracking-wide text-cyan-300 mb-2">
+            ¿Cómo sientes tu nivel de calma tras esta ronda?
+          </p>
+          <div className="flex items-center justify-between gap-1 px-1">
+            {[
+              { val: 1, label: 'Aún tenso' },
+              { val: 2, label: 'Un poco mejor' },
+              { val: 3, label: 'Enfocado' },
+              { val: 4, label: 'Tranquilo' },
+              { val: 5, label: 'Zen total' }
+            ].map(item => (
+              <button
+                key={item.val}
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.setItem('hubzy_last_stress_score', item.val);
+                  } catch (_) {}
+                }}
+                className="flex-1 py-1.5 px-1 rounded-xl bg-[#122443] hover:bg-[#FFB400] hover:text-[#122443] border border-[#1e3a6c] text-[10px] font-black transition-all cursor-pointer text-slate-200"
+                title={item.label}
+              >
+                {item.val}★
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Mensaje de Capibara Acompañante */}
         <div className="flex items-center gap-3 w-full p-3 rounded-2xl bg-[#1a335e]/60 border-2 border-[#1e3a6c] mb-5 text-left">
           <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-[#FFB400] shrink-0 bg-[#0a162b]">

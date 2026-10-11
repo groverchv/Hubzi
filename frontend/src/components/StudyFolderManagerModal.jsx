@@ -37,7 +37,8 @@ export default function StudyFolderManagerModal({
   onClose,
   onBackToMenu,
   onSelectFolder, 
-  onStartNewFolder 
+  onStartNewFolder,
+  onUpgradeToPro
 }) {
   const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
 
@@ -222,6 +223,19 @@ export default function StudyFolderManagerModal({
     if (!files.length || !activeFolderView) return;
     e.target.value = '';
 
+    // Límite Freemium del MVP: 2 documentos en el plan gratuito
+    const isPro = currentUser?.plan === 'pro';
+    const totalDocsCount = folders.reduce((acc, f) => acc + (f.documents ? f.documents.length : 0), 0);
+
+    if (!isPro && totalDocsCount >= 2) {
+      if (onUpgradeToPro) {
+        onUpgradeToPro();
+      } else {
+        alert("¡Límite del Plan Gratuito alcanzado (2 documentos)! Actualiza al Plan Pro para subir archivos ilimitados.");
+      }
+      return;
+    }
+
     for (const file of files) {
       const tempDoc = {
         id: `uploading_${Date.now()}_${file.name}`,
@@ -335,14 +349,29 @@ export default function StudyFolderManagerModal({
   };
 
 
-  // Iniciar el juego con procesamiento de 5 segundos
+  // Iniciar el juego: Al instante (0 ms) si ya está analizado, o con breve cuenta regresiva si es nuevo
   const handlePlayDirectly = () => {
     if (!activeFolderView || isProcessingGame) return;
 
-    setIsProcessingGame(true);
-    setProcessingCountdown(5);
+    // Si la carpeta ya tiene análisis previo o es la carpeta estática por defecto, ENTRAR INMEDIATAMENTE
+    const isAlreadyAnalyzed = Boolean(
+      activeFolderView.cached_boards || 
+      activeFolderView.cached_board || 
+      activeFolderView.id === 'folder_administracion_default'
+    );
 
-    let secondsLeft = 5;
+    if (isAlreadyAnalyzed) {
+      onSelectFolder({
+        ...activeFolderView,
+        playDirectly: true
+      });
+      return;
+    }
+
+    setIsProcessingGame(true);
+    setProcessingCountdown(3);
+
+    let secondsLeft = 3;
     if (processingTimerRef.current) clearInterval(processingTimerRef.current);
 
     processingTimerRef.current = setInterval(() => {

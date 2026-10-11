@@ -32,6 +32,7 @@ import {
   Folder as FolderIcon,
   User as UserIcon,
   Home,
+  Crown,
   X
 } from 'lucide-react';
 import GameCard from '../components/GameCard';
@@ -43,10 +44,12 @@ import ZenRelaxModal from '../components/ZenRelaxModal';
 import StudyFolderManagerModal from '../components/StudyFolderManagerModal';
 import UserAuthModal from '../components/UserAuthModal';
 import AuthModal from '../components/AuthModal';
+import SubscriptionModal from '../components/SubscriptionModal';
 import TutorialModal from '../components/TutorialModal';
 import VictoryModal from '../components/VictoryModal';
 import WelcomeScreen from '../components/WelcomeScreen';
-import { useArenaSocket } from '../hooks/useArenaSocket';
+import LegalModal from '../components/LegalModal';
+import CookieConsentBanner from '../components/CookieConsentBanner';
 import capybara3dImg from '../assets/capybara_3d.jpg';
 import { capyAudio } from '../utils/capyAudio';
 import { capyVoice } from '../utils/capyVoice';
@@ -110,16 +113,11 @@ export default function ArcadeArena() {
     }
   });
 
-<<<<<<< HEAD
   // Pantalla Inicial de Bienvenida (Estilo Card Clash)
   const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(true);
 
   // Modal de Login / Registro
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-=======
-  // Modal de Login / Registro (siempre inicia abierto en el Login al cargar la aplicación)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
->>>>>>> 788d93f30acda98da8270784556dd055c1058d45
 
   // Modal secundario de edición de perfil (género, edad, apodo)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -131,6 +129,50 @@ export default function ArcadeArena() {
     setCurrentUser(null);
     setIsAuthModalOpen(true);
   };
+
+  // Modal de Suscripción Stripe (Hubzy Pro)
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+
+  // Modal Legal y Transparencia (Términos, Privacidad, Reembolsos, Cookies)
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState('terms');
+
+  const handleOpenLegal = (tab = 'terms') => {
+    setLegalModalTab(tab);
+    setIsLegalModalOpen(true);
+  };
+
+  // Escuchar si el usuario regresa de Stripe con ?payment=success
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const sessionId = params.get('session_id');
+
+    if (payment === 'success' && sessionId) {
+      fetch(`/api/v1/payments/verify-session/${sessionId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.is_paid) {
+            setSuccessNotif('¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro 🎉');
+            if (currentUser) {
+              const updated = { ...currentUser, plan: 'pro' };
+              setCurrentUser(updated);
+              localStorage.setItem('hubzy_current_user', JSON.stringify(updated));
+            }
+          }
+        })
+        .catch(console.error)
+        .finally(() => {
+          // Limpiar URL sin recargar
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setTimeout(() => setSuccessNotif(null), 5000);
+        });
+    } else if (payment === 'cancelled') {
+      setSuccessNotif('Pago cancelado en Stripe.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => setSuccessNotif(null), 4000);
+    }
+  }, [currentUser]);
 
   // Modales (Flujo: 1. Autenticación -> 2. Carpetas/Material -> 3. Zen Relax -> 4. Juego en Vivo)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -146,6 +188,78 @@ export default function ArcadeArena() {
   const [selectedCardForDetail, setSelectedCardForDetail] = useState(null);
   const [selectedCardInHand, setSelectedCardInHand] = useState(null);
   const [isGameOverModalOpen, setIsGameOverModalOpen] = useState(false);
+
+  // Accesibilidad (A11y): Cerrar cualquier modal activo al presionar la tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isLegalModalOpen) setIsLegalModalOpen(false);
+        else if (selectedNodeForQuestion) setSelectedNodeForQuestion(null);
+        else if (selectedCardForDetail) setSelectedCardForDetail(null);
+        else if (isFolderModalOpen) setIsFolderModalOpen(false);
+        else if (isTutorialOpen) setIsTutorialOpen(false);
+        else if (isSubscriptionModalOpen) setIsSubscriptionModalOpen(false);
+        else if (isRelaxModalOpen) setIsRelaxModalOpen(false);
+        else if (isUserModalOpen) setIsUserModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isLegalModalOpen, 
+    selectedNodeForQuestion, 
+    selectedCardForDetail, 
+    isFolderModalOpen, 
+    isTutorialOpen, 
+    isSubscriptionModalOpen, 
+    isRelaxModalOpen, 
+    isUserModalOpen
+  ]);
+
+  // AYUDA PEDAGÓGICA ANTI-FRUSTRACIÓN: Flecha y destello tras 30s de inactividad
+  const [hintCardId, setHintCardId] = useState(null);
+  const [hintNodeId, setHintNodeId] = useState(null);
+  const lastActionTimestampRef = React.useRef(Date.now());
+
+  // Reiniciar temporizador con cualquier interacción
+  const registerUserActivity = () => {
+    lastActionTimestampRef.current = Date.now();
+    if (hintCardId) {
+      setHintCardId(null);
+      setHintNodeId(null);
+    }
+  };
+
+  // Temporizador de 30 segundos
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      // Solo disparar si hay una partida en curso y cartas en mano
+      if (hand.length > 0 && Object.keys(nodes).length > 0 && !isVictoryModalOpen) {
+        const elapsed = (Date.now() - lastActionTimestampRef.current) / 1000;
+        if (elapsed >= 30 && !hintCardId) {
+          // Encontrar el primer nodo vacío que aún no tenga carta colocada
+          const emptyNode = Object.values(nodes).find(n => !n.placedCard);
+          if (emptyNode) {
+            // Buscar la carta en la mano que corresponde a este nodo
+            const matchingCard = hand.find(c => 
+              (emptyNode.correctCardId && String(emptyNode.correctCardId) === String(c.id)) ||
+              (c.matchesNodeId && String(c.matchesNodeId) === String(emptyNode.id)) ||
+              (emptyNode.label && c.name && emptyNode.label.trim().toLowerCase() === c.name.trim().toLowerCase())
+            );
+
+            if (matchingCard) {
+              setHintCardId(matchingCard.id);
+              setHintNodeId(emptyNode.id);
+              setSuccessNotif(`💡 Pista de Capi: ¡Esta carta pertenece a la casilla "${emptyNode.label || 'en espera'}"!`);
+              setTimeout(() => setSuccessNotif(null), 6000);
+            }
+          }
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(checkInterval);
+  }, [hand, nodes, hintCardId, isVictoryModalOpen]);
 
 
 
@@ -677,7 +791,7 @@ export default function ArcadeArena() {
     const lvlInfo = GAME_LEVELS.find(l => l.level === level) || GAME_LEVELS[0];
 
     setBoardInfo({
-      title: boardData.title || `Simulacro: ${folderName ? folderName.toUpperCase() : 'EXAMEN'}`,
+      title: boardData.title || (folderName ? folderName.toUpperCase() : 'ARENA DE ESTUDIO'),
       theme: folderName || 'Estudio',
       levelInfo: lvlInfo
     });
@@ -807,6 +921,24 @@ export default function ArcadeArena() {
     setIsGeneratingArena(true);
     setSuccessNotif(`Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}]...`);
 
+    // 0. VERIFICACIÓN INSTANTÁNEA EN MEMORIA / CACHÉ LOCAL (0 ms, 0 tokens)
+    if (!force) {
+      const cachedBoards = targetFolder.cached_boards || {};
+      const lvlKey = `level_${targetLevel}`;
+      const localCachedBoard = cachedBoards[lvlKey] || targetFolder.cached_board;
+      
+      if (localCachedBoard && localCachedBoard.cards && localCachedBoard.cards.length > 0) {
+        const success = applyBoardData(localCachedBoard, targetFolder.name, targetLevel);
+        if (success) {
+          setCurrentLevel(targetLevel);
+          setIsGeneratingArena(false);
+          setSuccessNotif(`⚡ Nivel ${targetLevel} listo al instante (análisis previo en memoria).`);
+          setTimeout(() => setSuccessNotif(null), 3000);
+          return true;
+        }
+      }
+    }
+
     // Si la carpeta corresponde al documento estático de administración o no hay conexión con el backend
     const isStaticAdmin = targetFolder.id === 'folder_administracion_default' || 
                           targetFolder.name?.toLowerCase().includes('administra') ||
@@ -832,6 +964,23 @@ export default function ArcadeArena() {
 
       if (res.ok) {
         const boardData = await res.json();
+        
+        // Guardar en la carpeta en memoria y localStorage para futuras cargas a 0 ms
+        if (!targetFolder.cached_boards) targetFolder.cached_boards = {};
+        targetFolder.cached_boards[`level_${targetLevel}`] = boardData;
+        targetFolder.cached_board = boardData;
+
+        try {
+          const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
+          const savedFolders = JSON.parse(localStorage.getItem(userStorageKey) || '[]');
+          const idx = savedFolders.findIndex(f => f.id === targetFolder.id);
+          if (idx !== -1) {
+            savedFolders[idx].cached_boards = targetFolder.cached_boards;
+            savedFolders[idx].cached_board = boardData;
+            localStorage.setItem(userStorageKey, JSON.stringify(savedFolders));
+          }
+        } catch (_) {}
+
         const success = applyBoardData(boardData, targetFolder.name, targetLevel);
         if (success) {
           setCurrentLevel(targetLevel);
@@ -1322,9 +1471,27 @@ export default function ArcadeArena() {
           username={currentUser?.username || currentUser?.email?.split('@')[0]}
           onOpenLogin={() => setIsAuthModalOpen(true)}
           onOpenTutorial={() => setIsTutorialOpen(true)}
+          onStartDemo={() => {
+            // Entrar de inmediato a la partida demostrativa con administracion.pdf
+            const demoUser = currentUser || {
+              id: 'guest_demo',
+              username: 'Estudiante Demo',
+              email: 'demo@hubzi.app',
+              is_guest: true
+            };
+            if (!currentUser) setCurrentUser(demoUser);
+            setIsWelcomeScreenVisible(false);
+            const defaultFolder = {
+              id: 'folder_administracion_default',
+              name: 'Administración General',
+              documents: [{ name: 'administracion.pdf' }]
+            };
+            setActiveFolder(defaultFolder);
+            loadGameForLevel(1, defaultFolder, false);
+          }}
           onContinue={() => {
             if (!currentUser) {
-              // Si no inició sesión, NO avanza a la arena ni carpetas. Abre login.
+              // Si no inició sesión, abre el modal de login
               setIsAuthModalOpen(true);
               return;
             }
@@ -1355,6 +1522,41 @@ export default function ArcadeArena() {
             setIsFolderModalOpen(true);
           }}
         />
+
+        {/* Modal Legal y de Transparencia */}
+        <LegalModal
+          isOpen={isLegalModalOpen}
+          onClose={() => setIsLegalModalOpen(false)}
+          initialTab={legalModalTab}
+        />
+
+        {/* Banner de Consentimiento de Cookies */}
+        <CookieConsentBanner
+          onOpenLegal={handleOpenLegal}
+        />
+
+        {/* Footer Legal en Pantalla de Bienvenida */}
+        <footer className="absolute bottom-2 inset-x-0 py-1.5 px-4 flex flex-wrap items-center justify-center select-none z-20">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg backdrop-blur-md text-slate-300 text-[11px]">
+            <span className="font-bold text-amber-400">Hubzy © {new Date().getFullYear()}</span>
+            <span className="text-slate-600">•</span>
+            <button onClick={() => handleOpenLegal('terms')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+              Términos de Servicio
+            </button>
+            <span className="text-slate-600">•</span>
+            <button onClick={() => handleOpenLegal('privacy')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+              Privacidad
+            </button>
+            <span className="text-slate-600">•</span>
+            <button onClick={() => handleOpenLegal('refunds')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+              Reembolsos
+            </button>
+            <span className="text-slate-600">•</span>
+            <button onClick={() => handleOpenLegal('business')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+              Datos del Negocio
+            </button>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -1390,6 +1592,9 @@ export default function ArcadeArena() {
         isOpen={isFolderModalOpen}
         currentUser={currentUser}
         onClose={() => setIsFolderModalOpen(false)}
+        onUpgradeToPro={() => {
+          setIsSubscriptionModalOpen(true);
+        }}
         onBackToMenu={() => {
           setIsFolderModalOpen(false);
           setIsWelcomeScreenVisible(true);
@@ -2142,25 +2347,12 @@ export default function ArcadeArena() {
                 ) : capyMood === 'surprised' ? (
                   <><Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" /> HUBZY ASOMBRADO</>
                 ) : isCapySpeaking ? (
-                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> HUBZY EXPLICA</>
+                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> HUBZY</>
                 ) : (
-                  <><Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" /> HUBZY • TU AMIGO DE ESTUDIO</>
+                  <><Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" /> HUBZY</>
                 )}
               </span>
             </div>
-
-
-            {/* Botón Zen Anti-Estrés: Pausa 4-7-8 con Hubzi */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsRelaxModalOpen(true);
-              }}
-              className="p-1 rounded-full bg-emerald-950/90 border border-emerald-400/80 hover:border-emerald-300 text-emerald-300 hover:scale-110 transition-all shadow-[0_0_10px_rgba(52,211,153,0.4)] cursor-pointer"
-              title="Pausa Zen Anti-Estrés: Realiza respiración 4-7-8 con Hubzi"
-            >
-              <Wind className="w-3 h-3 text-emerald-300 animate-pulse" />
-            </button>
 
             {/* Botón Micrófono para hablar por voz con Hubzi */}
             <button
@@ -2264,6 +2456,20 @@ export default function ArcadeArena() {
         >
           <FolderIcon className="w-4 h-4 text-[#45B1E8]" />
           <span className="hidden lg:inline">Carpetas</span>
+        </button>
+
+        {/* BOTÓN HUBZY PRO / STRIPE */}
+        <button
+          onClick={() => setIsSubscriptionModalOpen(true)}
+          className={`px-3 py-2 rounded-2xl border-2 border-b-4 text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-1 active:shadow-none ${
+            currentUser?.plan === 'pro'
+              ? 'bg-emerald-600/30 hover:bg-emerald-600/50 border-emerald-500 border-b-emerald-700 text-emerald-300 shadow-[0_4px_0_#064e3b]'
+              : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 border-[#0a162b] border-b-[#b45309] text-[#122443] shadow-[0_4px_0_#78350f]'
+          }`}
+          title="Ver planes y suscripción a Hubzy Pro"
+        >
+          <Crown className={`w-4 h-4 ${currentUser?.plan === 'pro' ? 'text-emerald-300' : 'text-[#122443] fill-current'}`} />
+          <span className="font-extrabold">{currentUser?.plan === 'pro' ? 'PRO' : 'PLAN PRO'}</span>
         </button>
 
         {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
@@ -2410,7 +2616,7 @@ export default function ArcadeArena() {
             </div>
 
             <div className="inline-block px-4 py-1 rounded-full bg-orange-100 border-2 border-orange-400 text-orange-800 font-black text-[11px] tracking-wider uppercase mb-2">
-              Hubzy • Tu Amigo de Estudio
+              Hubzy
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black text-[#122443] tracking-wide uppercase mb-2">
@@ -2617,6 +2823,13 @@ export default function ArcadeArena() {
                           </span>
                         )}
 
+                        {/* Indicador de casilla destino para la pista de 30s */}
+                        {hintNodeId === node.id && (
+                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40 px-2.5 py-0.5 rounded-full bg-[#FFB400] text-[#122443] font-black text-[9px] uppercase tracking-wider shadow-lg flex items-center gap-1 animate-bounce border-2 border-white">
+                            <span>¡COLOCA AQUÍ!</span>
+                          </div>
+                        )}
+
                         <ArcadeNode
                           id={node.id}
                           icon={node.icon}
@@ -2655,33 +2868,56 @@ export default function ArcadeArena() {
               {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" */}
               <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
                 <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
-                  {hand.map((card, idx) => (
-                    <div 
-                      key={`slot-${card.id || idx}`}
-                      className="relative rounded-2xl p-1 bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner flex items-center justify-center"
-                      style={{
-                        width: '86px',
-                        height: '112px'
-                      }}
-                    >
-                      <GameCard
-                        id={card.id}
-                        name={card.name}
-                        cost={card.cost}
-                        type={card.type}
-                        sourceType={card.sourceType}
-                        domain={card.domain}
-                        theme={card.theme || boardInfo?.theme}
-                        index={card.cardIndex ?? idx}
-                        rotation={0}
-                        zIndex={card.zIndex}
-                        isDraggable={isActualTurn}
-                        isSelected={false}
-                        onDragEnd={handleDragEnd}
-                        onClick={() => handleCardClick(card)}
-                      />
-                    </div>
-                  ))}
+                  {hand.map((card, idx) => {
+                    const isHinted = hintCardId === card.id;
+                    return (
+                      <div 
+                        key={`slot-${card.id || idx}`}
+                        className={`relative rounded-2xl p-1 transition-all ${
+                          isHinted 
+                            ? 'bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]' 
+                            : 'bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner'
+                        } flex items-center justify-center`}
+                        style={{
+                          width: '86px',
+                          height: '112px'
+                        }}
+                      >
+                        {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
+                        {isHinted && (
+                          <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none animate-bounce">
+                            <span className="px-2 py-0.5 rounded-full bg-[#FF7A00] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
+                              ¡USA ÉSTA!
+                            </span>
+                            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#FF7A00]" />
+                          </div>
+                        )}
+
+                        <GameCard
+                          id={card.id}
+                          name={card.name}
+                          cost={card.cost}
+                          type={card.type}
+                          sourceType={card.sourceType}
+                          domain={card.domain}
+                          theme={card.theme || boardInfo?.theme}
+                          index={card.cardIndex ?? idx}
+                          rotation={0}
+                          zIndex={isHinted ? 50 : card.zIndex}
+                          isDraggable={isActualTurn}
+                          isSelected={isHinted}
+                          onDragEnd={(id, info) => {
+                            registerUserActivity();
+                            handleDragEnd(id, info);
+                          }}
+                          onClick={() => {
+                            registerUserActivity();
+                            handleCardClick(card);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -2714,6 +2950,54 @@ export default function ArcadeArena() {
         onReview={() => setIsVictoryModalOpen(false)}
       />
 
+      {/* MODAL DE SUSCRIPCIÓN STRIPE CHECKOUT (HUBZY PRO) */}
+      <SubscriptionModal
+        isOpen={isSubscriptionModalOpen}
+        onClose={() => setIsSubscriptionModalOpen(false)}
+        currentUser={currentUser}
+        onSubscriptionSuccess={() => {
+          setIsSubscriptionModalOpen(false);
+          setSuccessNotif('¡Tu cuenta ahora tiene acceso a Hubzy Pro!');
+        }}
+      />
+
+      {/* MODAL LEGAL Y DE TRANSPARENCIA (TÉRMINOS, PRIVACIDAD, REEMBOLSOS) */}
+      <LegalModal
+        isOpen={isLegalModalOpen}
+        onClose={() => setIsLegalModalOpen(false)}
+        initialTab={legalModalTab}
+      />
+
+      {/* BANNER DE CONSENTIMIENTO DE COOKIES */}
+      <CookieConsentBanner
+        onOpenLegal={handleOpenLegal}
+      />
+
+      {/* FOOTER DE TRANSPARENCIA Y LEGALIDAD (ALTA LEGIBILIDAD) */}
+      <footer className="w-full py-2 px-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-semibold text-slate-800 select-none z-20">
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg backdrop-blur-md text-slate-300 text-[11px]">
+          <span className="font-bold text-amber-400">Hubzy © {new Date().getFullYear()}</span>
+          <span className="text-slate-600">•</span>
+          <button onClick={() => handleOpenLegal('terms')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            Términos de Servicio
+          </button>
+          <span className="text-slate-600">•</span>
+          <button onClick={() => handleOpenLegal('privacy')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            Privacidad
+          </button>
+          <span className="text-slate-600">•</span>
+          <button onClick={() => handleOpenLegal('refunds')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            Reembolsos
+          </button>
+          <span className="text-slate-600">•</span>
+          <button onClick={() => handleOpenLegal('business')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            Datos de la Empresa
+          </button>
+        </div>
+      </footer>
+
     </div>
   );
 }
+
+

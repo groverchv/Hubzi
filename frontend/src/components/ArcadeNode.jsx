@@ -97,19 +97,7 @@ export default function ArcadeNode({
         <div style={{ height: 68, width: 60 }} className="invisible pointer-events-none" />
       </motion.div>
 
-      {/* LABEL PILL — below the hexagonal slot */}
-      {label && (
-        <span 
-          title={label}
-          className={`mt-1 max-w-[82px] truncate text-[8px] font-bold text-center px-1.5 py-0.5 rounded-md shadow-sm pointer-events-none transition-all ${
-            placedCard
-              ? 'bg-green-50 border border-green-300 text-green-700'
-              : 'bg-white/90 border border-slate-300 text-slate-600'
-          }`}
-        >
-          {label}
-        </span>
-      )}
+
 
       {/* HOVER TOOLTIP */}
       {question && (
