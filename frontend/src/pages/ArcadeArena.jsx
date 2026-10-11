@@ -110,11 +110,16 @@ export default function ArcadeArena() {
     }
   });
 
+<<<<<<< HEAD
   // Pantalla Inicial de Bienvenida (Estilo Card Clash)
   const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(true);
 
   // Modal de Login / Registro
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+=======
+  // Modal de Login / Registro (siempre inicia abierto en el Login al cargar la aplicación)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
+>>>>>>> 788d93f30acda98da8270784556dd055c1058d45
 
   // Modal secundario de edición de perfil (género, edad, apodo)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);

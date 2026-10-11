@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Motor de Voz Terapéutica, Anti-Colisión y Reacciones Afectivas de Capi Psicólogo.
  *
  * Características clave:
@@ -73,7 +73,12 @@ class CapyVoiceEngine {
     }
   }
 
-  speak(text, options = {}) {
+  /**
+   * Reproduce voz de Capi Psicólogo usando Edge-TTS neural o síntesis local del navegador.
+   * - Usuario Hombre → Voz Femenina
+   * - Usuaria Mujer  → Voz Masculina
+   */
+  async speak(text, options = {}) {
     if (!text || this.isMuted) return;
     const requestId = ++this.currentRequestId;
     this.stop();
@@ -94,6 +99,91 @@ class CapyVoiceEngine {
       }
     }
 
+    const cacheKey = `${text.trim()}_${options.profile || (options.mood === 'zen' ? 'zen' : 'loving')}_${voiceGender}`;
+
+    // 1. Si ya está en caché de audio en memoria, reproducir al instante (0ms latencia)
+    if (this.audioCache.has(cacheKey)) {
+      try {
+        if (this.currentRequestId !== requestId) return;
+        const audioUrl = this.audioCache.get(cacheKey);
+        const audio = new Audio(audioUrl);
+        this.currentAudio = audio;
+        audio.onended = () => {
+          if (this.currentRequestId === requestId) {
+            this.isSpeaking = false;
+            this._notify({ isSpeaking: false, text });
+          }
+        };
+        audio.onerror = () => {
+          if (this.currentRequestId === requestId) {
+            this.isSpeaking = false;
+            this._notify({ isSpeaking: false, text });
+          }
+        };
+        await audio.play();
+        return;
+      } catch (cacheErr) {
+        console.warn("Audio cache play failed:", cacheErr);
+      }
+    }
+
+    // 2. Solicitar al backend local (/api/v1/voice/speak con Edge-TTS neural de alta fidelidad)
+    this.abortController = new AbortController();
+    const fetchTimeout = setTimeout(() => {
+      try { this.abortController?.abort(); } catch (_) {}
+    }, 4000);
+
+    try {
+      const response = await fetch('/api/v1/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: this.abortController.signal,
+        body: JSON.stringify({
+          text,
+          profile: options.profile || (options.mood === 'zen' ? 'zen' : 'loving_psychologist'),
+          stress_level: options.stress_level !== undefined ? options.stress_level : null,
+          voice_gender: voiceGender,
+          user_gender: userGender
+        })
+      });
+      clearTimeout(fetchTimeout);
+
+      if (this.currentRequestId !== requestId) return;
+
+      if (response.ok) {
+        const blob = await response.blob();
+        if (this.currentRequestId !== requestId) return;
+
+        const audioUrl = URL.createObjectURL(blob);
+        this.audioCache.set(cacheKey, audioUrl);
+
+        const audio = new Audio(audioUrl);
+        this.currentAudio = audio;
+        audio.onended = () => {
+          if (this.currentRequestId === requestId) {
+            this.isSpeaking = false;
+            this._notify({ isSpeaking: false, text });
+          }
+        };
+        audio.onerror = () => {
+          if (this.currentRequestId === requestId) {
+            this.isSpeaking = false;
+            this._notify({ isSpeaking: false, text });
+          }
+        };
+        await audio.play();
+        return;
+      }
+    } catch (apiErr) {
+      clearTimeout(fetchTimeout);
+      if (this.currentRequestId !== requestId) return;
+    }
+
+    // 3. Fallback secundario: síntesis nativa del navegador (si el sistema tiene voces instaladas)
+    this._speakBrowserFallback(text, options, voiceGender, requestId);
+  }
+
+  _speakBrowserFallback(text, options, voiceGender, requestId) {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       this.isSpeaking = false;
       this._notify({ isSpeaking: false, text });
@@ -110,6 +200,7 @@ class CapyVoiceEngine {
     } else {
       utterance.rate = options.stress_level && options.stress_level >= 0.6 ? 0.85 : 0.92;
     }
+
     this.currentUtterance = utterance;
 
     const trySetVoice = () => {

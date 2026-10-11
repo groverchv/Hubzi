@@ -17,10 +17,12 @@ class HubziAmbientEngine {
   constructor() {
     this.ctx = null;
     this.masterGain = null;
+    this.reverbNode = null;
+    this.reverbGain = null;
     this.isPlaying = false;
     this.melodyTimerId = null;
     this.padNodes = [];
-    this.targetVolume = 0.18;
+    this.targetVolume = 0.80;
 
     // Escala pentatónica menor en Do: Do, Mib, Fa, Sol, Sib
     // Universalmente calmante — usada en música meditativa y ambient asiático
@@ -52,16 +54,26 @@ class HubziAmbientEngine {
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
     this.masterGain.connect(this.ctx.destination);
+
+    this.reverbNode = this._createReverb(1.8, 2.0);
+    if (this.reverbNode) {
+      this.reverbGain = this.ctx.createGain();
+      this.reverbGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+      this.reverbNode.connect(this.reverbGain);
+      this.reverbGain.connect(this.masterGain);
+    }
     return true;
   }
 
-  _resume() {
+  async _resume() {
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+      try {
+        await this.ctx.resume();
+      } catch (_) { }
     }
   }
 
-  _createReverb(duration = 2.5, decay = 2.0) {
+  _createReverb(duration = 2.0, decay = 2.0) {
     if (!this.ctx) return null;
     try {
       const sampleRate = this.ctx.sampleRate;
@@ -93,20 +105,19 @@ class HubziAmbientEngine {
       const lfoGain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
 
-      lfo.frequency.setValueAtTime(0.07 + idx * 0.025, now);
-      lfoGain.gain.setValueAtTime(3.5, now);
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
+      lfo.frequency.setValueAtTime(0.08 + idx * 0.03, now);
+      lfoGain.gain.setValueAtTime(4.0, now);
+      lfo.connect(osc.frequency);
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(600 + idx * 80, now);
-      filter.Q.setValueAtTime(0.8, now);
+      filter.frequency.setValueAtTime(900 + idx * 120, now);
+      filter.Q.setValueAtTime(1.0, now);
 
       oscGain.gain.setValueAtTime(0.0001, now);
-      oscGain.gain.linearRampToValueAtTime(0.06 - idx * 0.008, now + 4.0);
+      oscGain.gain.linearRampToValueAtTime(0.18 - idx * 0.02, now + 1.5);
 
       osc.connect(filter);
       filter.connect(oscGain);
@@ -119,13 +130,12 @@ class HubziAmbientEngine {
     });
   }
 
-  _playPianoNote(freq, startTime, volume = 0.07, duration = 1.8) {
+  _playPianoNote(freq, startTime, volume = 0.22, duration = 1.8) {
     if (!this.ctx || !this.masterGain) return;
 
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    const reverb = this._createReverb(1.5, 2.5);
 
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(freq, startTime);
@@ -134,19 +144,16 @@ class HubziAmbientEngine {
     osc2.frequency.setValueAtTime(freq * 2, startTime);
 
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(volume, startTime + 0.015);
-    gain.gain.exponentialRampToValueAtTime(volume * 0.6, startTime + 0.12);
-    gain.gain.setValueAtTime(volume * 0.6, startTime + 0.12);
+    gain.gain.linearRampToValueAtTime(volume, startTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(volume * 0.5, startTime + 0.2);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
     osc1.connect(gain);
     osc2.connect(gain);
 
-    if (reverb) {
-      gain.connect(reverb);
-      reverb.connect(this.masterGain);
-    } else {
-      gain.connect(this.masterGain);
+    gain.connect(this.masterGain);
+    if (this.reverbNode) {
+      gain.connect(this.reverbNode);
     }
 
     osc1.start(startTime);
@@ -166,11 +173,11 @@ class HubziAmbientEngine {
     osc.frequency.setValueAtTime(freq, startTime);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(280, startTime);
-    filter.Q.setValueAtTime(0.5, startTime);
+    filter.frequency.setValueAtTime(320, startTime);
+    filter.Q.setValueAtTime(0.8, startTime);
 
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.linearRampToValueAtTime(0.09, startTime + 0.8);
+    gain.gain.linearRampToValueAtTime(0.22, startTime + 0.6);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
     osc.connect(filter);
@@ -192,39 +199,39 @@ class HubziAmbientEngine {
       const noteIdx = Math.floor(Math.random() * this.pentatonicNotes.length);
       const freq = this.pentatonicNotes[noteIdx];
       const noteStart = now + i * tempo;
-      const volume = 0.05 + Math.random() * 0.04;
+      const volume = 0.18 + Math.random() * 0.08;
       const duration = 1.2 + Math.random() * 0.8;
       this._playPianoNote(freq, noteStart, volume, duration);
     }
 
-    if (Math.random() < 0.35) {
+    if (Math.random() < 0.4) {
       const bassFreq = this.bassNotes[Math.floor(Math.random() * this.bassNotes.length)];
       this._playBassNote(bassFreq, now, 4.5 + Math.random() * 2.0);
     }
 
-    const nextPhraseDelay = phraseLength * tempo + 3.5 + Math.random() * 4.5;
+    const nextPhraseDelay = phraseLength * tempo + 3.0 + Math.random() * 3.5;
     this.melodyTimerId = setTimeout(() => {
       this._scheduleMelody();
     }, nextPhraseDelay * 1000);
   }
 
-  start() {
+  async start() {
     if (this.isPlaying) return;
     if (!this._init()) return;
-    this._resume();
+    await this._resume();
 
     this.isPlaying = true;
 
     const now = this.ctx.currentTime;
     this.masterGain.gain.cancelScheduledValues(now);
     this.masterGain.gain.setValueAtTime(0.0001, now);
-    this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 4.0);
+    this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 1.2);
 
     this._startAmbientPad();
 
     this.melodyTimerId = setTimeout(() => {
       this._scheduleMelody();
-    }, 2000);
+    }, 800);
 
     this._notify();
   }
@@ -242,25 +249,25 @@ class HubziAmbientEngine {
       const now = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(now);
       this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-      this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 3.0);
+      this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 1.5);
 
       setTimeout(() => {
         this.padNodes.forEach(({ osc, lfo }) => {
-          try { osc.stop(); } catch (_) {}
-          try { lfo.stop(); } catch (_) {}
+          try { osc.stop(); } catch (_) { }
+          try { lfo.stop(); } catch (_) { }
         });
         this.padNodes = [];
-      }, 3200);
+      }, 1600);
     }
 
     this._notify();
   }
 
-  toggle() {
+  async toggle() {
     if (this.isPlaying) {
       this.stop();
     } else {
-      this.start();
+      await this.start();
     }
   }
 
@@ -268,7 +275,7 @@ class HubziAmbientEngine {
     this.targetVolume = Math.max(0, Math.min(1, vol));
     if (this.ctx && this.masterGain && this.isPlaying) {
       const now = this.ctx.currentTime;
-      this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 0.8);
+      this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 0.5);
     }
   }
 

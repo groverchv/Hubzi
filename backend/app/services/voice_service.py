@@ -54,7 +54,7 @@ class VoiceService:
         # Por defecto voz femenina empática
         return "female"
 
-    def generate_speech(
+    async def generate_speech(
         self, 
         text: str, 
         voice_id: Optional[str] = None, 
@@ -67,6 +67,7 @@ class VoiceService:
         Genera audio MP3 mediante ElevenLabs o Edge-TTS modulando prosodia y ternura
         según el nivel de estrés o perfil terapéutico del estudiante.
         """
+        import asyncio
         target_gender = self.determine_voice_gender(voice_gender, user_gender)
 
         # 1. Calibración de velocidad y estabilidad según estrés y perfil
@@ -132,59 +133,46 @@ class VoiceService:
             backup_voice_2 = MALE_VOICE_BACKUP2
             edge_voice_name = EDGE_VOICE_MALE
 
-        # 2. Si hay API key de ElevenLabs y no se ha agotado la cuota, intentar
+        # 2. Si hay API key de ElevenLabs y no se ha agotado la cuota, intentar en hilo separado
         if self.api_key and len(self.api_key.strip()) > 5 and not self.elevenlabs_quota_exceeded:
-            res_bytes = self._call_elevenlabs(primary_voice, payload)
+            res_bytes = await asyncio.to_thread(self._call_elevenlabs, primary_voice, payload)
             if res_bytes:
                 return res_bytes
 
             if not self.elevenlabs_quota_exceeded and primary_voice != backup_voice_1:
-                res_bytes = self._call_elevenlabs(backup_voice_1, payload)
+                res_bytes = await asyncio.to_thread(self._call_elevenlabs, backup_voice_1, payload)
                 if res_bytes:
                     return res_bytes
 
-        # 3. Respaldo Inmediato y Ultra-Rápido: Edge-TTS Neural (Calidad Estudio sin latencia)
-        edge_bytes = self._call_edge_tts(text, speed=speed, voice=edge_voice_name)
+        # 3. Respaldo Inmediato y Ultra-Rápido: Edge-TTS Neural (Calidad Estudio nativa)
+        edge_bytes = await self._call_edge_tts_async(text, speed=speed, voice=edge_voice_name)
         if edge_bytes:
             return edge_bytes
 
         return None
 
-    def _call_edge_tts(self, text: str, speed: float = 0.92, voice: str = EDGE_VOICE_FEMALE) -> Optional[bytes]:
+    async def _call_edge_tts_async(self, text: str, speed: float = 0.92, voice: str = EDGE_VOICE_FEMALE) -> Optional[bytes]:
         """
-        Sintetiza audio con Microsoft Edge Neural TTS en español a velocidad ultra rápida.
+        Sintetiza audio con Microsoft Edge Neural TTS en español de forma asíncrona sin bloqueos.
         """
         try:
-            import asyncio
             import edge_tts
 
             rate_pct = int(round((speed - 1.0) * 100))
             rate_str = f"{rate_pct:+d}%" if rate_pct != 0 else "+0%"
             pitch_str = "+3Hz" if voice == EDGE_VOICE_FEMALE else "-2Hz"
 
-            async def _synthesize():
-                communicate = edge_tts.Communicate(
-                    text,
-                    voice=voice,
-                    rate=rate_str,
-                    pitch=pitch_str
-                )
-                audio_buf = bytearray()
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        audio_buf.extend(chunk["data"])
-                return bytes(audio_buf)
-
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        return pool.submit(lambda: asyncio.run(_synthesize())).result(timeout=6)
-                else:
-                    return loop.run_until_complete(_synthesize())
-            except RuntimeError:
-                return asyncio.run(_synthesize())
+            communicate = edge_tts.Communicate(
+                text,
+                voice=voice,
+                rate=rate_str,
+                pitch=pitch_str
+            )
+            audio_buf = bytearray()
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_buf.extend(chunk["data"])
+            return bytes(audio_buf)
         except Exception as e:
             logger.error(f"Error en Edge-TTS: {e}")
             return None

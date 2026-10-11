@@ -727,6 +727,131 @@ export const MULTI_DOMAIN_PRESETS = [
         hint: "Catarsis a través de la compasión y el temor en la Poética."
       }
     ]
+  },
+
+  // 7. ANSIEDAD Y REGULACIÓN EMOCIONAL (14 Preguntas)
+  // Dominio: prevención y educación sobre ansiedad en universitarios 18-25.
+  // Base: documento docs/exploracion-ansiedad-uagrm.md (secciones 1-3, 5-6).
+  // IMPORTANTE: este dominio es psicoeducativo, NO es terapia. La app sigue
+  // siendo una herramienta de autocuidado y no reemplaza atención profesional.
+  {
+    theme: "Ansiedad y Regulación Emocional",
+    title: "BIENESTAR EMOCIONAL: ANSIEDAD, RESPIRACIÓN Y TÉCNICAS VALIDADAS",
+    domainKey: "ansiedad",
+    nodes: [
+      {
+        id: "node_1",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Coherencia Cardíaca",
+        question: "¿Cuál es la frecuencia respiratoria (en respiraciones por minuto) que coincide con la frecuencia de resonancia del sistema cardiovascular y que demostró reducir ansiedad en ECA recientes?",
+        hint: "6 respiraciones por minuto, ciclo de 10 segundos (5,5s in / 5,5s out). Sumińska et al. 2026."
+      },
+      {
+        id: "node_2",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Beck TCC",
+        question: "¿Qué pensador postuló que no son las situaciones las que generan emociones, sino la interpretación que hacemos de ellas, sentando las bases de la Terapia Cognitivo-Conductual?",
+        hint: "Aaron T. Beck (1976), Cognitive Therapy and the Emotional Disorders."
+      },
+      {
+        id: "node_3",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "GAD-7 Screening",
+        question: "¿Cómo se llama el instrumento validado de 7 ítems usado internacionalmente como screening de Trastorno de Ansiedad Generalizada?",
+        hint: "Generalized Anxiety Disorder 7-item scale, Spitzer et al. 2006."
+      },
+      {
+        id: "node_4",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Grounding 5-4-3-2-1",
+        question: "¿Cuántos sentidos se trabajan en la técnica de grounding 5-4-3-2-1, en qué orden y con qué cantidad de ítems por sentido?",
+        hint: "Vista, tacto, oído, olfato, gusto. 5-4-3-2-1 respectivamente."
+      },
+      {
+        id: "node_5",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Prevalencia U",
+        question: "¿Qué porcentaje aproximado de estudiantes universitarios presenta niveles elevados de ansiedad según los metaanálisis recientes?",
+        hint: "Alrededor del 40% (Ahmed 2023, Li 2022, Paiva 2025)."
+      },
+      {
+        id: "node_6",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Jacobson 1938",
+        question: "¿Quién desarrolló en 1938 la técnica de relajación que alterna tensión y relajación de grupos musculares, recomendada expresamente por la OMS?",
+        hint: "Edmund Jacobson. Versión corta de 6-8 grupos musculares."
+      },
+      {
+        id: "node_7",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Porges Polivagal",
+        question: "¿Qué neurofisiólogo propuso la teoría de las tres ramas del sistema nervioso autónomo, usada para fundamentar la regulación por respiración lenta?",
+        hint: "Stephen W. Porges, Teoría Polivagal (1995, 2011)."
+      },
+      {
+        id: "node_8",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Auto-compasión Neff",
+        question: "¿Qué psicóloga formuló el constructo de auto-compasión con tres componentes: auto-amabilidad, humanidad compartida y mindfulness?",
+        hint: "Kristin Neff (2003). ECA reciente con n=107 mujeres 17-25 años: superó a respiración consciente."
+      },
+      {
+        id: "node_9",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Box Breathing",
+        question: "¿Cuál es el patrón de tiempo del método de respiración 4-4-4-4 popularizado por los Navy SEAL?",
+        hint: "4s inhalar, 4s sostener, 4s exhalar, 4s sostener. 16s por ciclo."
+      },
+      {
+        id: "node_10",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "4-7-8 Weil",
+        question: "¿Quién popularizó la técnica 4-7-8 (inhalar 4, sostener 7, exhalar 8 segundos) y a qué tradición pertenece?",
+        hint: "Andrew Weil (2011), basada en el pranayama yóguico."
+      },
+      {
+        id: "node_11",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Compromiso Social",
+        question: "En el modelo polivagal, ¿cómo se llama el estado seguro de compromiso social al que se busca llevar al usuario regulado?",
+        hint: "Estado de 'social engagement', rama ventral del nervio vago."
+      },
+      {
+        id: "node_12",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "DSM-5-TR",
+        question: "¿Qué sistema de clasificación diagnóstica, en su quinta edición revisada, agrupa los trastornos de ansiedad como categoría diferenciada?",
+        hint: "Manual Diagnóstico y Estadístico de los Trastornos Mentales de la APA, publicado en 2022."
+      },
+      {
+        id: "node_13",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "Ideación Suicida",
+        question: "¿Qué porcentaje aproximado de universitarios reporta ideación suicida en los últimos 12 meses según la revisión umbrella de Paiva 2025?",
+        hint: "10,76% en los últimos 12 meses; 20,33% en algún momento de la vida. Por eso la app debe tener protocolo de crisis."
+      },
+      {
+        id: "node_14",
+        domain: "ansiedad",
+        icon: "ansiedad",
+        label: "No es Terapia",
+        question: "Esta app es una herramienta de autocuidado. NO diagnostica, NO reemplaza atención profesional. ¿Qué debe hacer alguien con ideación suicida o crisis severa?",
+        hint: "Llamar a emergencias, contactar al servicio de psicología de la UAGRM, hablar con alguien de confianza. Buscar ayuda profesional."
+      }
+    ]
   }
 ];
 
@@ -773,6 +898,13 @@ export const DOMAIN_CARDS_PRESETS = {
     { id: 'c3', name: 'APRENDIZAJE SIGNIFICATIVO', cost: '+3', type: 'yellow', domain: 'educacion', rotation: 0, zIndex: 30 },
     { id: 'c4', name: 'INTELIGENCIAS MÚLTIPLES', cost: '+1', type: 'purple', domain: 'arte', rotation: 8, zIndex: 20 },
     { id: 'c5', name: 'PEDAGOGÍA CRÍTICA FREIRE', cost: '+2', type: 'red', domain: 'educacion', rotation: 16, zIndex: 10 },
+  ],
+  6: [
+    { id: 'c1', name: 'COHERENCIA 0.1 HZ', cost: '+1', type: 'blue', domain: 'ansiedad', rotation: -16, zIndex: 10 },
+    { id: 'c2', name: 'BECK / TCC', cost: '+2', type: 'emerald', domain: 'ansiedad', rotation: -8, zIndex: 20 },
+    { id: 'c3', name: 'GROUNDING 5-4-3-2-1', cost: '+3', type: 'purple', domain: 'ansiedad', rotation: 0, zIndex: 30 },
+    { id: 'c4', name: 'JACOBSON 1938', cost: '+1', type: 'yellow', domain: 'ansiedad', rotation: 8, zIndex: 20 },
+    { id: 'c5', name: 'AUTO-COMPASION NEFF', cost: '+2', type: 'rose', domain: 'ansiedad', rotation: 16, zIndex: 10 },
   ]
 };
 
