@@ -33,16 +33,16 @@ export default function ArcadeNode({
     <div 
       data-node-id={id}
       onClick={() => { if (onClick) onClick(id); }}
-      className="relative flex flex-col items-center select-none cursor-pointer"
+      className="relative flex flex-col items-center select-none cursor-pointer group"
       style={{ zIndex: 1 }}
     >
       {/* HEXAGONAL SLOT — matches the reference image honeycomb cells */}
       <motion.div
         data-node-id={id}
         style={style}
-        whileHover={{ scale: 1.1, y: -4, zIndex: 40 }}
+        whileHover={{ scale: 1.12, y: -4, zIndex: 40 }}
         whileTap={{ scale: 0.95 }}
-        className="relative group"
+        className="relative"
       >
         {/* Outer hexagonal bezel — white/light with shadow (the board slot) */}
         <svg
@@ -97,17 +97,18 @@ export default function ArcadeNode({
         <div style={{ height: 68, width: 60 }} className="invisible pointer-events-none" />
       </motion.div>
 
-
-
-      {/* HOVER TOOLTIP */}
+      {/* HOVER TOOLTIP FLOTANTE DE LECTURA RÁPIDA (SIEMPRE LEGIBLE) */}
       {question && (
-        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-52 sm:w-60 p-2.5 rounded-2xl bg-slate-900/98 border border-orange-400/60 shadow-[0_10px_30px_rgba(0,0,0,0.8)] text-[9.5px] text-slate-200 font-sans opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
-          <p className="text-orange-300 font-bold text-[8.5px] uppercase tracking-wider mb-0.5 flex items-center gap-1">
-            <HelpCircle className="w-3 h-3" />
-            <span>Pregunta:</span>
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3 rounded-2xl bg-[#122443]/98 border-2 border-amber-400/80 shadow-[0_12px_32px_rgba(0,0,0,0.85)] text-slate-100 opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
+          <p className="text-amber-300 font-black text-[9px] uppercase tracking-wider mb-1 flex items-center gap-1">
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+            <span>{label ? `Casilla: ${label}` : 'Reactivo:'}</span>
           </p>
-          <p className="line-clamp-3 leading-tight text-slate-200 font-medium">{question}</p>
-          <span className="text-[7.5px] text-orange-300/80 mt-1 block font-mono text-right">(Arrastra aquí tu carta)</span>
+          <p className="leading-snug text-slate-200 font-semibold text-[10.5px] max-h-24 overflow-y-auto">{question}</p>
+          <div className="mt-1.5 flex items-center justify-between border-t border-slate-700/60 pt-1 text-[8px] font-mono text-cyan-300">
+            <span>Toca o arrastra aquí</span>
+            <span className="text-amber-400 font-bold">Clic para expandir</span>
+          </div>
         </div>
       )}
     </div>

@@ -112,9 +112,11 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
     level = getattr(payload, 'level', 1) or 1
     question_count = getattr(payload, 'question_count', 3) or 3
     difficulty = getattr(payload, 'difficulty', 'facil') or 'facil'
+    excluded_concepts = getattr(payload, 'excluded_concepts', []) or []
 
-    # 1. Calcular hash criptográfico SHA-256 incluyendo texto, nivel y cantidad de preguntas
-    cache_signature = f"{payload.text.strip()}_lvl{level}_qc{question_count}_{difficulty}"
+    # 1. Calcular hash criptográfico SHA-256 incluyendo texto, nivel, cantidad de preguntas y conceptos excluidos
+    excl_signature = ",".join(sorted(excluded_concepts)) if excluded_concepts else "none"
+    cache_signature = f"{payload.text.strip()}_lvl{level}_qc{question_count}_{difficulty}_excl_{excl_signature}"
     content_hash = hashlib.sha256(cache_signature.encode("utf-8")).hexdigest()
 
     # NIVEL 1 DE CACHÉ: Memoria RAM local (velocidad extrema < 2ms)
@@ -142,7 +144,8 @@ async def generate_arena_board(payload: GenerateBoardRequest, force_refresh: boo
             variation_seed=variation_seed,
             question_count=question_count,
             difficulty=difficulty,
-            level=level
+            level=level,
+            excluded_concepts=excluded_concepts
         )
         
         concepts = ai_data.get("concepts", [])
@@ -1084,9 +1087,22 @@ async def generate_game_from_folder(
             except Exception as cache_err:
                 logger.warning(f"Error verificando análisis guardado de carpeta: {cache_err}")
 
+    # Recopilar todos los conceptos evaluados en los niveles anteriores dentro de esta carpeta
+    # para garantizar que la IA avance a lo largo del documento sin repetir nunca preguntas ni respuestas
+    previously_evaluated_concepts = []
+    cached_boards_dict = folder_doc.get("cached_boards", {})
+    for prev_lvl in range(1, level):
+        prev_board = cached_boards_dict.get(f"level_{prev_lvl}")
+        if prev_board and "cards" in prev_board:
+            for c in prev_board["cards"]:
+                cname = c.get("concept_name")
+                if cname and not c.get("id", "").startswith("card_distractor"):
+                    previously_evaluated_concepts.append(cname)
+
     logger.info(
         f"Generando juego para carpeta '{folder_name}' ({folder_id}) [Nivel {level} ({final_diff}), {final_qc} preguntas, force={force}]: "
-        f"{len(texts_with_source)} documentos, {len(combined_text)} caracteres."
+        f"{len(texts_with_source)} documentos, {len(combined_text)} caracteres. "
+        f"Excluyendo {len(previously_evaluated_concepts)} conceptos previos para cobertura total."
     )
 
     seed = random.randint(1, 99999) if force else 0
@@ -1095,7 +1111,8 @@ async def generate_game_from_folder(
             text=combined_text,
             level=level,
             question_count=final_qc,
-            difficulty=final_diff
+            difficulty=final_diff,
+            excluded_concepts=previously_evaluated_concepts
         ),
         force_refresh=force,
         variation_seed=seed
@@ -1120,6 +1137,14 @@ async def generate_game_from_folder(
             logger.info(f"Análisis guardado exitosamente en la carpeta '{folder_name}' (Nivel {level}) en MongoDB.")
         except Exception as fe:
             logger.warning(f"Error guardando cached_board en la carpeta: {fe}")
+
+    # Persistir también en memoria del backend (0 ms para solicitudes subsiguientes)
+    if folder_id in in_memory_study_folders:
+        in_memory_folder = in_memory_study_folders[folder_id]
+        if "cached_boards" not in in_memory_folder:
+            in_memory_folder["cached_boards"] = {}
+        in_memory_folder["cached_boards"][f"level_{level}"] = board_response.model_dump()
+        in_memory_folder["cached_board"] = board_response.model_dump()
 
     return board_response
 

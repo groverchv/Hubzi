@@ -54,8 +54,8 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
     }
 
     const numAge = parseInt(age, 10);
-    if (isNaN(numAge) || numAge < 6 || numAge > 110) {
-      setErrorMsg('Por favor ingresa una edad válida (entre 6 y 100 años).');
+    if (isNaN(numAge) || numAge < 5 || numAge > 20) {
+      setErrorMsg('Por favor ingresa una edad válida (entre 5 y 20 años).');
       return;
     }
 
@@ -209,8 +209,8 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
               </label>
               <input
                 type="number"
-                min="6"
-                max="100"
+                min="5"
+                max="20"
                 required
                 value={age}
                 onChange={(e) => setAge(e.target.value)}

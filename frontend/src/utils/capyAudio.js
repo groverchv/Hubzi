@@ -7,6 +7,24 @@
 class HubziAudioEngine {
   constructor() {
     this.ctx = null;
+    this._unlocked = false;
+    this._setupUnlockListeners();
+  }
+
+  _setupUnlockListeners() {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      this.init();
+      if (this.ctx && this.ctx.state === 'running') {
+        this._unlocked = true;
+        ['click', 'touchstart', 'keydown'].forEach(ev => {
+          window.removeEventListener(ev, unlock, true);
+        });
+      }
+    };
+    ['click', 'touchstart', 'keydown'].forEach(ev => {
+      window.addEventListener(ev, unlock, { once: false, passive: true, capture: true });
+    });
   }
 
   init() {

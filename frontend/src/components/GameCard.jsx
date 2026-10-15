@@ -155,20 +155,10 @@ export default function GameCard({
         <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-white/35 to-transparent rounded-t-2xl pointer-events-none" />
 
         {/* Contenedor de Icono en relieve */}
-        <div className="flex-1 flex flex-col items-center justify-center mt-1">
-          <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-inner">
-            <IconComponent className={`w-6 h-6 ${cardTheme.iconColor} drop-shadow-md`} />
+        <div className="flex-1 flex flex-col items-center justify-center w-full">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-inner">
+            <IconComponent className={`w-7 h-7 ${cardTheme.iconColor} drop-shadow-md`} />
           </div>
-        </div>
-
-        {/* Textos inferiores: Categoría pequeña + Nombre / Letra en Negrita */}
-        <div className="w-full text-center flex flex-col items-center leading-tight pb-0.5 z-10">
-          <span className={`text-[8.5px] font-bold tracking-tight ${cardTheme.subTextColor} truncate max-w-full`}>
-            {domain ? domain.slice(0, 10) : 'Concepto'}
-          </span>
-          <span className={`text-xs font-black tracking-wide uppercase ${cardTheme.textColor} drop-shadow-sm truncate max-w-full font-sans`}>
-            {shortName}
-          </span>
         </div>
       </div>
     </motion.div>

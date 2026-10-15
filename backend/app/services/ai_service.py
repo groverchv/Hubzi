@@ -28,118 +28,117 @@ GROQ_MODELS = [
     "llama-3.1-8b-instant",
 ]
 
-
-# Directivas pedagógicas por nivel de juego
+# Directivas pedagógicas y de progresión curricular a lo largo del documento (100% de cobertura)
 LEVEL_DESCRIPTIONS = {
     1: {
         "name": "Fácil",
         "questions": 3,
         "difficulty": "facil",
+        "doc_sector": "Sector Inicial (0% al 25% del texto: Introducción, Objetivos Generales, Definición Central y Alcance)",
         "guideline": (
-            "NIVEL 1 - FÁCIL: Las preguntas deben ser MUY FÁCILES DE PREDECIR, directas, evidentes y "
-            "centradas en las definiciones más obvias, literales y fundamentales que aparecen al inicio o de forma destacada en el texto."
+            "NIVEL 1 - FÁCIL: Enfócate en el SECTOR INICIAL del documento (0% al 25%). "
+            "Las preguntas deben ser directas y fundacionales: definiciones centrales, propósito del plan/texto y conceptos rectoriales."
         )
     },
     2: {
         "name": "Semi-normal",
         "questions": 5,
         "difficulty": "seminormal",
+        "doc_sector": "Sector Estructural (25% al 50% del texto: Fundamentos, Estructura, Roles, Procedimientos iniciales)",
         "guideline": (
-            "NIVEL 2 - SEMI-NORMAL: Preguntas de comprensión básica y operativa, términos clave claros y bien "
-            "diferenciados, accesibles pero requiriendo lectura atenta del documento."
+            "NIVEL 2 - SEMI-NORMAL: Enfócate en el PRIMER TERCIO/MITAD del documento (25% al 50%). "
+            "Preguntas sobre organización, roles, etapas iniciales, requisitos y normas de operación explicadas en esta sección."
         )
     },
     3: {
         "name": "Normal",
         "questions": 8,
         "difficulty": "normal",
+        "doc_sector": "Sector Central y Técnico (45% al 70% del texto: Metodologías, Algoritmos, Actividades, Fases de Ejecución)",
         "guideline": (
-            "NIVEL 3 - NORMAL: Preguntas estándar con aplicación conceptual, distinción de características y "
-            "relaciones entre conceptos planteados en el documento."
+            "NIVEL 3 - NORMAL: Enfócate en la ZONA MEDIA del documento (45% al 70%). "
+            "Preguntas de aplicación metodológica, fases técnicas, relación causa-efecto y taxonomías detalladas en el núcleo del texto."
         )
     },
     4: {
         "name": "Semi-difícil",
         "questions": 15,
         "difficulty": "semidificil",
+        "doc_sector": "Sector Avanzado y de Control (65% al 85% del texto: Métricas, Gestión de Riesgos, Control de Calidad y Casos)",
         "guideline": (
-            "NIVEL 4 - SEMI-DIFÍCIL: Preguntas con análisis crítico, inferencias pedagógicas, relaciones más sutiles y "
-            "terminología técnica especializada extraída a lo largo de todo el documento."
+            "NIVEL 4 - SEMI-DIFÍCIL: Enfócate en la SECCIÓN AVANZADA del documento (65% al 85%). "
+            "Preguntas de análisis crítico, estándares de verificación, criterios de aceptación, métricas cuantitativas y contingencias."
         )
     },
     5: {
         "name": "Difícil",
         "questions": 20,
         "difficulty": "dificil",
+        "doc_sector": "Sector Final y Síntesis Holística (75% al 100% del texto: Auditorías, Conclusiones, Entregables y Síntesis Total)",
         "guideline": (
-            "NIVEL 5 - DIFÍCIL: Preguntas de máxima exigencia analítica, casos de estudio integrados, "
-            "discriminación conceptual de alta precisión y cobertura exhaustiva de detalles minuciosos del texto."
+            "NIVEL 5 - DIFÍCIL: Enfócate en las SECCIONES FINALES (75% al 100%) combinadas con una SÍNTESIS INTEGRAL de todo el documento. "
+            "Preguntas exhaustivas, distinciones de alta precisión, dictámenes finales, criterios de validación y conclusiones."
         )
     }
 }
 
-def build_system_instruction(question_count: int = 5, difficulty: str = "normal", level: int = 1) -> str:
-    """Construye las instrucciones dinámicas de Gemini calibradas por cantidad y nivel de dificultad."""
+
+def build_system_instruction(
+    question_count: int = 5, 
+    difficulty: str = "normal", 
+    level: int = 1,
+    excluded_concepts: Optional[List[str]] = None
+) -> str:
+    """Construye las instrucciones dinámicas de Gemini/Groq con exclusión estricta de conceptos previos y cobertura sectorizada."""
     distractor_count = max(1, round(question_count * 0.30))
     lvl_info = LEVEL_DESCRIPTIONS.get(level, LEVEL_DESCRIPTIONS[1])
     guideline = lvl_info["guideline"]
+    doc_sector = lvl_info.get("doc_sector", "Todo el documento")
+
+    exclusion_clause = ""
+    if excluded_concepts and len(excluded_concepts) > 0:
+        clean_excluded = [f'"{c.strip()}"' for c in excluded_concepts if c and len(c.strip()) > 1][:50]
+        if clean_excluded:
+            exclusion_clause = f"""
+🚫 PROHIBICIÓN ESTRICTA DE REPETICIÓN (CONCEPTOS YA EVALUADOS EN NIVELES ANTERIORES):
+Los siguientes conceptos ya fueron aprendidos y superados por el estudiante en niveles anteriores:
+[{', '.join(clean_excluded)}]
+- ESTÁ TERMINANTEMENTE PROHIBIDO generar preguntas cuyas respuestas o conceptos ("concept_name") sean idénticos o sinónimos directos de los conceptos listados arriba.
+- DEBES extraer conceptos NUEVOS, DISTINTOS y NO EVALUADOS AÚN a partir del sector correspondiente del texto.
+"""
 
     return f"""
-Eres un evaluador académico universitario experto y diseñador de simulacros de examen en la plataforma Hubzy.
+Eres un evaluador pedagógico de élite universitaria encargado de diseñar simulacros de examen profesionales en Hubzy.
+Tu objetivo es que el estudiante domine y asimile el 100% DEL DOCUMENTO ACADÉMICO a través de sus 5 niveles progresivos.
 
-⚠️ REGLA ABSOLUTA — SIN EXCEPCIONES:
-- ÚNICAMENTE debes analizar y formular preguntas a partir del texto que se te proporciona en este mensaje.
-- ESTÁ TERMINANTEMENTE PROHIBIDO usar conocimiento propio, enciclopédico, de internet, de otros documentos o de entrenamiento previo.
-- Si el texto no contiene información suficiente sobre un concepto, NO lo incluyas. Trabaja SOLO con lo que está escrito.
-- Las preguntas deben provenir de párrafos, definiciones, fórmulas, procedimientos o casos concretos extraídos del texto suministrado.
+🎯 ZONA PRIORITARIA DEL DOCUMENTO PARA ESTE NIVEL ({level}/5):
+{doc_sector}
 
-CALIBRACIÓN DE DIFICULTAD Y PEDAGOGÍA:
-- {guideline}
-- Dificultad solicitada: {difficulty.upper()} (Nivel {level}/5).
+{guideline}
+{exclusion_clause}
 
-MANEJO INTELIGENTE DE CASOS ESPECIALES DE DOCUMENTOS:
-1. DOCUMENTOS BREVES O CON INFORMACIÓN COMPACTA:
-   - Si el documento tiene pocos conceptos para las {question_count} preguntas solicitadas:
-     * ESTÁ PROHIBIDO inventar conceptos ajenos al documento.
-     * En su lugar, aborda los conceptos presentes desde DIFERENTES ÁNGULOS COGNITIVOS:
-       (a) Definición/Significado exacto según el texto.
-       (b) Finalidad, Objetivo o Utilidad práctica.
-       (c) Procedimiento, Relación o Causa-Efecto.
-       (d) Requisitos, Características clave o Distinciones.
-     * Si resulta imposible llegar a {question_count} sin alucinar, entrega el máximo riguroso posible (mínimo 3).
+⚠️ REGLAS OBLIGATORIAS:
+1. ÚNICAMENTE extrae información, citas y conceptos EXPLÍCITAMENTE presentes en el texto proporcionado.
+2. NUNCA alucines o traigas conocimiento externo que no esté en el documento.
+3. Para cada uno de los {question_count} reactivos requeridos genera:
+   - "concept_name": Término o principio técnico exacto (la carta en mano del estudiante, máximo 4 palabras).
+   - "content": Explicación sintética y precisa fundamentada en el texto (1-2 líneas).
+   - "source_quote": Cita textual exacta de 1 renglón extraída del texto que respalda y valida la respuesta.
+   - "points_multiplier": "1x" (nivel 1-2), "2x" (nivel 3), "3x" (nivel 4-5).
+   - "node_question": Reactivo de examen riguroso, claro y desafiante adecuado al nivel {level}.
+   - "node_hint": Pista conceptual orientadora que ayude al alumno sin revelar el nombre exacto de la carta.
 
-2. DIAPOSITIVAS Y LISTAS ESQUEMÁTICAS (BULLET POINTS):
-   - Si el texto está compuesto por viñetas breves o diapositivas resumidas:
-     * Formula reactivos de evaluación de clasificación, relaciones de pertenencia y discriminación conceptual.
-     * Ejemplo: "¿Cuál de los siguientes elementos es categorizado como X según la presentación?"
+🎭 CARTAS DISTRACTORAS ({distractor_count} DISTRACTORES TEMÁTICOS CONTEXTUALES):
+- Genera exactamente {distractor_count} conceptos distractores.
+- REGLA CRÍTICA DE DISTRACTORES: Los distractores DEBEN pertenecer al MISMO CAMPO TEMÁTICO y vocabulario del documento (conceptos verosímiles o doctrinas afines pero incorrectas para esa pregunta puntual).
+- PROHIBIDO usar distractores de áreas no relacionadas (por ejemplo, si el tema es un plan de administración de software, los distractores deben ser de gestión o ingeniería de software, NO de medicina, física cuántica ni redes no vinculadas).
 
-3. FÓRMULAS, CIENCIAS EXACTAS Y PROCEDIMIENTOS:
-   - En documentos con ecuaciones, leyes físicas, algoritmos o matemáticas:
-     * Formula preguntas basadas en el rol de cada variable, condiciones de aplicación o significado de la fórmula descrita.
-     * La carta representa la fórmula, la variable o la regla exacta.
+⚖️ DISTRIBUCIÓN EQUITATIVA SI HAY MÚLTIPLES ARCHIVOS:
+- Si el texto contiene delimitadores '--- DOCUMENTO: [Nombre] ---', distribuye los reactivos equitativamente entre los diferentes documentos para que la evaluación abarque todo el material de estudio y no solo el primer archivo.
 
-4. TERMINOLOGÍA TÉCNICA E IDIOMAS (Latín, Inglés, Jerga Técnica):
-   - Respeta escrupulosamente los términos en su grafía y lenguaje original (ej. "habeas corpus", "machine learning", "turnaround").
-   - NO traduzcas términos clave si el documento los presenta en su denominación técnica internacional o legal.
-
-CRITERIOS PEDAGÓGICOS OBLIGATORIOS:
-1. Extrae hasta {question_count} conceptos, principios, fórmulas, procedimientos o tesis presentes EXPLÍCITAMENTE en el texto (o ángulos cognitivos distintos de los conceptos existentes).
-2. Para cada concepto genera:
-   - "concept_name": El término técnico exacto tal como aparece en el documento (la carta respuesta del alumno).
-   - "content": Síntesis de 1-2 líneas que explica POR QUÉ es la respuesta correcta, usando el lenguaje del propio documento.
-   - "source_quote": Cita literal textual de 1 renglón extraída directamente del texto que comprueba y fundamenta la respuesta (RIGOR VERÍDICO OBLIGATORIO).
-   - "points_multiplier": "1x" (básico), "2x" (intermedio), "3x" (avanzado).
-   - "node_question": REACTIVO DE EXAMEN REAL basado en el texto y calibrado a la dificultad indicada.
-   - "node_hint": Pista nemotécnica que oriente al alumno hacia la respuesta SIN decir el nombre de la carta.
-3. CARTAS CON FALSAS RESPUESTAS / DISTRACTORES (EXACTAMENTE EL 30% = {distractor_count} DISTRACTORES):
-   - Genera exactamente {distractor_count} términos técnicos o conceptos verosímiles pero INCORRECTOS para estas preguntas.
-   - Para cada distractor incluye "concept_name" y "content" explicando brevemente por qué es falso o no aplica.
-4. El "title" debe reflejar el tema central que REALMENTE aparece en el texto.
-5. RESPONDE ÚNICAMENTE con un objeto JSON válido, sin formato markdown extra.
-
-Estructura JSON requerida:
+Estructura JSON requerida (responde ÚNICAMENTE con JSON válido):
 {{
-  "title": "Simulacro de Examen: [Tema Real del Texto]",
+  "title": "Simulacro: [Tema Real del Texto]",
   "level": {level},
   "difficulty": "{difficulty}",
   "concepts": [
@@ -154,7 +153,13 @@ Estructura JSON requerida:
   ],
   "distractors": [
     {{
-      "concept_name": "Distractor Verosímil 1",
+      "concept_name": "Distractor Temático Verosímil 1",
+      "content": "Concepto de la materia no aplicable a estos reactivos.",
+      "points_multiplier": "1x"
+    }}
+  ]
+}}
+"""ímil 1",
       "content": "Concepto no aplicable a estos reactivos.",
       "points_multiplier": "1x"
     }}
@@ -213,12 +218,14 @@ class AIService:
         variation_seed: int = 0,
         question_count: int = 3,
         difficulty: str = "facil",
-        level: int = 1
+        level: int = 1,
+        excluded_concepts: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Envía el texto REAL del documento a Gemini con prompt estructurado
         y parsea el JSON resultante para generar preguntas dinámicas de examen
-        calibradas exactamente al nivel (1 a 5), dificultad y número de preguntas.
+        calibradas exactamente al nivel (1 a 5), dificultad y número de preguntas,
+        excluyendo conceptos de niveles anteriores para garantizar no-repetición.
         """
         if not self.groq_client and not self.client:
             raise RuntimeError(
@@ -232,7 +239,8 @@ class AIService:
         dynamic_sys_instruction = build_system_instruction(
             question_count=question_count,
             difficulty=difficulty,
-            level=level
+            level=level,
+            excluded_concepts=excluded_concepts
         )
 
         variation_directive = ""

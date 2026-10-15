@@ -1,16 +1,18 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Settings, 
-  Search, 
-  Layers, 
-  Check, 
-  Lock, 
-  Hourglass, 
-  RotateCcw, 
-  LogOut, 
-  Sparkles, 
-  BookOpen, 
+import React, { useState, useMemo, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Settings,
+  Search,
+  Layers,
+  Check,
+  Lock,
+  Hourglass,
+  RotateCcw,
+  RefreshCw,
+  Dices,
+  LogOut,
+  Sparkles,
+  BookOpen,
   Trophy,
   Bot,
   Swords,
@@ -33,51 +35,92 @@ import {
   User as UserIcon,
   Home,
   Crown,
-  X
-} from 'lucide-react';
-import GameCard from '../components/GameCard';
-import ArcadeNode from '../components/ArcadeNode';
-import QuestionModal from '../components/QuestionModal';
-import CardDetailModal from '../components/CardDetailModal';
-import GameModeModal from '../components/GameModeModal';
-import ZenRelaxModal from '../components/ZenRelaxModal';
-import StudyFolderManagerModal from '../components/StudyFolderManagerModal';
-import UserAuthModal from '../components/UserAuthModal';
-import AuthModal from '../components/AuthModal';
-import SubscriptionModal from '../components/SubscriptionModal';
-import TutorialModal from '../components/TutorialModal';
-import VictoryModal from '../components/VictoryModal';
-import WelcomeScreen from '../components/WelcomeScreen';
-import LegalModal from '../components/LegalModal';
-import CookieConsentBanner from '../components/CookieConsentBanner';
-import capybara3dImg from '../assets/capybara_3d.jpg';
-import { capyAudio } from '../utils/capyAudio';
-import { capyVoice } from '../utils/capyVoice';
-import { hubziAmbient } from '../utils/hubziAmbient';
-import { detectDomainCategory, resolveDynamicIcon } from '../utils/domainIcons';
-import { STATIC_ADMIN_GAME } from '../utils/staticAdminGame';
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
+} from "lucide-react";
+import GameCard from "../components/GameCard";
+import ArcadeNode from "../components/ArcadeNode";
+import QuestionModal from "../components/QuestionModal";
+import CardDetailModal from "../components/CardDetailModal";
+import GameModeModal from "../components/GameModeModal";
+import ZenRelaxModal from "../components/ZenRelaxModal";
+import StudyFolderManagerModal from "../components/StudyFolderManagerModal";
+import UserAuthModal from "../components/UserAuthModal";
+import AuthModal from "../components/AuthModal";
+import SubscriptionModal from "../components/SubscriptionModal";
+import TutorialModal from "../components/TutorialModal";
+import VictoryModal from "../components/VictoryModal";
+import WelcomeScreen from "../components/WelcomeScreen";
+import AdventureMap from "../components/AdventureMap";
+import LegalModal from "../components/LegalModal";
+import CookieConsentBanner from "../components/CookieConsentBanner";
+import capybara3dImg from "../assets/capybara_3d.png";
+import { capyAudio } from "../utils/capyAudio";
+import { capyVoice } from "../utils/capyVoice";
+import { hubziAmbient } from "../utils/hubziAmbient";
+import { detectDomainCategory, resolveDynamicIcon } from "../utils/domainIcons";
+import { getMascotByDomain } from "../utils/mascotCatalog";
+import { STATIC_ADMIN_GAME } from "../utils/staticAdminGame";
 
+// 20 NIVELES DE PROGRESIÓN PEDAGÓGICA (Nivel K = K preguntas)
+// Nivel 20 = Batalla Final contra Capi Boss
+export const GAME_LEVELS = Array.from({ length: 20 }, (_, i) => {
+  const lvl = i + 1;
+  const isBoss = lvl === 20;
+  const hasTraps = lvl >= 3;
+  const trapCount = lvl < 8 ? 1 : lvl < 15 ? 2 : 3;
 
-// 5 NIVELES DE PROGRESIÓN PEDAGÓGICA Y DIFICULTAD
-export const GAME_LEVELS = [
-  { level: 1, name: 'Fácil', questions: 3, difficulty: 'facil', desc: 'Preguntas directas y fáciles de predecir' },
-  { level: 2, name: 'Semi-normal', questions: 5, difficulty: 'seminormal', desc: 'Conceptos clave fundamentales' },
-  { level: 3, name: 'Normal', questions: 8, difficulty: 'normal', desc: 'Análisis y relaciones estándar' },
-  { level: 4, name: 'Semi-difícil', questions: 15, difficulty: 'semidificil', desc: 'Profundidad técnica e inferencias' },
-  { level: 5, name: 'Difícil', questions: 20, difficulty: 'dificil', desc: 'Integración exhaustiva del texto' }
-];
+  let difficulty = "facil";
+  let diffLabel = "Iniciación";
+  if (lvl >= 16) {
+    difficulty = "dificil";
+    diffLabel = isBoss ? "👑 JEFE FINAL" : "Maestro";
+  } else if (lvl >= 11) {
+    difficulty = "semidificil";
+    diffLabel = "Avanzado";
+  } else if (lvl >= 6) {
+    difficulty = "normal";
+    diffLabel = "Intermedio";
+  } else if (lvl >= 3) {
+    difficulty = "seminormal";
+    diffLabel = "En Progreso";
+  }
+
+  return {
+    level: lvl,
+    name: isBoss ? "Duelo Legendario: Capi Boss" : `Fase ${lvl}: ${diffLabel}`,
+    questions: lvl, // Exactamente K preguntas en el nivel K
+    difficulty,
+    hasTraps,
+    trapCount: hasTraps ? trapCount : 0,
+    isBoss,
+    desc: isBoss
+      ? "¡Enfrenta al Gran Capi en el examen definitivo de 20 reactivos! Derrótalo acertando el circuito."
+      : hasTraps
+        ? `Resuelve los ${lvl} nodos con atención: ¡Hay ${trapCount} carta(s) trampa en tu mazo!`
+        : `Circuito inicial de ${lvl} pregunta(s) directa(s).`,
+  };
+});
 
 export default function ArcadeArena() {
-  // Estados de Niveles del Juego (1 a 5)
+  // Estados de Niveles del Juego (1 a 5) y Mapa de Aventura
   const [currentLevel, setCurrentLevel] = useState(1);
+  const [unlockedLevel, setUnlockedLevel] = useState(1);
+  const [levelStars, setLevelStars] = useState({ 1: 0 });
+  const [isMapVisible, setIsMapVisible] = useState(false);
   const [isLevelUpModalOpen, setIsLevelUpModalOpen] = useState(false);
   const [levelUpData, setLevelUpData] = useState(null);
   const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
+  const [isRestartOptionsModalOpen, setIsRestartOptionsModalOpen] =
+    useState(false);
 
   // Estados del juego (Vacíos al inicio: sólo se pueblan tras subir materiales)
   const [boardInfo, setBoardInfo] = useState(null);
   const [nodes, setNodes] = useState({});
   const [hand, setHand] = useState([]);
+  const [handPage, setHandPage] = useState(0); // Paginación inteligente del mazo (8 cartas por vista)
   const [opponentHand, setOpponentHand] = useState([]);
   const [flyingCard, setFlyingCard] = useState(null); // { card, targetPos, isOpponent }
   const [energy, setEnergy] = useState(0);
@@ -90,8 +133,12 @@ export default function ArcadeArena() {
   const [wrongCardShake, setWrongCardShake] = useState(null); // id de carta que se puso en lugar incorrecto
 
   // Reacciones Emocionales y Voz Tierna de Capibara (ElevenLabs)
-  const [capyMood, setCapyMood] = useState('idle'); // 'idle' | 'happy' | 'encouraging' | 'hint' | 'surprised' | 'welcome'
-  const [capySpeech, setCapySpeech] = useState({ text: '', isVisible: false, mood: 'idle' });
+  const [capyMood, setCapyMood] = useState("idle"); // 'idle' | 'happy' | 'encouraging' | 'hint' | 'surprised' | 'welcome'
+  const [capySpeech, setCapySpeech] = useState({
+    text: "",
+    isVisible: false,
+    mood: "idle",
+  });
   const [isCapySpeaking, setIsCapySpeaking] = useState(false);
   const [isCapyMuted, setIsCapyMuted] = useState(false);
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
@@ -106,7 +153,7 @@ export default function ArcadeArena() {
   // Gestión de Usuario Activo y Autenticación (Email + Contraseña)
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('hubzy_current_user');
+      const saved = localStorage.getItem("hubzy_current_user");
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -124,8 +171,8 @@ export default function ArcadeArena() {
 
   // Cerrar Sesión
   const handleLogout = () => {
-    localStorage.removeItem('hubzy_current_user');
-    localStorage.removeItem('hubzy_auth_token');
+    localStorage.removeItem("hubzy_current_user");
+    localStorage.removeItem("hubzy_auth_token");
     setCurrentUser(null);
     setIsAuthModalOpen(true);
   };
@@ -135,9 +182,9 @@ export default function ArcadeArena() {
 
   // Modal Legal y Transparencia (Términos, Privacidad, Reembolsos, Cookies)
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
-  const [legalModalTab, setLegalModalTab] = useState('terms');
+  const [legalModalTab, setLegalModalTab] = useState("terms");
 
-  const handleOpenLegal = (tab = 'terms') => {
+  const handleOpenLegal = (tab = "terms") => {
     setLegalModalTab(tab);
     setIsLegalModalOpen(true);
   };
@@ -145,30 +192,39 @@ export default function ArcadeArena() {
   // Escuchar si el usuario regresa de Stripe con ?payment=success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const payment = params.get('payment');
-    const sessionId = params.get('session_id');
+    const payment = params.get("payment");
+    const sessionId = params.get("session_id");
 
-    if (payment === 'success' && sessionId) {
+    if (payment === "success" && sessionId) {
       fetch(`/api/v1/payments/verify-session/${sessionId}`)
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           if (data.is_paid) {
-            setSuccessNotif('¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro 🎉');
+            setSuccessNotif(
+              "¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro 🎉",
+            );
             if (currentUser) {
-              const updated = { ...currentUser, plan: 'pro' };
+              const updated = { ...currentUser, plan: "pro" };
               setCurrentUser(updated);
-              localStorage.setItem('hubzy_current_user', JSON.stringify(updated));
+              localStorage.setItem(
+                "hubzy_current_user",
+                JSON.stringify(updated),
+              );
             }
           }
         })
         .catch(console.error)
         .finally(() => {
           // Limpiar URL sin recargar
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
           setTimeout(() => setSuccessNotif(null), 5000);
         });
-    } else if (payment === 'cancelled') {
-      setSuccessNotif('Pago cancelado en Stripe.');
+    } else if (payment === "cancelled") {
+      setSuccessNotif("Pago cancelado en Stripe.");
       window.history.replaceState({}, document.title, window.location.pathname);
       setTimeout(() => setSuccessNotif(null), 4000);
     }
@@ -178,10 +234,18 @@ export default function ArcadeArena() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
-  const [victoryStats, setVictoryStats] = useState({ accuracy: 100, totalQuestions: 5 });
+  const [victoryStats, setVictoryStats] = useState({
+    accuracy: 100,
+    totalQuestions: 5,
+  });
   const [activeFolder, setActiveFolder] = useState(null);
   const [isRelaxModalOpen, setIsRelaxModalOpen] = useState(false);
-  const [zenOffer, setZenOffer] = useState({ show: false, category: '', distortion: '', emotion: '' });
+  const [zenOffer, setZenOffer] = useState({
+    show: false,
+    category: "",
+    distortion: "",
+    emotion: "",
+  });
   const [isModeModalOpen, setIsModeModalOpen] = useState(false);
   const [isGeneratingArena, setIsGeneratingArena] = useState(false);
   const [selectedNodeForQuestion, setSelectedNodeForQuestion] = useState(null);
@@ -192,7 +256,7 @@ export default function ArcadeArena() {
   // Accesibilidad (A11y): Cerrar cualquier modal activo al presionar la tecla Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (isLegalModalOpen) setIsLegalModalOpen(false);
         else if (selectedNodeForQuestion) setSelectedNodeForQuestion(null);
         else if (selectedCardForDetail) setSelectedCardForDetail(null);
@@ -203,17 +267,17 @@ export default function ArcadeArena() {
         else if (isUserModalOpen) setIsUserModalOpen(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    isLegalModalOpen, 
-    selectedNodeForQuestion, 
-    selectedCardForDetail, 
-    isFolderModalOpen, 
-    isTutorialOpen, 
-    isSubscriptionModalOpen, 
-    isRelaxModalOpen, 
-    isUserModalOpen
+    isLegalModalOpen,
+    selectedNodeForQuestion,
+    selectedCardForDetail,
+    isFolderModalOpen,
+    isTutorialOpen,
+    isSubscriptionModalOpen,
+    isRelaxModalOpen,
+    isUserModalOpen,
   ]);
 
   // AYUDA PEDAGÓGICA ANTI-FRUSTRACIÓN: Flecha y destello tras 30s de inactividad
@@ -234,23 +298,35 @@ export default function ArcadeArena() {
   useEffect(() => {
     const checkInterval = setInterval(() => {
       // Solo disparar si hay una partida en curso y cartas en mano
-      if (hand.length > 0 && Object.keys(nodes).length > 0 && !isVictoryModalOpen) {
+      if (
+        hand.length > 0 &&
+        Object.keys(nodes).length > 0 &&
+        !isVictoryModalOpen
+      ) {
         const elapsed = (Date.now() - lastActionTimestampRef.current) / 1000;
         if (elapsed >= 30 && !hintCardId) {
           // Encontrar el primer nodo vacío que aún no tenga carta colocada
-          const emptyNode = Object.values(nodes).find(n => !n.placedCard);
+          const emptyNode = Object.values(nodes).find((n) => !n.placedCard);
           if (emptyNode) {
             // Buscar la carta en la mano que corresponde a este nodo
-            const matchingCard = hand.find(c => 
-              (emptyNode.correctCardId && String(emptyNode.correctCardId) === String(c.id)) ||
-              (c.matchesNodeId && String(c.matchesNodeId) === String(emptyNode.id)) ||
-              (emptyNode.label && c.name && emptyNode.label.trim().toLowerCase() === c.name.trim().toLowerCase())
+            const matchingCard = hand.find(
+              (c) =>
+                (emptyNode.correctCardId &&
+                  String(emptyNode.correctCardId) === String(c.id)) ||
+                (c.matchesNodeId &&
+                  String(c.matchesNodeId) === String(emptyNode.id)) ||
+                (emptyNode.label &&
+                  c.name &&
+                  emptyNode.label.trim().toLowerCase() ===
+                    c.name.trim().toLowerCase()),
             );
 
             if (matchingCard) {
               setHintCardId(matchingCard.id);
               setHintNodeId(emptyNode.id);
-              setSuccessNotif(`💡 Pista de Capi: ¡Esta carta pertenece a la casilla "${emptyNode.label || 'en espera'}"!`);
+              setSuccessNotif(
+                `💡 Pista de Capi: ¡Esta carta pertenece a la casilla "${emptyNode.label || "en espera"}"!`,
+              );
               setTimeout(() => setSuccessNotif(null), 6000);
             }
           }
@@ -261,13 +337,10 @@ export default function ArcadeArena() {
     return () => clearInterval(checkInterval);
   }, [hand, nodes, hintCardId, isVictoryModalOpen]);
 
-
-
-
   // Configuración de Sala (Modo Solitario por defecto)
   const [gameConfig, setGameConfig] = useState({
-    mode: 'solo',
-    roomId: 'sala-solo',
+    mode: "solo",
+    roomId: "sala-solo",
     isHost: true,
   });
 
@@ -275,10 +348,10 @@ export default function ArcadeArena() {
   const [opponentScore, setOpponentScore] = useState(0);
 
   const clientId = useMemo(() => {
-    let saved = sessionStorage.getItem('hubzy_client_id');
+    let saved = sessionStorage.getItem("hubzy_client_id");
     if (!saved) {
       saved = `player_${Math.random().toString(36).substring(2, 7)}`;
-      sessionStorage.setItem('hubzy_client_id', saved);
+      sessionStorage.setItem("hubzy_client_id", saved);
     }
     return saved;
   }, []);
@@ -286,16 +359,16 @@ export default function ArcadeArena() {
   // Modo Solitario Zen sin contrincante: El estudiante juega a su propio ritmo sin presiones
   const isActualTurn = true;
 
-
   // Sincronización de eventos de voz de Capibara
   useEffect(() => {
     const unsubscribe = capyVoice.subscribe((state) => {
       setIsCapySpeaking(state.isSpeaking);
       if (!state.isSpeaking) {
-        if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
+        if (capySpeechTimeoutRef.current)
+          clearTimeout(capySpeechTimeoutRef.current);
         capySpeechTimeoutRef.current = setTimeout(() => {
-          setCapySpeech(prev => ({ ...prev, isVisible: false }));
-          setCapyMood('idle');
+          setCapySpeech((prev) => ({ ...prev, isVisible: false }));
+          setCapyMood("idle");
           setIsCapySad(false);
         }, 3200);
       }
@@ -307,7 +380,8 @@ export default function ArcadeArena() {
     return () => {
       unsubscribe();
       unsubscribeAmbient();
-      if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
+      if (capySpeechTimeoutRef.current)
+        clearTimeout(capySpeechTimeoutRef.current);
     };
   }, []);
 
@@ -320,45 +394,67 @@ export default function ArcadeArena() {
     if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current);
 
     const level = customData.level || currentLevel || 1;
-    const theme = customData.theme || boardInfo?.theme || '';
+    const theme = customData.theme || boardInfo?.theme || "";
 
     let phrase = customData.customText;
     if (!phrase) {
-      phrase = await capyVoice.getDynamicSpeech(situation, { level, theme, ...customData });
+      phrase = await capyVoice.getDynamicSpeech(situation, {
+        level,
+        theme,
+        ...customData,
+      });
     }
 
     // Mapa de situaciones a moods expresivos del Capibara
-    let mood = 'talking';
-    if (situation === 'level_up') mood = 'dancing';           // BAILE al subir de nivel
-    else if (situation === 'victory') mood = 'celebrating';   // CELEBRACIÓN en victoria
-    else if (situation === 'welcome') mood = 'love';           // AMOR al dar bienvenida
-    else if (situation === 'correct') mood = 'happy';          // FELIZ en respuesta correcta
-    else if (situation === 'wrong') mood = 'encouraging';      // TRISTEZA en error
-    else if (situation === 'hint') mood = 'thinking';          // PENSANDO en pista
-    else if (situation === 'opponent_move') mood = 'surprised'; // SORPRESA
+    let mood = "talking";
+    if (situation === "level_up")
+      mood = "dancing"; // BAILE al subir de nivel
+    else if (situation === "victory")
+      mood = "celebrating"; // CELEBRACIÓN en victoria
+    else if (situation === "welcome")
+      mood = "love"; // AMOR al dar bienvenida
+    else if (situation === "correct")
+      mood = "happy"; // FELIZ en respuesta correcta
+    else if (situation === "wrong")
+      mood = "encouraging"; // TRISTEZA en error
+    else if (situation === "hint")
+      mood = "thinking"; // PENSANDO en pista
+    else if (situation === "opponent_move") mood = "surprised"; // SORPRESA
 
     setCapyMood(mood);
     setCapySpeech({ text: phrase, isVisible: true, mood });
 
-    if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
+    if (capySpeechTimeoutRef.current)
+      clearTimeout(capySpeechTimeoutRef.current);
 
     const speakOpts = {
-      mood, level,
+      mood,
+      level,
       stress_level: customData.stress_level,
-      profile: customData.profile || (situation === 'wrong' ? 'anxiety_relief' : 'loving_psychologist'),
+      profile:
+        customData.profile ||
+        (situation === "wrong" ? "anxiety_relief" : "loving_psychologist"),
       user: currentUser,
       user_gender: currentUser?.gender,
-      voice_gender: currentUser?.assigned_voice_gender
+      voice_gender: currentUser?.assigned_voice_gender,
     };
 
-    if (situation === 'wrong') {
+    if (situation === "wrong") {
       setIsCapySad(true);
       capyAudio.playCapyCry();
-      speakTimeoutRef.current = setTimeout(() => { capyVoice.speak(phrase, speakOpts); }, 350);
-    } else if (situation === 'correct' || situation === 'level_up' || situation === 'victory') {
+      speakTimeoutRef.current = setTimeout(() => {
+        capyVoice.speak(phrase, speakOpts);
+      }, 350);
+    } else if (
+      situation === "correct" ||
+      situation === "level_up" ||
+      situation === "victory"
+    ) {
       setIsCapySad(false);
       capyAudio.playCapyHappy();
-      speakTimeoutRef.current = setTimeout(() => { capyVoice.speak(phrase, speakOpts); }, 250);
+      speakTimeoutRef.current = setTimeout(() => {
+        capyVoice.speak(phrase, speakOpts);
+      }, 250);
     } else {
       setIsCapySad(false);
       capyVoice.speak(phrase, speakOpts);
@@ -373,107 +469,175 @@ export default function ArcadeArena() {
     const t = transcript.toLowerCase().trim();
 
     // Frustración / estrés / bloqueo
-    const stressKw = ['no puedo','no entiendo','imposible','difícil','odio','me rindo','ya no','ayuda','socorro','no sé nada','perdido','estresado','ansiedad'];
-    if (stressKw.some(kw => t.includes(kw))) {
+    const stressKw = [
+      "no puedo",
+      "no entiendo",
+      "imposible",
+      "difícil",
+      "odio",
+      "me rindo",
+      "ya no",
+      "ayuda",
+      "socorro",
+      "no sé nada",
+      "perdido",
+      "estresado",
+      "ansiedad",
+    ];
+    if (stressKw.some((kw) => t.includes(kw))) {
       return {
-        mood: 'love',
-        reply: '¡Oye, oye! Aquí estoy yo, tu Capi favorito. Respira conmigo un segundo: eso que sientes es completamente normal y válido. Los más brillantes también se atoran. ¿Hacemos una pausa Zen y luego lo atacamos juntos con toda la energía?',
-        needsZen: true
+        mood: "love",
+        reply:
+          "¡Oye, oye! Aquí estoy yo, tu Capi favorito. Respira conmigo un segundo: eso que sientes es completamente normal y válido. Los más brillantes también se atoran. ¿Hacemos una pausa Zen y luego lo atacamos juntos con toda la energía?",
+        needsZen: true,
       };
     }
 
     // Saludo
-    const greetKw = ['hola','hey','buenos','buenas','qué tal','cómo estás','saludos','ey'];
-    if (greetKw.some(kw => t.includes(kw))) {
-      const name = capyVoice.currentUser?.username || 'campeón';
+    const greetKw = [
+      "hola",
+      "hey",
+      "buenos",
+      "buenas",
+      "qué tal",
+      "cómo estás",
+      "saludos",
+      "ey",
+    ];
+    if (greetKw.some((kw) => t.includes(kw))) {
+      const name = capyVoice.currentUser?.username || "campeón";
       return {
-        mood: 'love',
-        reply: `¡Hooola ${name}! ¡Me alegra TANTO escuchar tu voz! ¿Sabes que eres mi persona favorita? Dime, ¿en qué te puedo ayudar hoy con todo mi amor?`
+        mood: "love",
+        reply: `¡Hooola ${name}! ¡Me alegra TANTO escuchar tu voz! ¿Sabes que eres mi persona favorita? Dime, ¿en qué te puedo ayudar hoy con todo mi amor?`,
       };
     }
 
     // Felicidad / logro del usuario
-    const happyKw = ['gracias','lo logré','lo hice','genial','bien','perfecto','me encanta','amor','qué fácil'];
-    if (happyKw.some(kw => t.includes(kw))) {
+    const happyKw = [
+      "gracias",
+      "lo logré",
+      "lo hice",
+      "genial",
+      "bien",
+      "perfecto",
+      "me encanta",
+      "amor",
+      "qué fácil",
+    ];
+    if (happyKw.some((kw) => t.includes(kw))) {
       return {
-        mood: 'celebrating',
-        reply: '¡SÍIII! ¡Eso es exactamente lo que quería escuchar! ¡Me llenas el corazón de alegría! ¡Sabía que lo ibas a lograr, siempre lo supe!'
+        mood: "celebrating",
+        reply:
+          "¡SÍIII! ¡Eso es exactamente lo que quería escuchar! ¡Me llenas el corazón de alegría! ¡Sabía que lo ibas a lograr, siempre lo supe!",
       };
     }
 
     // Pregunta conceptual / definición
-    const defineKw = ['qué es','para qué','qué significa','define','definición','qué hace','cómo funciona','explica','me puedes explicar'];
-    if (defineKw.some(kw => t.includes(kw))) {
+    const defineKw = [
+      "qué es",
+      "para qué",
+      "qué significa",
+      "define",
+      "definición",
+      "qué hace",
+      "cómo funciona",
+      "explica",
+      "me puedes explicar",
+    ];
+    if (defineKw.some((kw) => t.includes(kw))) {
       const allNodes = Object.values(nodesCtx);
-      const matched = allNodes.find(n => n.label && t.includes(n.label.toLowerCase().substring(0, 5)));
+      const matched = allNodes.find(
+        (n) => n.label && t.includes(n.label.toLowerCase().substring(0, 5)),
+      );
       if (matched) {
         return {
-          mood: 'thinking',
-          reply: `¡Buenísima pregunta! Te cuento sobre "${matched.label}": ${matched.hint || matched.question || 'es un concepto clave del tema de hoy'}. ¿Eso te ayuda, mi estudiante favorito?`
+          mood: "thinking",
+          reply: `¡Buenísima pregunta! Te cuento sobre "${matched.label}": ${matched.hint || matched.question || "es un concepto clave del tema de hoy"}. ¿Eso te ayuda, mi estudiante favorito?`,
         };
       }
       return {
-        mood: 'thinking',
-        reply: `¡Me encanta que preguntes! El tema de hoy es "${boardInfo?.title || 'los conceptos del tablero'}". Observa bien las preguntas de cada nodo, ahí están las claves. ¡Confía en ti!`
+        mood: "thinking",
+        reply: `¡Me encanta que preguntes! El tema de hoy es "${boardInfo?.title || "los conceptos del tablero"}". Observa bien las preguntas de cada nodo, ahí están las claves. ¡Confía en ti!`,
       };
     }
 
     // Pista explícita
-    const hintKw = ['pista','ayúdame','no sé','cuál','qué carta','qué pongo','sugerencia','consejo','qué hago'];
-    if (hintKw.some(kw => t.includes(kw))) {
-      const unsolved = Object.values(nodesCtx).filter(n => !n.placedCard);
+    const hintKw = [
+      "pista",
+      "ayúdame",
+      "no sé",
+      "cuál",
+      "qué carta",
+      "qué pongo",
+      "sugerencia",
+      "consejo",
+      "qué hago",
+    ];
+    if (hintKw.some((kw) => t.includes(kw))) {
+      const unsolved = Object.values(nodesCtx).filter((n) => !n.placedCard);
       if (unsolved.length > 0) {
         const target = unsolved[Math.floor(Math.random() * unsolved.length)];
-        const hintCards = handCtx.filter(c => !c.isDistractor).slice(0, 2).map(c => c.name).join(' o ');
+        const hintCards = handCtx
+          .filter((c) => !c.isDistractor)
+          .slice(0, 2)
+          .map((c) => c.name)
+          .join(" o ");
         return {
-          mood: 'thinking',
-          reply: `¡Con todo mi amor te doy esta pista! Para "${target.label}": ${target.hint || target.question?.slice(0, 80) || 'busca la carta cuya función principal coincida'}. ${hintCards ? `Fíjate en "${hintCards}".` : ''} ¡Tú puedes, lo sé!`
+          mood: "thinking",
+          reply: `¡Con todo mi amor te doy esta pista! Para "${target.label}": ${target.hint || target.question?.slice(0, 80) || "busca la carta cuya función principal coincida"}. ${hintCards ? `Fíjate en "${hintCards}".` : ""} ¡Tú puedes, lo sé!`,
         };
       }
       return {
-        mood: 'happy',
-        reply: '¡Ya casi lo tienes todo! Mira las cartas restantes y confía en tu primer instinto. ¡Eres absolutamente increíble!'
+        mood: "happy",
+        reply:
+          "¡Ya casi lo tienes todo! Mira las cartas restantes y confía en tu primer instinto. ¡Eres absolutamente increíble!",
       };
     }
 
     // Fallback contextual inteligente
-    const unsolved = Object.values(nodesCtx).filter(n => !n.placedCard);
+    const unsolved = Object.values(nodesCtx).filter((n) => !n.placedCard);
     if (unsolved.length > 0) {
       return {
-        mood: 'love',
-        reply: `¡Escuché que dijiste "${transcript.slice(0, 35)}"! Qué bonito que me hables. Te sugiero que te enfoques en "${unsolved[0].label}". ¡Yo creo en ti con todo lo que tengo!`
+        mood: "love",
+        reply: `¡Escuché que dijiste "${transcript.slice(0, 35)}"! Qué bonito que me hables. Te sugiero que te enfoques en "${unsolved[0].label}". ¡Yo creo en ti con todo lo que tengo!`,
       };
     }
     return {
-      mood: 'celebrating',
-      reply: `¡Dijiste "${transcript.slice(0, 35)}" y ya solo pienso en lo increíble que eres! ¡Eres mi héroe favorito de todo el universo, sin ninguna duda!`
+      mood: "celebrating",
+      reply: `¡Dijiste "${transcript.slice(0, 35)}" y ya solo pienso en lo increíble que eres! ¡Eres mi héroe favorito de todo el universo, sin ninguna duda!`,
     };
   };
 
   // Clic directo en la Capibara: genera orientación psicológica o pista dinámica
   const handleCapyClick = async () => {
-    const unsolvedNodes = Object.values(nodes).filter(n => !n.placedCard && !n.lockedByOpponent);
+    const unsolvedNodes = Object.values(nodes).filter(
+      (n) => !n.placedCard && !n.lockedByOpponent,
+    );
     if (unsolvedNodes.length === 0) {
-      triggerCapyVoice('victory', { profile: 'loving_psychologist' });
+      triggerCapyVoice("victory", { profile: "loving_psychologist" });
       return;
     }
-    const target = unsolvedNodes[Math.floor(Math.random() * unsolvedNodes.length)];
-    const hintSnippet = target.hint || target.question || 'Observa las opciones disponibles en tus cartas';
-    triggerCapyVoice('hint', {
+    const target =
+      unsolvedNodes[Math.floor(Math.random() * unsolvedNodes.length)];
+    const hintSnippet =
+      target.hint ||
+      target.question ||
+      "Observa las opciones disponibles en tus cartas";
+    triggerCapyVoice("hint", {
       label: target.label,
       hintText: `para analizar "${target.label}": ${hintSnippet.slice(0, 90)}. Concéntrate en la función principal.`,
-      profile: 'loving_psychologist'
+      profile: "loving_psychologist",
     });
   };
 
   // Manejo de la pregunta por voz — NLP backend + fallback NLP estático local inteligente
   const handleUserVoiceQuery = async (transcript) => {
     setIsThinkingHint(true);
-    setCapyMood('thinking');
+    setCapyMood("thinking");
     setCapySpeech({
       text: `¡Te escucho! Dijiste: "${transcript}" ... ¡Estoy pensando con todo mi amor para ti! 💭`,
       isVisible: true,
-      mood: 'thinking'
+      mood: "thinking",
     });
 
     // Intentar NLP del backend con timeout de 3s
@@ -481,49 +645,65 @@ export default function ArcadeArena() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const res = await fetch('/api/v1/arena/capy-ask', {
-        method: 'POST',
+      const res = await fetch("/api/v1/arena/capy-ask", {
+        method: "POST",
         signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: transcript,
-          nodes: Object.values(nodes).map(n => ({
-            label: n.label, question: n.question, hint: n.hint,
-            isSolved: Boolean(n.placedCard || n.lockedByOpponent)
+          nodes: Object.values(nodes).map((n) => ({
+            label: n.label,
+            question: n.question,
+            hint: n.hint,
+            isSolved: Boolean(n.placedCard || n.lockedByOpponent),
           })),
-          hand: hand.map(c => ({ name: c.name, domain: c.domain, isDistractor: Boolean(c.isDistractor) })),
-          theme: boardInfo?.title || 'Simulacro de Examen',
-          user_profile: currentUser || {}
-        })
+          hand: hand.map((c) => ({
+            name: c.name,
+            domain: c.domain,
+            isDistractor: Boolean(c.isDistractor),
+          })),
+          theme: boardInfo?.title || "Simulacro de Examen",
+          user_profile: currentUser || {},
+        }),
       });
       clearTimeout(timeoutId);
 
       if (res.ok) {
         const data = await res.json();
-        const reply = data.reply || '¡Revisa los conceptos clave de tus cartas!';
+        const reply =
+          data.reply || "¡Revisa los conceptos clave de tus cartas!";
         const psych = data.psychology;
         setIsThinkingHint(false);
 
-        if (psych?.needs_somatic_intervention || (psych?.stress_level && psych.stress_level >= 0.5)) {
-          setCapyMood('love');
+        if (
+          psych?.needs_somatic_intervention ||
+          (psych?.stress_level && psych.stress_level >= 0.5)
+        ) {
+          setCapyMood("love");
           setZenOffer({
             show: true,
-            category: psych.stress_category || 'tensión acumulada',
-            distortion: psych.cognitive_distortion || '',
-            emotion: psych.emotion_detected || 'ansiedad'
+            category: psych.stress_category || "tensión acumulada",
+            distortion: psych.cognitive_distortion || "",
+            emotion: psych.emotion_detected || "ansiedad",
           });
-          triggerCapyVoice('encouraging', {
-            customText: reply, stress_level: psych.stress_level,
-            profile: psych.stress_level >= 0.8 ? 'crisis_soothing' : 'anxiety_relief'
+          triggerCapyVoice("encouraging", {
+            customText: reply,
+            stress_level: psych.stress_level,
+            profile:
+              psych.stress_level >= 0.8 ? "crisis_soothing" : "anxiety_relief",
           });
         } else {
-          triggerCapyVoice('hint', { customText: reply, stress_level: psych?.stress_level, profile: 'loving_psychologist' });
+          triggerCapyVoice("hint", {
+            customText: reply,
+            stress_level: psych?.stress_level,
+            profile: "loving_psychologist",
+          });
         }
         return;
       }
     } catch (e) {
       // Backend caído o timeout — NLP local estático inteligente
-      console.warn('Backend no disponible, usando NLP local:', e?.message || e);
+      console.warn("Backend no disponible, usando NLP local:", e?.message || e);
     }
 
     // NLP ESTÁTICO LOCAL — siempre coherente con el tablero actual
@@ -531,14 +711,22 @@ export default function ArcadeArena() {
     const local = analyzeIntentLocally(transcript, nodes, hand);
 
     if (local.needsZen) {
-      setZenOffer({ show: true, category: 'estrés detectado', distortion: '', emotion: 'frustración' });
+      setZenOffer({
+        show: true,
+        category: "estrés detectado",
+        distortion: "",
+        emotion: "frustración",
+      });
     }
 
     setCapyMood(local.mood);
     setCapySpeech({ text: local.reply, isVisible: true, mood: local.mood });
     capyVoice.speak(local.reply, {
-      mood: local.mood, level: currentLevel,
-      user: currentUser, user_gender: currentUser?.gender, voice_gender: currentUser?.assigned_voice_gender
+      mood: local.mood,
+      level: currentLevel,
+      user: currentUser,
+      user_gender: currentUser?.gender,
+      voice_gender: currentUser?.assigned_voice_gender,
     });
   };
 
@@ -546,41 +734,46 @@ export default function ArcadeArena() {
   const toggleMicrophone = () => {
     if (isListening) {
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (_) {}
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
       }
       setIsListening(false);
       return;
     }
 
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRec =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
-      setCapyMood('love');
+      setCapyMood("love");
       setCapySpeech({
-        text: '¡Ay, me muero por escucharte! Pero parece que tu navegador no soporta micrófono. Prueba con Chrome o Edge y yo estaré esperándote 🥹',
-        isVisible: true, mood: 'love'
+        text: "¡Ay, me muero por escucharte! Pero parece que tu navegador no soporta micrófono. Prueba con Chrome o Edge y yo estaré esperándote 🥹",
+        isVisible: true,
+        mood: "love",
       });
       return;
     }
 
     try {
       const recognition = new SpeechRec();
-      recognition.lang = 'es-ES';
+      recognition.lang = "es-ES";
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         setIsListening(true);
-        setCapyMood('love');
+        setCapyMood("love");
         const greetings = [
-          '¡Soy todo oídos! Pregúntame lo que quieras, estoy aquí para ti 💙',
-          '¡Habla conmigo! Tu voz es lo más bonito que puedo escuchar hoy 🎙️',
-          '¡Te escucho con todo mi corazón! ¿Qué necesitas, mi campeón?',
-          '¡Qué emoción que me hables! Dime todo lo que sientes o necesitas 🥰',
+          "¡Soy todo oídos! Pregúntame lo que quieras, estoy aquí para ti 💙",
+          "¡Habla conmigo! Tu voz es lo más bonito que puedo escuchar hoy 🎙️",
+          "¡Te escucho con todo mi corazón! ¿Qué necesitas, mi campeón?",
+          "¡Qué emoción que me hables! Dime todo lo que sientes o necesitas 🥰",
         ];
         setCapySpeech({
           text: greetings[Math.floor(Math.random() * greetings.length)],
-          isVisible: true, mood: 'love'
+          isVisible: true,
+          mood: "love",
         });
       };
 
@@ -593,71 +786,66 @@ export default function ArcadeArena() {
       };
 
       recognition.onerror = (err) => {
-        console.warn('Speech recognition error:', err);
+        console.warn("Speech recognition error:", err);
         setIsListening(false);
-        if (err.error === 'not-allowed') {
-          setCapyMood('love');
+        if (err.error === "not-allowed") {
+          setCapyMood("love");
           setCapySpeech({
-            text: '¡No me dejes sin escucharte! Habilita el micrófono en tu navegador y vuelvo a estar aquí para ti 🙏',
-            isVisible: true, mood: 'love'
+            text: "¡No me dejes sin escucharte! Habilita el micrófono en tu navegador y vuelvo a estar aquí para ti 🙏",
+            isVisible: true,
+            mood: "love",
           });
-        } else if (err.error === 'no-speech') {
-          setCapyMood('love');
+        } else if (err.error === "no-speech") {
+          setCapyMood("love");
           setCapySpeech({
-            text: '¡Casi te escucho! No capté bien tus palabras. ¿Puedes intentarlo de nuevo? ¡Adoro escuchar tu voz! 💙',
-            isVisible: true, mood: 'love'
+            text: "¡Casi te escucho! No capté bien tus palabras. ¿Puedes intentarlo de nuevo? ¡Adoro escuchar tu voz! 💙",
+            isVisible: true,
+            mood: "love",
           });
         }
       };
 
-      recognition.onend = () => { setIsListening(false); };
+      recognition.onend = () => {
+        setIsListening(false);
+      };
 
       recognitionRef.current = recognition;
       recognition.start();
     } catch (err) {
-      console.warn('Error iniciando micrófono:', err);
+      console.warn("Error iniciando micrófono:", err);
       setIsListening(false);
-      setCapyMood('love');
+      setCapyMood("love");
       setCapySpeech({
-        text: '¡Quiero escucharte tanto! Pero algo falló con el micrófono. Verifica los permisos y regreso volando 🥹',
-        isVisible: true, mood: 'love'
+        text: "¡Quiero escucharte tanto! Pero algo falló con el micrófono. Verifica los permisos y regreso volando 🥹",
+        isVisible: true,
+        mood: "love",
       });
     }
   };
 
-
-  // Comprobación de conclusión del circuito (modo individual Zen con 5 niveles progresivos)
+  // Comprobación de conclusión del circuito (Campaña de 20 niveles)
   useEffect(() => {
     const nodeValues = Object.values(nodes);
     if (nodeValues.length > 0) {
       // El circuito concluye cuando el estudiante ha completado todos los conceptos
-      const allNodesCompleted = nodeValues.every(n => Boolean(n.placedCard));
-      if (allNodesCompleted && !isLevelTransitioning) {
-        if (currentLevel < 5) {
-          setIsLevelTransitioning(true);
-          const nextLevel = currentLevel + 1;
-          const nextLvlInfo = GAME_LEVELS.find(l => l.level === nextLevel);
+      const allNodesCompleted = nodeValues.every((n) => Boolean(n.placedCard));
+      if (allNodesCompleted && !isLevelTransitioning && !isVictoryModalOpen) {
+        setIsLevelTransitioning(true);
 
-          triggerCapyVoice('level_up', { 
-            level: nextLevel,
-            theme: boardInfo?.theme
-          });
+        // Calcular precisión basada en energía restante o aciertos directos
+        const totalQ = nodeValues.length;
+        const accuracyCalc = energy >= maxEnergy ? 100 : Math.max(50, Math.round((energy / maxEnergy) * 100));
 
-          setLevelUpData({
-            completedLevel: currentLevel,
-            nextLevel,
-            nextLvlInfo
-          });
-          setIsLevelUpModalOpen(true);
-        } else {
-          // Victoria Absoluta al completar el Nivel 5 (Difícil)
-          setIsGameOverModalOpen(true);
-          triggerCapyVoice('victory', { level: 5 });
-        }
+        setVictoryStats({
+          accuracy: accuracyCalc,
+          totalQuestions: totalQ
+        });
+
+        triggerCapyVoice("victory", { level: currentLevel });
+        setIsVictoryModalOpen(true);
       }
     }
-  }, [nodes, currentLevel, isLevelTransitioning]);
-
+  }, [nodes, currentLevel, isLevelTransitioning, isVictoryModalOpen, energy, maxEnergy]);
 
   const handleSelectGameMode = ({ mode, roomId, isHost, needsUpload }) => {
     setGameConfig({ mode, roomId, isHost });
@@ -666,9 +854,10 @@ export default function ArcadeArena() {
     if (needsUpload) {
       setIsFolderModalOpen(true);
     } else {
-      setSuccessNotif(mode === '1v1' 
-        ? `Conectado a la sala ${roomId}. Sincronizando con el rival...`
-        : `Partida contra la Máquina lista. ¡Comienza el juego!`
+      setSuccessNotif(
+        mode === "1v1"
+          ? `Conectado a la sala ${roomId}. Sincronizando con el rival...`
+          : `Partida contra la Máquina lista. ¡Comienza el juego!`,
       );
       setTimeout(() => setSuccessNotif(null), 3500);
     }
@@ -690,45 +879,61 @@ export default function ArcadeArena() {
     setIsFolderModalOpen(true);
   };
 
-
-  // GENERADOR DINÁMICO DE POSICIONES Y TOPOLOGÍA PARA CUALQUIER NÚMERO DE PREGUNTAS (3, 5, 8, 15, 20)
-  const getDynamicLayout = (count = 5) => {
+  // GENERADOR DINÁMICO DE POSICIONES Y TOPOLOGÍA PARA CUALQUIER NÚMERO DE PREGUNTAS (1 A 20)
+  const getDynamicLayout = (count = 1) => {
+    if (count === 1) {
+      return [{ left: "50.0%", top: "45.0%" }];
+    }
+    if (count === 2) {
+      return [
+        { left: "35.0%", top: "45.0%" },
+        { left: "65.0%", top: "45.0%" },
+      ];
+    }
     if (count === 3) {
       return [
-        { left: '26.0%', top: '48.0%' },
-        { left: '50.0%', top: '35.0%' },
-        { left: '74.0%', top: '48.0%' }
+        { left: "26.0%", top: "48.0%" },
+        { left: "50.0%", top: "35.0%" },
+        { left: "74.0%", top: "48.0%" },
+      ];
+    }
+    if (count === 4) {
+      return [
+        { left: "30.0%", top: "32.0%" },
+        { left: "70.0%", top: "32.0%" },
+        { left: "30.0%", top: "62.0%" },
+        { left: "70.0%", top: "62.0%" },
       ];
     }
     if (count === 5) {
       const layouts = [
         [
-          { left: '20.0%', top: '50.0%' },
-          { left: '36.0%', top: '24.0%' },
-          { left: '50.0%', top: '64.0%' },
-          { left: '66.0%', top: '24.0%' },
-          { left: '81.0%', top: '50.0%' }
+          { left: "20.0%", top: "50.0%" },
+          { left: "36.0%", top: "24.0%" },
+          { left: "50.0%", top: "64.0%" },
+          { left: "66.0%", top: "24.0%" },
+          { left: "81.0%", top: "50.0%" },
         ],
         [
-          { left: '50.0%', top: '44.0%' },
-          { left: '50.0%', top: '20.0%' },
-          { left: '23.0%', top: '44.0%' },
-          { left: '77.0%', top: '44.0%' },
-          { left: '50.0%', top: '68.0%' }
-        ]
+          { left: "50.0%", top: "44.0%" },
+          { left: "50.0%", top: "20.0%" },
+          { left: "23.0%", top: "44.0%" },
+          { left: "77.0%", top: "44.0%" },
+          { left: "50.0%", top: "68.0%" },
+        ],
       ];
       return layouts[Math.floor(Math.random() * layouts.length)];
     }
     if (count === 8) {
       return [
-        { left: '20.0%', top: '30.0%' },
-        { left: '40.0%', top: '24.0%' },
-        { left: '60.0%', top: '24.0%' },
-        { left: '80.0%', top: '30.0%' },
-        { left: '22.0%', top: '64.0%' },
-        { left: '42.0%', top: '68.0%' },
-        { left: '62.0%', top: '68.0%' },
-        { left: '82.0%', top: '64.0%' }
+        { left: "20.0%", top: "30.0%" },
+        { left: "40.0%", top: "24.0%" },
+        { left: "60.0%", top: "24.0%" },
+        { left: "80.0%", top: "30.0%" },
+        { left: "22.0%", top: "64.0%" },
+        { left: "42.0%", top: "68.0%" },
+        { left: "62.0%", top: "68.0%" },
+        { left: "82.0%", top: "64.0%" },
       ];
     }
     if (count === 15) {
@@ -740,7 +945,7 @@ export default function ArcadeArena() {
         for (let c = 0; c < 5; c++) {
           positions.push({
             left: `${cols[c]}%`,
-            top: `${rows[r]}%`
+            top: `${rows[r]}%`,
           });
         }
       }
@@ -755,7 +960,7 @@ export default function ArcadeArena() {
         for (let c = 0; c < 5; c++) {
           positions.push({
             left: `${cols[c]}%`,
-            top: `${rows[r]}%`
+            top: `${rows[r]}%`,
           });
         }
       }
@@ -766,8 +971,10 @@ export default function ArcadeArena() {
     const colsCount = Math.ceil(Math.sqrt(count * 1.6));
     const rowsCount = Math.ceil(count / colsCount);
     const positions = [];
-    const minX = 18, maxX = 82;
-    const minY = 20, maxY = 74;
+    const minX = 18,
+      maxX = 82;
+    const minY = 20,
+      maxY = 74;
     const stepX = colsCount > 1 ? (maxX - minX) / (colsCount - 1) : 0;
     const stepY = rowsCount > 1 ? (maxY - minY) / (rowsCount - 1) : 0;
 
@@ -778,7 +985,7 @@ export default function ArcadeArena() {
       const y = minY + r * stepY;
       positions.push({
         left: `${x.toFixed(1)}%`,
-        top: `${y.toFixed(1)}%`
+        top: `${y.toFixed(1)}%`,
       });
     }
     return positions;
@@ -788,35 +995,71 @@ export default function ArcadeArena() {
   const applyBoardData = (boardData, folderName, level = currentLevel) => {
     if (!boardData.cards || boardData.cards.length === 0) return false;
 
-    const lvlInfo = GAME_LEVELS.find(l => l.level === level) || GAME_LEVELS[0];
+    const lvlInfo =
+      GAME_LEVELS.find((l) => l.level === level) || GAME_LEVELS[0];
+
+    // REGLA ESTRICTA: El Nivel K debe tener exactamente K preguntas (N1 = 1, N2 = 2, N3 = 3 ... N20 = 20)
+    const targetQuestions = Math.min(lvlInfo.questions, Math.max(1, boardData.nodes.length));
+    const activeNodes = boardData.nodes.slice(0, targetQuestions);
+    const activeMatchingCards = boardData.cards.slice(0, targetQuestions);
 
     setBoardInfo({
-      title: boardData.title || (folderName ? folderName.toUpperCase() : 'ARENA DE ESTUDIO'),
-      theme: folderName || 'Estudio',
-      levelInfo: lvlInfo
+      title:
+        boardData.title ||
+        (folderName ? folderName.toUpperCase() : "ARENA DE ESTUDIO"),
+      theme: folderName || "Estudio",
+      levelInfo: lvlInfo,
     });
 
-    const dynamicPositions = getDynamicLayout(boardData.nodes.length);
+    const dynamicPositions = getDynamicLayout(activeNodes.length);
     // Paleta exacta de la imagen de referencia (Concepto A, B, C, D, E, F)
-    const availableColors = ['orange', 'purple', 'blue', 'dark', 'salmon', 'white'];
-    const availableShapes = ['hexagon', 'circle', 'diamond', 'octagon', 'squircle'];
+    const availableColors = [
+      "orange",
+      "purple",
+      "blue",
+      "dark",
+      "salmon",
+      "white",
+    ];
+    const availableShapes = [
+      "hexagon",
+      "circle",
+      "diamond",
+      "octagon",
+      "squircle",
+    ];
 
     // Detección automática del tema y disciplina académica real del documento/carpeta
-    const activeTheme = folderName || boardData.title || 'Estudio';
-    const detectedCategory = detectDomainCategory(`${activeTheme} ${boardData.title || ''}`);
+    const activeTheme = folderName || boardData.title || "Estudio";
+    const detectedCategory = detectDomainCategory(
+      `${activeTheme} ${boardData.title || ""}`,
+    );
 
     // Colores ordenados o barajados
-    const shuffledColors = ['orange', 'purple', 'blue', 'dark', 'salmon', 'white'];
-    const chosenShape = availableShapes[Math.floor(Math.random() * availableShapes.length)];
+    const shuffledColors = [
+      "orange",
+      "purple",
+      "blue",
+      "dark",
+      "salmon",
+      "white",
+    ];
+    const chosenShape =
+      availableShapes[Math.floor(Math.random() * availableShapes.length)];
 
     const newNodes = {};
     // Cada nodo se liga 1-a-1 con su carta correcta (por índice)
-    boardData.nodes.forEach((n, idx) => {
-      const matchingCard = boardData.cards[idx];
+    activeNodes.forEach((n, idx) => {
+      const matchingCard = activeMatchingCards[idx];
       const cardId = matchingCard?.id || `card_${idx + 1}`;
-      const conceptLabel = n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`;
-      const questionText = n.question || n.description || '¿A qué concepto corresponde este principio?';
-      const hintText = n.description || 'Revisa el contenido del documento de esta carpeta.';
+      const conceptLabel =
+        n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`;
+      const questionText =
+        n.question ||
+        n.description ||
+        "¿A qué concepto corresponde este principio?";
+      const hintText =
+        n.description || "Revisa el contenido del documento de esta carpeta.";
 
       newNodes[n.id] = {
         id: n.id,
@@ -831,54 +1074,58 @@ export default function ArcadeArena() {
         shape: chosenShape,
         placedCard: null,
         lockedByOpponent: false,
-        correctCardId: cardId
+        correctCardId: cardId,
       };
     });
 
-    // Mapear cartas base y clasificar distractores (falsas respuestas)
-    const processedCards = boardData.cards.map((c, i) => {
-      const isDistractor = c.id?.includes('distractor') || i >= boardData.nodes.length;
+    // Mapear cartas base coincidentes con los nodos activos de este nivel
+    const processedCards = activeMatchingCards.map((c, i) => {
       return {
         id: c.id,
         name: c.concept_name,
-        cost: c.points_multiplier || '1x',
+        cost: c.points_multiplier || "1x",
         type: shuffledColors[i % shuffledColors.length],
-        sourceType: 'document',
+        sourceType: "document",
         domain: detectedCategory,
         theme: activeTheme,
         cardIndex: i,
-        content: c.content || 'Respuesta alternativa no coincidente.',
-        matchesNodeId: isDistractor ? null : (boardData.nodes[i]?.id || null),
-        isDistractor: isDistractor
+        content: c.content || "Respuesta conceptual del tema.",
+        matchesNodeId: activeNodes[i]?.id || null,
+        isDistractor: false,
       };
     });
 
-    // REGLA: Garantizar que exactamente el 30% del total de preguntas existan como cartas falsas (distractores)
-    const requiredDistractorCount = Math.max(1, Math.round(boardData.nodes.length * 0.30));
-    const currentDistractorCount = processedCards.filter(c => c.isDistractor).length;
-    
-    if (currentDistractorCount < requiredDistractorCount) {
-      const missingCount = requiredDistractorCount - currentDistractorCount;
+    // REGLA DE CARTAS TRAMPA: A partir del Nivel 3 se inyectan cartas trampa en el mazo
+    const levelHasTraps = lvlInfo.hasTraps;
+    const requiredTrapCount = levelHasTraps ? lvlInfo.trapCount || 1 : 0;
+    const currentDistractorCount = processedCards.filter(
+      (c) => c.isDistractor,
+    ).length;
+
+    if (requiredTrapCount > 0 && currentDistractorCount < requiredTrapCount) {
+      const missingCount = requiredTrapCount - currentDistractorCount;
       const fallbackDistractorNames = [
-        "Enfoque Ortogonal Inverso",
-        "Principio de Premisa Contradictoria",
-        "Teoría de Correlación Espuria",
-        "Postulado No Demostrado",
+        "Premisa Contradictoria",
+        "Correlación Falsa",
+        "Hipótesis Descartada",
+        "Axioma Inválido",
         "Metodología Excluida",
-        "Axioma de Descarte Arbitrario"
+        "Trampa Conceptual",
       ];
       for (let k = 0; k < missingCount; k++) {
         const dIdx = currentDistractorCount + k;
         processedCards.push({
-          id: `card_distractor_dyn_${dIdx + 1}`,
+          id: `card_trap_dyn_${dIdx + 1}`,
           name: fallbackDistractorNames[dIdx % fallbackDistractorNames.length],
-          cost: '1x',
-          type: shuffledColors[(boardData.cards.length + k) % shuffledColors.length],
-          sourceType: 'document',
-          domain: 'estudio',
-          content: 'Esta es una respuesta falsa diseñada para desafiar tu discernimiento conceptual.',
+          cost: "1x",
+          type: "dark", // Estilo oscuro / amenaza
+          sourceType: "document",
+          domain: "trampa",
+          content:
+            "¡Carta trampa! Esta afirmación contradice el contenido oficial del tema.",
           matchesNodeId: null,
-          isDistractor: true
+          isDistractor: true,
+          isTrap: true,
         });
       }
     }
@@ -893,7 +1140,10 @@ export default function ArcadeArena() {
     // Resetear todo el estado de la partida para el nivel
     setNodes(newNodes);
     setHand(shuffledHand);
-    setOpponentHand(processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
+    setHandPage(0);
+    setOpponentHand(
+      processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })),
+    );
     setEnergy(maxEnergy);
     setTurn(1);
     setIsCapySad(false);
@@ -904,53 +1154,82 @@ export default function ArcadeArena() {
     setIsGameOverModalOpen(false);
 
     setTimeout(() => {
-      triggerCapyVoice('welcome', { level });
+      triggerCapyVoice("welcome", { level });
     }, 1000);
     return true;
   };
 
   // CARGAR NIVEL ESPECÍFICO (1 A 5) DESDE EL BACKEND
-  const loadGameForLevel = async (targetLevel, targetFolder = activeFolder, force = false) => {
+  const loadGameForLevel = async (
+    targetLevel,
+    targetFolder = activeFolder,
+    force = false,
+  ) => {
     if (!targetFolder) {
-      setSuccessNotif('Selecciona una carpeta de estudio para comenzar.');
+      setSuccessNotif("Selecciona una carpeta de estudio para comenzar.");
       setIsFolderModalOpen(true);
       return false;
     }
 
-    const lvlInfo = GAME_LEVELS.find(l => l.level === targetLevel) || GAME_LEVELS[0];
+    const lvlInfo =
+      GAME_LEVELS.find((l) => l.level === targetLevel) || GAME_LEVELS[0];
     setIsGeneratingArena(true);
-    setSuccessNotif(`Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}]...`);
+    setSuccessNotif(
+      `Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}]...`,
+    );
 
     // 0. VERIFICACIÓN INSTANTÁNEA EN MEMORIA / CACHÉ LOCAL (0 ms, 0 tokens)
     if (!force) {
       const cachedBoards = targetFolder.cached_boards || {};
       const lvlKey = `level_${targetLevel}`;
-      const localCachedBoard = cachedBoards[lvlKey] || targetFolder.cached_board;
-      
-      if (localCachedBoard && localCachedBoard.cards && localCachedBoard.cards.length > 0) {
-        const success = applyBoardData(localCachedBoard, targetFolder.name, targetLevel);
+      // Solo reutilizar caché si pertenece exactamente a este nivel o si tiene la cantidad de preguntas esperada
+      const localCachedBoard =
+        cachedBoards[lvlKey] ||
+        (targetFolder.cached_board &&
+        targetFolder.cached_board.cards?.length === lvlInfo.questions
+          ? targetFolder.cached_board
+          : null);
+
+      if (
+        localCachedBoard &&
+        localCachedBoard.cards &&
+        localCachedBoard.cards.length >= lvlInfo.questions
+      ) {
+        const success = applyBoardData(
+          localCachedBoard,
+          targetFolder.name,
+          targetLevel,
+        );
         if (success) {
           setCurrentLevel(targetLevel);
           setIsGeneratingArena(false);
-          setSuccessNotif(`⚡ Nivel ${targetLevel} listo al instante (análisis previo en memoria).`);
+          setSuccessNotif(
+            `⚡ Nivel ${targetLevel} listo al instante (análisis previo en memoria).`,
+          );
           setTimeout(() => setSuccessNotif(null), 3000);
           return true;
         }
       }
     }
 
-    // Si la carpeta corresponde al documento estático de administración o no hay conexión con el backend
-    const isStaticAdmin = targetFolder.id === 'folder_administracion_default' || 
-                          targetFolder.name?.toLowerCase().includes('administra') ||
-                          targetFolder.documents?.some(d => d.name?.toLowerCase().includes('administracion'));
+    // Únicamente si es la carpeta demo de muestra sin archivos subidos propios
+    const isStaticDemoFolder =
+      targetFolder.id === "folder_administracion_default" &&
+      (!targetFolder.documents || targetFolder.documents.length === 0);
 
-    if (isStaticAdmin && STATIC_ADMIN_GAME.levels[targetLevel]) {
+    if (isStaticDemoFolder && STATIC_ADMIN_GAME.levels[targetLevel]) {
       const staticLevelData = STATIC_ADMIN_GAME.levels[targetLevel];
-      const success = applyBoardData(staticLevelData, targetFolder.name || 'Administración General', targetLevel);
+      const success = applyBoardData(
+        staticLevelData,
+        targetFolder.name || "Administración General",
+        targetLevel,
+      );
       if (success) {
         setCurrentLevel(targetLevel);
         setIsGeneratingArena(false);
-        setSuccessNotif(`Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) [administracion.pdf] listo.`);
+        setSuccessNotif(
+          `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) [administracion.pdf demo] listo.`,
+        );
         setTimeout(() => setSuccessNotif(null), 4000);
         return true;
       }
@@ -958,22 +1237,26 @@ export default function ArcadeArena() {
 
     try {
       const res = await fetch(
-        `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${force ? '&force=true' : ''}`,
-        { method: 'POST' }
+        `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${force ? "&force=true" : ""}`,
+        { method: "POST" },
       );
 
       if (res.ok) {
         const boardData = await res.json();
-        
+
         // Guardar en la carpeta en memoria y localStorage para futuras cargas a 0 ms
         if (!targetFolder.cached_boards) targetFolder.cached_boards = {};
         targetFolder.cached_boards[`level_${targetLevel}`] = boardData;
         targetFolder.cached_board = boardData;
 
         try {
-          const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
-          const savedFolders = JSON.parse(localStorage.getItem(userStorageKey) || '[]');
-          const idx = savedFolders.findIndex(f => f.id === targetFolder.id);
+          const userStorageKey = currentUser?.id
+            ? `hubzy_user_study_folders_${currentUser.id}`
+            : "hubzy_user_study_folders";
+          const savedFolders = JSON.parse(
+            localStorage.getItem(userStorageKey) || "[]",
+          );
+          const idx = savedFolders.findIndex((f) => f.id === targetFolder.id);
           if (idx !== -1) {
             savedFolders[idx].cached_boards = targetFolder.cached_boards;
             savedFolders[idx].cached_board = boardData;
@@ -981,37 +1264,29 @@ export default function ArcadeArena() {
           }
         } catch (_) {}
 
-        const success = applyBoardData(boardData, targetFolder.name, targetLevel);
+        const success = applyBoardData(
+          boardData,
+          targetFolder.name,
+          targetLevel,
+        );
         if (success) {
           setCurrentLevel(targetLevel);
-          setSuccessNotif(`Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) listo.`);
+          setSuccessNotif(
+            `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) listo.`,
+          );
           setTimeout(() => setSuccessNotif(null), 4000);
           return true;
         }
       } else {
         const err = await res.json().catch(() => ({}));
-        if (STATIC_ADMIN_GAME.levels[targetLevel]) {
-          const fallbackData = STATIC_ADMIN_GAME.levels[targetLevel];
-          applyBoardData(fallbackData, targetFolder.name || 'Administración General', targetLevel);
-          setCurrentLevel(targetLevel);
-          setSuccessNotif(`Nivel ${targetLevel} listo (reactivos de administracion.pdf).`);
-          setTimeout(() => setSuccessNotif(null), 4000);
-          return true;
-        }
-        setSuccessNotif(`${err.detail || 'No se pudieron generar los reactivos del nivel.'}`);
+        setSuccessNotif(
+          `${err.detail || "No se pudieron generar los reactivos del nivel con IA."}`,
+        );
         setTimeout(() => setSuccessNotif(null), 5000);
       }
     } catch (e) {
-      console.warn("Error cargando nivel, usando reactivos estáticos de administracion.pdf:", e);
-      if (STATIC_ADMIN_GAME.levels[targetLevel]) {
-        const fallbackData = STATIC_ADMIN_GAME.levels[targetLevel];
-        applyBoardData(fallbackData, targetFolder.name || 'Administración General', targetLevel);
-        setCurrentLevel(targetLevel);
-        setSuccessNotif(`Nivel ${targetLevel} listo (reactivos de administracion.pdf).`);
-        setTimeout(() => setSuccessNotif(null), 4000);
-        return true;
-      }
-      setSuccessNotif("Error al conectarse con el servidor.");
+      console.warn("Error cargando nivel desde el backend:", e);
+      setSuccessNotif("Error al conectarse con el servidor de análisis.");
       setTimeout(() => setSuccessNotif(null), 5000);
     } finally {
       setIsGeneratingArena(false);
@@ -1037,21 +1312,81 @@ export default function ArcadeArena() {
     await loadGameForLevel(lvl, activeFolder, false);
   };
 
-  // 2. REINICIAR Y GENERAR NUEVAS PREGUNTAS DEL NIVEL ACTUAL
-  const handleRestartWithNewQuestions = async () => {
+  // 2A. REINTENTAR PARTIDA (OPCIÓN A: RESET TABLERO INSTANTÁNEO 0 MS)
+  // Devuelve todas las cartas a la mano, reinicia energía y vacía los nodos sin llamar a la IA
+  const handleResetCurrentBoard = () => {
+    setIsRestartOptionsModalOpen(false);
+    setIsVictoryModalOpen(false);
+    setIsGameOverModalOpen(false);
+
+    // Recolectar todas las cartas colocadas en los nodos más las que queden en mano
+    const allCardsInPlay = [...hand];
+    Object.values(nodes).forEach((n) => {
+      if (n.placedCard) {
+        allCardsInPlay.push(n.placedCard);
+      }
+    });
+
+    // Desocupar todos los nodos
+    setNodes((prev) => {
+      const reset = {};
+      Object.entries(prev).forEach(([id, node]) => {
+        reset[id] = {
+          ...node,
+          placedCard: null,
+          lockedByOpponent: false,
+        };
+      });
+      return reset;
+    });
+
+    // Barajar aleatoriamente las cartas en la mano
+    const shuffledHand = [...allCardsInPlay].sort(() => Math.random() - 0.5);
+    shuffledHand.forEach((c, i) => {
+      c.rotation = (i - Math.floor(allCardsInPlay.length / 2)) * 2;
+      c.zIndex = i + 1;
+    });
+
+    setHand(shuffledHand);
+    setHandPage(0);
+    setEnergy(maxEnergy);
+    setTurn(1);
+    setIsCapySad(false);
+    setSelectedNodeForQuestion(null);
+    setSelectedCardForDetail(null);
+    setSelectedCardInHand(null);
+    setFlyingCard(null);
+    setSuccessNotif(
+      "⚡ Tablero reiniciado: Vuelve a intentar este mismo examen.",
+    );
+    setTimeout(() => setSuccessNotif(null), 3000);
+  };
+
+  // 2B. REGENERAR NUEVAS PREGUNTAS (OPCIÓN B: CONSULTA A GEMINI IA)
+  const handleRegenerateWithNewQuestions = async () => {
+    setIsRestartOptionsModalOpen(false);
+    setIsVictoryModalOpen(false);
+    setIsGameOverModalOpen(false);
     if (!activeFolder) {
-      setSuccessNotif('Selecciona una carpeta en el baúl para iniciar el juego.');
+      setSuccessNotif(
+        "Selecciona una carpeta en el baúl para iniciar el juego.",
+      );
       setIsFolderModalOpen(true);
       return;
     }
     await loadGameForLevel(currentLevel, activeFolder, true);
   };
 
-  // 3. REINTENTAR GENÉRICO (Regenera preguntas de la carpeta actual)
+  // Alias compatible
+  const handleRestartWithNewQuestions = () => {
+    setIsRestartOptionsModalOpen(true);
+  };
+
+  // 3. REINTENTAR GENÉRICO (Abre modal de opciones de reinicio)
   const handleRetryGame = () => {
     setIsGameOverModalOpen(false);
-    setCurrentLevel(1);
-    loadGameForLevel(1, activeFolder, true);
+    setIsVictoryModalOpen(false);
+    setIsRestartOptionsModalOpen(true);
   };
 
   // INTENTO UNIFICADO DE JUGAR/COLOCAR CARTA (Arrastrar o Tocar)
@@ -1075,27 +1410,58 @@ export default function ArcadeArena() {
     if (!card) return false;
 
     // Validación precisa: soporta match de ID, de matchesNodeId o por igualdad de texto/concepto
-    const isDistractor = card.isDistractor || String(card.id).includes('distractor');
-    const isCorrectCard = !isDistractor && Boolean(
-      (targetNode.correctCardId && String(targetNode.correctCardId) === String(card.id)) ||
-      (card.matchesNodeId && String(card.matchesNodeId) === String(targetNodeId)) ||
-      (targetNode.label && card.name && targetNode.label.trim().toLowerCase() === card.name.trim().toLowerCase())
-    );
+    const isDistractor =
+      card.isDistractor || String(card.id).includes("distractor");
+    const isCorrectCard =
+      !isDistractor &&
+      Boolean(
+        (targetNode.correctCardId &&
+          String(targetNode.correctCardId) === String(card.id)) ||
+        (card.matchesNodeId &&
+          String(card.matchesNodeId) === String(targetNodeId)) ||
+        (targetNode.label &&
+          card.name &&
+          targetNode.label.trim().toLowerCase() ===
+            card.name.trim().toLowerCase()),
+      );
 
     if (!isCorrectCard) {
-      // CARTA INCORRECTA O DISTRACTOR: Hubzi reacciona y te anima tiernamente
+      // CARTA TRAMPA O DISTRACTOR: Hubzi penaliza y ofrece feedback pedagógico
       setWrongCardShake(card.id);
-      triggerCapyVoice('wrong');
-      setSuccessNotif(`"${card.name}" no corresponde a esta casilla. Hubzi te anima: ¡estuviste cerca!`);
+      triggerCapyVoice("wrong");
+
+      const isTrap = Boolean(card.isTrap || isDistractor);
+      if (isTrap) {
+        // Penalización por carta trampa: Resta 1 de energía si el nivel tiene trampas
+        setEnergy((prev) => Math.max(0, prev - 1));
+      }
+
+      const pedagogicalHint =
+        targetNode.hint ||
+        `Revisa con atención: esta casilla evalúa el principio "${targetNode.label}".`;
+      setCapyMood(isTrap ? "surprised" : "encouraging");
+      setCapySpeech({
+        text: isTrap
+          ? `¡Cuidado, es una CARTA TRAMPA! ⚡ Pierdes 1 de energía. Pista: ${pedagogicalHint}`
+          : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
+        isVisible: true,
+        mood: isTrap ? "surprised" : "encouraging",
+      });
+      setSuccessNotif(
+        isTrap
+          ? `⚠️ ¡CARTA TRAMPA DETONADA! -1 Energía. Pista: ${pedagogicalHint}`
+          : `"${card.name}" no corresponde a "${targetNode.label}". Pista: ${pedagogicalHint}`,
+      );
+
       setTimeout(() => {
         setWrongCardShake(null);
         setSuccessNotif(null);
-      }, 3500);
+      }, 4500);
       return false;
     }
 
     // CARTA CORRECTA: Colocar en el nodo y voz de celebración entusiasta
-    triggerCapyVoice('correct');
+    triggerCapyVoice("correct");
     setSelectedCardForDetail(null);
     setSelectedCardInHand(null);
     const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
@@ -1106,7 +1472,9 @@ export default function ArcadeArena() {
     }));
     setHand((prev) => prev.filter((c) => String(c.id) !== String(card.id)));
     setPlayerScore((prev) => prev + pointsEarned);
-    setSuccessNotif(`¡Excelente! "${card.name}" responde correctamente. +${pointsEarned} pts`);
+    setSuccessNotif(
+      `¡Excelente! "${card.name}" responde correctamente. +${pointsEarned} pts`,
+    );
     setTimeout(() => setSuccessNotif(null), 3000);
     return true;
   };
@@ -1115,13 +1483,32 @@ export default function ArcadeArena() {
     const node = nodes[nodeId];
     if (!node) return;
 
-    // Al hacer clic en un nodo se abre el modal con la pregunta de examen
+    // Si el jugador tiene una carta seleccionada en la mano (modo táctil / Tap-to-Place)
+    if (selectedCardInHand && !node.placedCard) {
+      const cardToPlay = selectedCardInHand;
+      const success = attemptPlayCard(cardToPlay.id, nodeId);
+      if (success) {
+        setSelectedCardInHand(null);
+        return;
+      }
+    }
+
+    // De lo contrario, abrir modal de lectura detallada del reactivo
     setSelectedNodeForQuestion(node);
   };
 
   const handleCardClick = (card) => {
-    // Al hacer clic en una carta solo se abre su vista detallada (la colocación es SI O SI arrastrando)
-    setSelectedCardForDetail(card);
+    // Modo Táctil / Accesibilidad: si tocas una carta ya seleccionada, deseleccionar
+    if (selectedCardInHand?.id === card.id) {
+      setSelectedCardInHand(null);
+      setSelectedCardForDetail(card);
+    } else {
+      setSelectedCardInHand(card);
+      setSuccessNotif(
+        `Carta "${card.name}" seleccionada. Toca la casilla correspondiente en el tablero.`,
+      );
+      setTimeout(() => setSuccessNotif(null), 3000);
+    }
   };
 
   const handleDragEnd = (cardId, info) => {
@@ -1130,7 +1517,7 @@ export default function ArcadeArena() {
     const dropPoint = { x: info.point.x, y: info.point.y };
 
     // Detectar si se soltó sobre o cerca de una pregunta del tablero (radio generoso de 80px)
-    const elements = document.querySelectorAll('[data-node-id]');
+    const elements = document.querySelectorAll("[data-node-id]");
 
     let matchedNodeId = null;
     let shortestDist = Infinity;
@@ -1142,16 +1529,15 @@ export default function ArcadeArena() {
       const centerY = rect.top + rect.height / 2;
       const dist = Math.hypot(dropPoint.x - centerX, dropPoint.y - centerY);
 
-      const inExpandedArea = (
+      const inExpandedArea =
         dropPoint.x >= rect.left - HIT_RADIUS &&
         dropPoint.x <= rect.right + HIT_RADIUS &&
         dropPoint.y >= rect.top - HIT_RADIUS &&
-        dropPoint.y <= rect.bottom + HIT_RADIUS
-      );
+        dropPoint.y <= rect.bottom + HIT_RADIUS;
 
       if (inExpandedArea && dist < shortestDist) {
         shortestDist = dist;
-        matchedNodeId = el.getAttribute('data-node-id');
+        matchedNodeId = el.getAttribute("data-node-id");
       }
     });
 
@@ -1160,13 +1546,12 @@ export default function ArcadeArena() {
     }
   };
 
-
   const handleEndTurn = () => {
     if (!isActualTurn) {
       setSuccessNotif(
-        gameConfig.mode === '1v1'
+        gameConfig.mode === "1v1"
           ? `TURNO NO DISPONIBLE: Espera a que el rival juegue.`
-          : `TURNO NO DISPONIBLE: La máquina está realizando su movimiento.`
+          : `TURNO NO DISPONIBLE: La máquina está realizando su movimiento.`,
       );
       setTimeout(() => setSuccessNotif(null), 2500);
       return;
@@ -1175,11 +1560,11 @@ export default function ArcadeArena() {
     setTurn((prev) => prev + 1);
     setEnergy((prev) => Math.min(prev + 2, maxEnergy));
 
-    if (gameConfig.mode === '1v1') {
-      sendMove({ action: 'end_turn' });
+    if (gameConfig.mode === "1v1") {
+      sendMove({ action: "end_turn" });
       setSuccessNotif(`Turno cedido al rival.`);
       setTimeout(() => setSuccessNotif(null), 2500);
-    } else if (gameConfig.mode === 'solo') {
+    } else if (gameConfig.mode === "solo") {
       // En modo solo, pasar turno dispara la jugada de la máquina
       triggerAiTurn();
     }
@@ -1195,19 +1580,19 @@ export default function ArcadeArena() {
       let res;
       if (data.rawFiles && data.rawFiles.length > 0) {
         const formData = new FormData();
-        formData.append('file', data.rawFiles[0]);
-        formData.append('raw_text', data.text || '');
-        res = await fetch('/api/v1/arena/upload-and-generate', {
-          method: 'POST',
-          body: formData
+        formData.append("file", data.rawFiles[0]);
+        formData.append("raw_text", data.text || "");
+        res = await fetch("/api/v1/arena/upload-and-generate", {
+          method: "POST",
+          body: formData,
         });
       } else {
-        res = await fetch('/api/v1/arena/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        res = await fetch("/api/v1/arena/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            text: data.text || 'Material de estudio pedagógico integral.'
-          })
+            text: data.text || "Material de estudio pedagógico integral.",
+          }),
         });
       }
 
@@ -1215,17 +1600,19 @@ export default function ArcadeArena() {
         const boardData = await res.json();
         if (boardData.cards && boardData.cards.length > 0) {
           setBoardInfo({
-            title: boardData.title || `Estudio: ${data.files[0]?.name || 'Material Didáctico'}`,
-            theme: 'Material Asimilado con IA'
+            title:
+              boardData.title ||
+              `Estudio: ${data.files[0]?.name || "Material Didáctico"}`,
+            theme: "Material Asimilado con IA",
           });
 
           // Coordenadas espaciales bien distribuidas en el circuito
           const posList = [
-            { left: '20%', top: '30%' },
-            { left: '48%', top: '24%' },
-            { left: '78%', top: '30%' },
-            { left: '34%', top: '68%' },
-            { left: '66%', top: '68%' }
+            { left: "20%", top: "30%" },
+            { left: "48%", top: "24%" },
+            { left: "78%", top: "30%" },
+            { left: "34%", top: "68%" },
+            { left: "66%", top: "68%" },
           ];
 
           const newNodes = {};
@@ -1235,63 +1622,82 @@ export default function ArcadeArena() {
             const cardId = matchingCard?.id || `card_${idx + 1}`;
             newNodes[n.id] = {
               id: n.id,
-              domain: 'estudio',
-              icon: idx % 2 === 0 ? 'database' : 'codigo',
-              label: n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`,
-              question: n.question || n.description || '¿A qué concepto corresponde este principio?',
-              hint: n.description || 'Revisa las cartas en tu mano y arrastra la respuesta adecuada.',
+              domain: "estudio",
+              icon: idx % 2 === 0 ? "database" : "codigo",
+              label:
+                n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`,
+              question:
+                n.question ||
+                n.description ||
+                "¿A qué concepto corresponde este principio?",
+              hint:
+                n.description ||
+                "Revisa las cartas en tu mano y arrastra la respuesta adecuada.",
               pos: posList[idx % posList.length],
-              color: idx % 2 === 0 ? 'cyan' : 'emerald',
-              shape: 'hexagon',
+              color: idx % 2 === 0 ? "cyan" : "emerald",
+              shape: "hexagon",
               placedCard: null,
               lockedByOpponent: false,
-              correctCardId: cardId  // <-- enlace 1-a-1 con la carta correcta
+              correctCardId: cardId, // <-- enlace 1-a-1 con la carta correcta
             };
           });
 
           const processedCards = boardData.cards.map((c, i) => {
-            const isDistractor = c.id?.includes('distractor') || i >= boardData.nodes.length;
+            const isDistractor =
+              c.id?.includes("distractor") || i >= boardData.nodes.length;
             return {
               id: c.id,
               name: c.concept_name,
-              cost: c.points_multiplier || '1x',
-              type: i % 2 === 0 ? 'cyan' : 'emerald',
-              sourceType: 'document',
-              domain: 'estudio',
-              content: c.content || 'Respuesta falsa que no corresponde a ningún reactivo.',
-              matchesNodeId: isDistractor ? null : (boardData.nodes[i]?.id || null),
-              isDistractor: isDistractor
+              cost: c.points_multiplier || "1x",
+              type: i % 2 === 0 ? "cyan" : "emerald",
+              sourceType: "document",
+              domain: "estudio",
+              content:
+                c.content ||
+                "Respuesta falsa que no corresponde a ningún reactivo.",
+              matchesNodeId: isDistractor
+                ? null
+                : boardData.nodes[i]?.id || null,
+              isDistractor: isDistractor,
             };
           });
 
           // 30% del total de preguntas como cartas falsas
-          const requiredDistractors = Math.max(1, Math.round(boardData.nodes.length * 0.30));
-          const currentDistractors = processedCards.filter(c => c.isDistractor).length;
+          const requiredDistractors = Math.max(
+            1,
+            Math.round(boardData.nodes.length * 0.3),
+          );
+          const currentDistractors = processedCards.filter(
+            (c) => c.isDistractor,
+          ).length;
           if (currentDistractors < requiredDistractors) {
             const needed = requiredDistractors - currentDistractors;
             const distractorPool = [
               "Enfoque Ortogonal Inverso",
               "Principio de Premisa Contradictoria",
               "Teoría de Correlación Espuria",
-              "Postulado No Demostrado"
+              "Postulado No Demostrado",
             ];
             for (let k = 0; k < needed; k++) {
               const dIdx = currentDistractors + k;
               processedCards.push({
                 id: `card_distractor_dyn_${dIdx + 1}`,
                 name: distractorPool[dIdx % distractorPool.length],
-                cost: '1x',
-                type: (processedCards.length + k) % 2 === 0 ? 'cyan' : 'emerald',
-                sourceType: 'document',
-                domain: 'estudio',
-                content: 'Respuesta alternativa no válida.',
+                cost: "1x",
+                type:
+                  (processedCards.length + k) % 2 === 0 ? "cyan" : "emerald",
+                sourceType: "document",
+                domain: "estudio",
+                content: "Respuesta alternativa no válida.",
                 matchesNodeId: null,
-                isDistractor: true
+                isDistractor: true,
               });
             }
           }
 
-          const shuffledHand = [...processedCards].sort(() => Math.random() - 0.5);
+          const shuffledHand = [...processedCards].sort(
+            () => Math.random() - 0.5,
+          );
           shuffledHand.forEach((c, i) => {
             c.rotation = (i - Math.floor(processedCards.length / 2)) * 3;
             c.zIndex = i + 1;
@@ -1299,109 +1705,130 @@ export default function ArcadeArena() {
 
           setNodes(newNodes);
           setHand(shuffledHand);
-          setOpponentHand(processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
-            setEnergy(maxEnergy);
-            setTurn(1);
-            setSuccessNotif(`¡Material procesado con Gemini! Tablero generado en tiempo real.`);
-            setTimeout(() => setSuccessNotif(null), 4000);
-            generatedSuccess = true;
+          setOpponentHand(
+            processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })),
+          );
+          setEnergy(maxEnergy);
+          setTurn(1);
+          setSuccessNotif(
+            `¡Material procesado con Gemini! Tablero generado en tiempo real.`,
+          );
+          setTimeout(() => setSuccessNotif(null), 4000);
+          generatedSuccess = true;
 
-            // Asociar este juego con preguntas a la carpeta activa en Base de Datos y LocalStorage
-            if (activeFolder) {
-              const newGameRecord = {
-                id: `game_${Date.now()}`,
-                title: boardData.title || `Estudio: ${data.files[0]?.name || 'Material'}`,
-                questions_count: Object.keys(newNodes).length,
-                created_at: new Date().toLocaleDateString('es-ES')
-              };
+          // Asociar este juego con preguntas a la carpeta activa en Base de Datos y LocalStorage
+          if (activeFolder) {
+            const newGameRecord = {
+              id: `game_${Date.now()}`,
+              title:
+                boardData.title ||
+                `Estudio: ${data.files[0]?.name || "Material"}`,
+              questions_count: Object.keys(newNodes).length,
+              created_at: new Date().toLocaleDateString("es-ES"),
+            };
 
-              // 1. Persistir en MongoDB
-              fetch(`/api/v1/folders/${activeFolder.id}/games`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ game: newGameRecord })
-              }).catch(e => console.warn("No se pudo persistir el juego en BD:", e));
+            // 1. Persistir en MongoDB
+            fetch(`/api/v1/folders/${activeFolder.id}/games`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ game: newGameRecord }),
+            }).catch((e) =>
+              console.warn("No se pudo persistir el juego en BD:", e),
+            );
 
-              // 2. Persistir en LocalStorage
-              try {
-                const foldersRaw = localStorage.getItem('hubzy_user_study_folders');
-                if (foldersRaw) {
-                  const fList = JSON.parse(foldersRaw);
-                  const fIdx = fList.findIndex(f => f.id === activeFolder.id);
-                  if (fIdx >= 0) {
-                    if (!fList[fIdx].games) fList[fIdx].games = [];
-                    fList[fIdx].games.unshift(newGameRecord);
-                    localStorage.setItem('hubzy_user_study_folders', JSON.stringify(fList));
-                  }
+            // 2. Persistir en LocalStorage
+            try {
+              const foldersRaw = localStorage.getItem(
+                "hubzy_user_study_folders",
+              );
+              if (foldersRaw) {
+                const fList = JSON.parse(foldersRaw);
+                const fIdx = fList.findIndex((f) => f.id === activeFolder.id);
+                if (fIdx >= 0) {
+                  if (!fList[fIdx].games) fList[fIdx].games = [];
+                  fList[fIdx].games.unshift(newGameRecord);
+                  localStorage.setItem(
+                    "hubzy_user_study_folders",
+                    JSON.stringify(fList),
+                  );
                 }
-              } catch {}
-            }
+              }
+            } catch {}
           }
         }
-      } catch (err) {
-        console.warn("Error conectando con /api/v1/arena/generate:", err);
       }
+    } catch (err) {
+      console.warn("Error conectando con /api/v1/arena/generate:", err);
+    }
 
     // 2. Si no hubo respuesta del LLM, generar cartas y nodos directos a partir del nombre y tipo de los archivos subidos
     if (!generatedSuccess) {
-      const detectedTheme = /(ley|derecho|penal|demanda|abogad|juez|paps)/i.test(lower) ? 'Derecho & Leyes' :
-                            /(contab|balance|niif|ifrs|sat|iva|auditor)/i.test(lower) ? 'Contaduría' :
-                            /(finanz|ebitda|mercado|bolsa|invers)/i.test(lower) ? 'Finanzas' :
-                            /(salud|medic|enferm|farmac|clinica)/i.test(lower) ? 'Medicina' :
-                            /(educ|pedagog|aprendizaje)/i.test(lower) ? 'Educación' : 'Tecnología';
+      const detectedTheme =
+        /(ley|derecho|penal|demanda|abogad|juez|paps)/i.test(lower)
+          ? "Derecho & Leyes"
+          : /(contab|balance|niif|ifrs|sat|iva|auditor)/i.test(lower)
+            ? "Contaduría"
+            : /(finanz|ebitda|mercado|bolsa|invers)/i.test(lower)
+              ? "Finanzas"
+              : /(salud|medic|enferm|farmac|clinica)/i.test(lower)
+                ? "Medicina"
+                : /(educ|pedagog|aprendizaje)/i.test(lower)
+                  ? "Educación"
+                  : "Tecnología";
 
-      const fileBaseName = data.files[0]?.name.replace(/\.[^/.]+$/, "") || 'Material de Estudio';
+      const fileBaseName =
+        data.files[0]?.name.replace(/\.[^/.]+$/, "") || "Material de Estudio";
       setBoardInfo({
         title: `SIMULACRO: ${fileBaseName.toUpperCase()}`,
-        theme: detectedTheme
+        theme: detectedTheme,
       });
 
       const posList = [
-        { left: '20%', top: '30%' },
-        { left: '48%', top: '24%' },
-        { left: '78%', top: '30%' },
-        { left: '34%', top: '68%' },
-        { left: '66%', top: '68%' }
+        { left: "20%", top: "30%" },
+        { left: "48%", top: "24%" },
+        { left: "78%", top: "30%" },
+        { left: "34%", top: "68%" },
+        { left: "66%", top: "68%" },
       ];
 
       const examQuestionsTemplates = [
         {
           concept: fileBaseName.substring(0, 18),
           q: `[REACTIVO DE EXAMEN - DEFINICIÓN]: ¿Cuál es el objeto central de estudio y la doctrina rectora analizada en el compendio de "${fileBaseName}"?`,
-          hint: `Analiza la tesis preliminar desarrollada al inicio del texto sobre ${fileBaseName.substring(0, 15)}.`
+          hint: `Analiza la tesis preliminar desarrollada al inicio del texto sobre ${fileBaseName.substring(0, 15)}.`,
         },
         {
-          concept: 'Principio Rector',
+          concept: "Principio Rector",
           q: `[REACTIVO DE EXAMEN - APLICACIÓN]: ¿Qué postulado o principio rector es de observancia obligatoria para validar los procedimientos según el marco de ${fileBaseName}?`,
-          hint: 'Es la regla fundamental o axioma que rige toda la normativa aplicable.'
+          hint: "Es la regla fundamental o axioma que rige toda la normativa aplicable.",
         },
         {
-          concept: 'Marco Aplicado',
+          concept: "Marco Aplicado",
           q: `[REACTIVO DE EXAMEN - CASO PRÁCTICO]: Ante una controversia técnica en la práctica profesional, ¿qué conjunto de criterios o marco normativo determina la solución del caso?`,
-          hint: 'Observa la estructura metodológica y procedimental explicada en la materia.'
+          hint: "Observa la estructura metodológica y procedimental explicada en la materia.",
         },
         {
-          concept: 'Criterio de Evaluación',
+          concept: "Criterio de Evaluación",
           q: `[REACTIVO DE EXAMEN - ANÁLISIS CRÍTICO]: ¿Bajo qué estándar de ponderación o examen riguroso se contrasta la eficacia de las medidas adoptadas?`,
-          hint: 'Involucra el juicio valorativo indispensable para superar la prueba evaluativa.'
+          hint: "Involucra el juicio valorativo indispensable para superar la prueba evaluativa.",
         },
         {
-          concept: 'Resolución Final',
+          concept: "Resolución Final",
           q: `[REACTIVO DE EXAMEN - CONCLUSIÓN]: ¿Cuál es el dictamen o resolución vinculante que concluye formalmente el análisis de la materia estudiada?`,
-          hint: 'Representa el acto resolutivo definitivo del proceso formativo.'
-        }
+          hint: "Representa el acto resolutivo definitivo del proceso formativo.",
+        },
       ];
 
       const customCards = examQuestionsTemplates.map((item, idx) => ({
         id: `card_${idx + 1}`,
         name: item.concept,
-        cost: idx % 2 === 0 ? '1x' : '2x',
-        type: idx % 2 === 0 ? 'cyan' : 'emerald',
-        sourceType: 'document',
-        domain: 'estudio',
+        cost: idx % 2 === 0 ? "1x" : "2x",
+        type: idx % 2 === 0 ? "cyan" : "emerald",
+        sourceType: "document",
+        domain: "estudio",
         rotation: (idx - 2) * 4,
         zIndex: idx + 1,
-        matchesNodeId: `node_${idx + 1}`  // <-- enlace 1-a-1 carta → nodo
+        matchesNodeId: `node_${idx + 1}`, // <-- enlace 1-a-1 carta → nodo
       }));
 
       const customNodes = {};
@@ -1409,23 +1836,25 @@ export default function ArcadeArena() {
         const nId = `node_${idx + 1}`;
         customNodes[nId] = {
           id: nId,
-          domain: 'estudio',
-          icon: idx % 2 === 0 ? 'database' : 'codigo',
+          domain: "estudio",
+          icon: idx % 2 === 0 ? "database" : "codigo",
           label: item.concept,
           question: item.q,
           hint: item.hint,
           pos: posList[idx],
-          color: idx % 2 === 0 ? 'cyan' : 'emerald',
-          shape: 'hexagon',
+          color: idx % 2 === 0 ? "cyan" : "emerald",
+          shape: "hexagon",
           placedCard: null,
           lockedByOpponent: false,
-          correctCardId: `card_${idx + 1}`  // <-- enlace 1-a-1 nodo → carta
+          correctCardId: `card_${idx + 1}`, // <-- enlace 1-a-1 nodo → carta
         };
       });
 
       setNodes(customNodes);
       setHand(customCards);
-      setOpponentHand(customCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })));
+      setOpponentHand(
+        customCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })),
+      );
       setEnergy(maxEnergy);
       setTurn(1);
       setSuccessNotif(`Tablero estructurado a partir de: ${fileBaseName}`);
@@ -1437,23 +1866,28 @@ export default function ArcadeArena() {
           id: `game_${Date.now()}`,
           title: `Estudio: ${fileBaseName.toUpperCase()}`,
           questions_count: Object.keys(customNodes).length,
-          created_at: new Date().toLocaleDateString('es-ES')
+          created_at: new Date().toLocaleDateString("es-ES"),
         };
         fetch(`/api/v1/folders/${activeFolder.id}/games`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game: newGameRecord })
-        }).catch(e => console.warn("No se pudo persistir el juego en BD:", e));
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ game: newGameRecord }),
+        }).catch((e) =>
+          console.warn("No se pudo persistir el juego en BD:", e),
+        );
 
         try {
-          const foldersRaw = localStorage.getItem('hubzy_user_study_folders');
+          const foldersRaw = localStorage.getItem("hubzy_user_study_folders");
           if (foldersRaw) {
             const fList = JSON.parse(foldersRaw);
-            const fIdx = fList.findIndex(f => f.id === activeFolder.id);
+            const fIdx = fList.findIndex((f) => f.id === activeFolder.id);
             if (fIdx >= 0) {
               if (!fList[fIdx].games) fList[fIdx].games = [];
               fList[fIdx].games.unshift(newGameRecord);
-              localStorage.setItem('hubzy_user_study_folders', JSON.stringify(fList));
+              localStorage.setItem(
+                "hubzy_user_study_folders",
+                JSON.stringify(fList),
+              );
             }
           }
         } catch {}
@@ -1468,25 +1902,26 @@ export default function ArcadeArena() {
       <div className="relative w-screen h-screen overflow-hidden select-none">
         <WelcomeScreen
           isLoggedIn={Boolean(currentUser)}
-          username={currentUser?.username || currentUser?.email?.split('@')[0]}
+          username={currentUser?.username || currentUser?.email?.split("@")[0]}
           onOpenLogin={() => setIsAuthModalOpen(true)}
           onOpenTutorial={() => setIsTutorialOpen(true)}
           onStartDemo={() => {
             // Entrar de inmediato a la partida demostrativa con administracion.pdf
             const demoUser = currentUser || {
-              id: 'guest_demo',
-              username: 'Estudiante Demo',
-              email: 'demo@hubzi.app',
-              is_guest: true
+              id: "guest_demo",
+              username: "Estudiante Demo",
+              email: "demo@hubzi.app",
+              is_guest: true,
             };
             if (!currentUser) setCurrentUser(demoUser);
             setIsWelcomeScreenVisible(false);
             const defaultFolder = {
-              id: 'folder_administracion_default',
-              name: 'Administración General',
-              documents: [{ name: 'administracion.pdf' }]
+              id: "folder_administracion_default",
+              name: "Administración General",
+              documents: [{ name: "administracion.pdf" }],
             };
             setActiveFolder(defaultFolder);
+            setIsMapVisible(true);
             loadGameForLevel(1, defaultFolder, false);
           }}
           onContinue={() => {
@@ -1531,28 +1966,40 @@ export default function ArcadeArena() {
         />
 
         {/* Banner de Consentimiento de Cookies */}
-        <CookieConsentBanner
-          onOpenLegal={handleOpenLegal}
-        />
+        <CookieConsentBanner onOpenLegal={handleOpenLegal} />
 
         {/* Footer Legal en Pantalla de Bienvenida */}
         <footer className="absolute bottom-2 inset-x-0 py-1.5 px-4 flex flex-wrap items-center justify-center select-none z-20">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg backdrop-blur-md text-slate-300 text-[11px]">
-            <span className="font-bold text-amber-400">Hubzy © {new Date().getFullYear()}</span>
+            <span className="font-bold text-amber-400">
+              Hubzy © {new Date().getFullYear()}
+            </span>
             <span className="text-slate-600">•</span>
-            <button onClick={() => handleOpenLegal('terms')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            <button
+              onClick={() => handleOpenLegal("terms")}
+              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
+            >
               Términos de Servicio
             </button>
             <span className="text-slate-600">•</span>
-            <button onClick={() => handleOpenLegal('privacy')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            <button
+              onClick={() => handleOpenLegal("privacy")}
+              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
+            >
               Privacidad
             </button>
             <span className="text-slate-600">•</span>
-            <button onClick={() => handleOpenLegal('refunds')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            <button
+              onClick={() => handleOpenLegal("refunds")}
+              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
+            >
               Reembolsos
             </button>
             <span className="text-slate-600">•</span>
-            <button onClick={() => handleOpenLegal('business')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
+            <button
+              onClick={() => handleOpenLegal("business")}
+              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
+            >
               Datos del Negocio
             </button>
           </div>
@@ -1561,9 +2008,79 @@ export default function ArcadeArena() {
     );
   }
 
+  // RENDERIZADO DEL MAPA DE AVENTURA (MUNDOS E ISLAS ESTILO MONSTER LEGENDS)
+  if (isMapVisible) {
+    return (
+      <div className="relative w-screen h-screen overflow-hidden select-none">
+        <AdventureMap
+          folderName={activeFolder?.name || "Mundo de Aprendizaje"}
+          documentTitle={
+            boardInfo?.theme ||
+            activeFolder?.documents?.[0]?.name ||
+            "Tema de Estudio"
+          }
+          levels={GAME_LEVELS}
+          currentLevel={currentLevel}
+          unlockedLevel={unlockedLevel}
+          levelStars={levelStars}
+          onSelectLevel={async (lvlNum) => {
+            setCurrentLevel(lvlNum);
+            if (activeFolder) {
+              await loadGameForLevel(lvlNum, activeFolder, false);
+            }
+            // Entrar directamente al tablero de ese nivel
+            setIsMapVisible(false);
+          }}
+          onBackToFolders={() => {
+            setIsFolderModalOpen(true);
+          }}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
+        />
+
+        {/* Modal del Baúl de Carpetas accesible directamente desde el Mapa */}
+        <StudyFolderManagerModal
+          isOpen={isFolderModalOpen}
+          currentUser={currentUser}
+          onClose={() => setIsFolderModalOpen(false)}
+          onUpgradeToPro={() => {
+            setIsSubscriptionModalOpen(true);
+          }}
+          onBackToMenu={() => {
+            setIsFolderModalOpen(false);
+            setIsMapVisible(false);
+            setIsWelcomeScreenVisible(true);
+          }}
+          onSelectFolder={async (folder) => {
+            setActiveFolder(folder);
+            setIsFolderModalOpen(false);
+
+            if (
+              folder.playDirectly &&
+              folder.documents &&
+              folder.documents.filter((d) => !d.isUploading).length > 0
+            ) {
+              setCurrentLevel(1);
+              setIsMapVisible(true);
+              await loadGameForLevel(1, folder, false);
+            }
+          }}
+          onStartNewFolder={(folder) => {
+            setActiveFolder(folder);
+            setIsFolderModalOpen(true);
+          }}
+        />
+
+        {/* Modal de Tutorial accesible desde el Mapa */}
+        <TutorialModal
+          isOpen={isTutorialOpen}
+          onClose={() => setIsTutorialOpen(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden flex flex-col justify-between select-none">
-      
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
       <AuthModal
         isOpen={isAuthModalOpen}
@@ -1603,14 +2120,66 @@ export default function ArcadeArena() {
           setActiveFolder(folder);
           setIsFolderModalOpen(false);
 
-
-          if (folder.playDirectly && folder.documents && folder.documents.filter(d => !d.isUploading).length > 0) {
+          if (
+            folder.playDirectly &&
+            folder.documents &&
+            folder.documents.filter((d) => !d.isUploading).length > 0
+          ) {
             // Inicia el juego en el Nivel 1 (Fácil: 3 preguntas)
             setCurrentLevel(1);
             const success = await loadGameForLevel(1, folder, false);
             if (success) {
-              // Tras generar el nivel, sesión Zen de respiración consciente
-              setIsRelaxModalOpen(true);
+              // Tras generar el nivel 1, pre-generar en segundo plano los niveles 2 a 5
+              // para que la transición entre niveles sea instantánea (0 ms) sin volver a escanear
+              (async () => {
+                for (let lvl = 2; lvl <= 5; lvl++) {
+                  try {
+                    const lvlInfo = GAME_LEVELS.find((l) => l.level === lvl);
+                    if (
+                      folder.cached_boards &&
+                      folder.cached_boards[`level_${lvl}`]
+                    )
+                      continue;
+                    const res = await fetch(
+                      `/api/v1/folders/${folder.id}/generate-game?level=${lvl}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}`,
+                      { method: "POST" },
+                    );
+                    if (res.ok) {
+                      const data = await res.json();
+                      if (!folder.cached_boards) folder.cached_boards = {};
+                      folder.cached_boards[`level_${lvl}`] = data;
+                      // Guardar en localStorage
+                      try {
+                        const userStorageKey = currentUser?.id
+                          ? `hubzy_user_study_folders_${currentUser.id}`
+                          : "hubzy_user_study_folders";
+                        const savedFolders = JSON.parse(
+                          localStorage.getItem(userStorageKey) || "[]",
+                        );
+                        const idx = savedFolders.findIndex(
+                          (f) => f.id === folder.id,
+                        );
+                        if (idx !== -1) {
+                          savedFolders[idx].cached_boards =
+                            folder.cached_boards;
+                          localStorage.setItem(
+                            userStorageKey,
+                            JSON.stringify(savedFolders),
+                          );
+                        }
+                      } catch (_) {}
+                    }
+                  } catch (preloadErr) {
+                    console.debug(
+                      `Pre-carga nivel ${lvl} omitida o en segundo plano:`,
+                      preloadErr,
+                    );
+                  }
+                }
+              })();
+
+              // Enviar directamente al Mapa de Aventura de 20 niveles
+              setIsMapVisible(true);
             } else {
               setIsFolderModalOpen(true);
             }
@@ -1618,7 +2187,6 @@ export default function ArcadeArena() {
             setIsFolderModalOpen(true);
           }
         }}
-
         onStartNewFolder={(folder) => {
           setActiveFolder(folder);
           setIsFolderModalOpen(true);
@@ -1630,11 +2198,13 @@ export default function ArcadeArena() {
         isOpen={isRelaxModalOpen}
         onComplete={() => {
           setIsRelaxModalOpen(false);
-          // Inicia el juego directamente con las cartas generadas
+          // Abre el mapa de niveles para que el estudiante elija su nivel
+          setIsMapVisible(true);
         }}
         onSkip={() => {
           setIsRelaxModalOpen(false);
-          // Inicia el juego directamente
+          // Abre el mapa de niveles
+          setIsMapVisible(true);
         }}
       />
 
@@ -1643,7 +2213,6 @@ export default function ArcadeArena() {
         isOpen={isModeModalOpen}
         onSelectMode={handleSelectGameMode}
       />
-
 
       {/* OVERLAY DE PROCESAMIENTO PROFUNDO DE DOCUMENTOS CON IA */}
       {isGeneratingArena && (
@@ -1654,7 +2223,8 @@ export default function ArcadeArena() {
               Analizando Contenido Interno
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Extrayendo texto de los documentos cargados y generando preguntas conceptuales profundas mediante Gemini...
+              Extrayendo texto de los documentos cargados y generando preguntas
+              conceptuales profundas mediante Gemini...
             </p>
           </div>
         </div>
@@ -1668,8 +2238,8 @@ export default function ArcadeArena() {
           const targetNode = selectedNodeForQuestion;
           setSelectedNodeForQuestion(null);
           if (targetNode?.hint) {
-            triggerCapyVoice('hint', {
-              customText: `Te doy una pista: ${targetNode.hint}`
+            triggerCapyVoice("hint", {
+              customText: `Te doy una pista: ${targetNode.hint}`,
             });
           }
         }}
@@ -1700,20 +2270,32 @@ export default function ArcadeArena() {
                 ¡Partida Completada!
               </h2>
               <p className="text-xs text-slate-400 mt-1 mb-6">
-                Dominaste el área de: <strong className="text-cyan-300">{boardInfo?.theme || 'Área de Estudio'}</strong>.
+                Dominaste el área de:{" "}
+                <strong className="text-cyan-300">
+                  {boardInfo?.theme || "Área de Estudio"}
+                </strong>
+                .
               </p>
 
               <div className="flex items-center justify-center gap-6 py-3 px-4 rounded-2xl bg-slate-900 border border-slate-700 mb-6">
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Tu Puntuación</p>
-                  <p className="text-2xl font-black text-amber-400 font-mono">{playerScore}</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">
+                    Tu Puntuación
+                  </p>
+                  <p className="text-2xl font-black text-amber-400 font-mono">
+                    {playerScore}
+                  </p>
                 </div>
-                {gameConfig.mode === '1v1' && (
+                {gameConfig.mode === "1v1" && (
                   <>
                     <div className="h-8 w-[1px] bg-slate-700" />
                     <div>
-                      <p className="text-[10px] text-slate-400 uppercase font-bold">Puntaje Rival</p>
-                      <p className="text-2xl font-black text-cyan-400 font-mono">{opponentScore}</p>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold">
+                        Puntaje Rival
+                      </p>
+                      <p className="text-2xl font-black text-cyan-400 font-mono">
+                        {opponentScore}
+                      </p>
                     </div>
                   </>
                 )}
@@ -1749,7 +2331,7 @@ export default function ArcadeArena() {
               initial={{ opacity: 0, scale: 0.75, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.75, y: 40 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+              transition={{ type: "spring", stiffness: 300, damping: 22 }}
               className="relative w-full max-w-lg rounded-3xl overflow-hidden text-center text-slate-100 shadow-[0_0_80px_rgba(168,85,247,0.6)]"
             >
               {/* Fondo degradado épico */}
@@ -1762,21 +2344,28 @@ export default function ArcadeArena() {
                     key={i}
                     className="absolute w-2 h-2 rounded-full"
                     style={{
-                      left: `${5 + (i * 5.5) % 92}%`,
+                      left: `${5 + ((i * 5.5) % 92)}%`,
                       top: `${-5}%`,
-                      backgroundColor: ['#a855f7','#f59e0b','#06b6d4','#10b981','#f43f5e','#818cf8'][i % 6]
+                      backgroundColor: [
+                        "#a855f7",
+                        "#f59e0b",
+                        "#06b6d4",
+                        "#10b981",
+                        "#f43f5e",
+                        "#818cf8",
+                      ][i % 6],
                     }}
                     animate={{
-                      y: ['0%', '110%'],
-                      x: [0, (i % 2 === 0 ? 20 : -20)],
+                      y: ["0%", "110%"],
+                      x: [0, i % 2 === 0 ? 20 : -20],
                       opacity: [0, 1, 1, 0],
-                      rotate: [0, 360 * (i % 2 === 0 ? 1 : -1)]
+                      rotate: [0, 360 * (i % 2 === 0 ? 1 : -1)],
                     }}
                     transition={{
                       duration: 2.5 + (i % 5) * 0.4,
                       delay: (i % 6) * 0.18,
                       repeat: Infinity,
-                      ease: 'linear'
+                      ease: "linear",
                     }}
                   />
                 ))}
@@ -1818,37 +2407,55 @@ export default function ArcadeArena() {
 
                 {/* Título principal */}
                 <motion.h2
-                  animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                  animate={{
+                    backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+                  }}
                   transition={{ repeat: Infinity, duration: 3 }}
                   className="text-2xl sm:text-3xl font-black uppercase tracking-wider mt-3 bg-gradient-to-r from-purple-300 via-cyan-300 to-amber-300 bg-clip-text text-transparent"
-                  style={{ backgroundSize: '200% 200%' }}
+                  style={{ backgroundSize: "200% 200%" }}
                 >
-                  ¡Subes al Nivel {levelUpData.nextLevel}: {levelUpData.nextLvlInfo?.name}!
+                  ¡Subes al Nivel {levelUpData.nextLevel}:{" "}
+                  {levelUpData.nextLvlInfo?.name}!
                 </motion.h2>
 
                 {/* Barra de progreso de niveles */}
                 <div className="flex items-center justify-center gap-1.5 mt-3 mb-5">
-                  {[1, 2, 3, 4, 5].map(lvl => (
+                  {[1, 2, 3, 4, 5].map((lvl) => (
                     <div key={lvl} className="flex flex-col items-center gap-1">
                       <motion.div
-                        animate={lvl <= levelUpData.completedLevel
-                          ? { scale: [1, 1.1, 1], boxShadow: ['0 0 0px rgba(168,85,247,0)', '0 0 12px rgba(168,85,247,0.8)', '0 0 0px rgba(168,85,247,0)'] }
-                          : {}}
-                        transition={{ repeat: Infinity, duration: 2, delay: lvl * 0.2 }}
+                        animate={
+                          lvl <= levelUpData.completedLevel
+                            ? {
+                                scale: [1, 1.1, 1],
+                                boxShadow: [
+                                  "0 0 0px rgba(168,85,247,0)",
+                                  "0 0 12px rgba(168,85,247,0.8)",
+                                  "0 0 0px rgba(168,85,247,0)",
+                                ],
+                              }
+                            : {}
+                        }
+                        transition={{
+                          repeat: Infinity,
+                          duration: 2,
+                          delay: lvl * 0.2,
+                        }}
                         className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border-2 ${
                           lvl < levelUpData.completedLevel
-                            ? 'bg-emerald-600 border-emerald-400 text-white'
+                            ? "bg-emerald-600 border-emerald-400 text-white"
                             : lvl === levelUpData.completedLevel
-                            ? 'bg-gradient-to-br from-amber-500 to-purple-600 border-amber-400 text-white shadow-[0_0_15px_rgba(251,191,36,0.6)]'
-                            : lvl === levelUpData.nextLevel
-                            ? 'bg-gradient-to-br from-purple-700 to-indigo-700 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.5)]'
-                            : 'bg-slate-800 border-slate-600 text-slate-500'
+                              ? "bg-gradient-to-br from-amber-500 to-purple-600 border-amber-400 text-white shadow-[0_0_15px_rgba(251,191,36,0.6)]"
+                              : lvl === levelUpData.nextLevel
+                                ? "bg-gradient-to-br from-purple-700 to-indigo-700 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.5)]"
+                                : "bg-slate-800 border-slate-600 text-slate-500"
                         }`}
                       >
-                        {lvl < levelUpData.completedLevel ? '✓' : lvl}
+                        {lvl < levelUpData.completedLevel ? "✓" : lvl}
                       </motion.div>
-                      <div className={`text-[8px] font-mono ${lvl === levelUpData.nextLevel ? 'text-purple-300' : 'text-slate-500'}`}>
-                        {lvl === levelUpData.nextLevel ? '→ Aquí' : ''}
+                      <div
+                        className={`text-[8px] font-mono ${lvl === levelUpData.nextLevel ? "text-purple-300" : "text-slate-500"}`}
+                      >
+                        {lvl === levelUpData.nextLevel ? "→ Aquí" : ""}
                       </div>
                     </div>
                   ))}
@@ -1866,7 +2473,11 @@ export default function ArcadeArena() {
                     transition={{ repeat: Infinity, duration: 2.5 }}
                     className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-amber-400 flex-shrink-0 shadow-[0_0_12px_rgba(251,191,36,0.4)]"
                   >
-                    <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
+                    <img
+                      src={capybara3dImg}
+                      alt="Capi"
+                      className="w-full h-full object-cover"
+                    />
                   </motion.div>
                   <div>
                     <p className="text-[11px] font-black text-amber-300 font-mono flex items-center gap-1 mb-1">
@@ -1874,7 +2485,10 @@ export default function ArcadeArena() {
                       Capi te dice con todo el corazón:
                     </p>
                     <p className="text-sm text-slate-100 italic leading-relaxed font-medium">
-                      "{capySpeech.text || `¡NIVEL ${levelUpData.completedLevel} CONQUISTADO! Eso merece que grite de alegría desde todos los techos! Tu cerebro es una auténtica obra de arte. ¡Nunca voy a olvidar este momento contigo!`}"
+                      "
+                      {capySpeech.text ||
+                        `¡NIVEL ${levelUpData.completedLevel} CONQUISTADO! Eso merece que grite de alegría desde todos los techos! Tu cerebro es una auténtica obra de arte. ¡Nunca voy a olvidar este momento contigo!`}
+                      "
                     </p>
                   </div>
                 </motion.div>
@@ -1882,20 +2496,26 @@ export default function ArcadeArena() {
                 {/* Detalles del próximo nivel — tarjeta cálida */}
                 <div className="grid grid-cols-3 gap-2 py-3 px-3 rounded-2xl bg-slate-950/60 border border-slate-700/60 mb-5 text-left">
                   <div className="text-center">
-                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Preguntas</p>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">
+                      Preguntas
+                    </p>
                     <p className="text-xl font-black text-amber-300 font-mono leading-none">
                       {levelUpData.nextLvlInfo?.questions}
                     </p>
                     <p className="text-[9px] text-slate-500">reactivos</p>
                   </div>
                   <div className="text-center border-x border-slate-700/50">
-                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Dificultad</p>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">
+                      Dificultad
+                    </p>
                     <p className="text-sm font-black text-purple-300 font-mono capitalize leading-tight">
                       {levelUpData.nextLvlInfo?.difficulty}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Nivel</p>
+                    <p className="text-[9px] text-slate-400 uppercase font-bold mb-0.5">
+                      Nivel
+                    </p>
                     <p className="text-xl font-black text-cyan-300 font-mono leading-none">
                       {levelUpData.nextLevel}
                     </p>
@@ -1904,7 +2524,9 @@ export default function ArcadeArena() {
                   <div className="col-span-3 pt-2 border-t border-slate-800 mt-1">
                     <p className="text-[11px] text-slate-300 flex items-center gap-1.5 justify-center">
                       <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
-                      <span className="font-semibold italic">{levelUpData.nextLvlInfo?.desc}</span>
+                      <span className="font-semibold italic">
+                        {levelUpData.nextLvlInfo?.desc}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -1922,14 +2544,18 @@ export default function ArcadeArena() {
                   >
                     <Sparkles className="w-5 h-5 text-amber-300" />
                   </motion.span>
-                  <span>¡Quiero el Nivel {levelUpData.nextLevel}! ({levelUpData.nextLvlInfo?.questions} desafíos)</span>
+                  <span>
+                    ¡Quiero el Nivel {levelUpData.nextLevel}! (
+                    {levelUpData.nextLvlInfo?.questions} desafíos)
+                  </span>
                   <Zap className="w-4 h-4 text-amber-300" />
                 </motion.button>
 
                 {/* Mensaje de contención anti-ansiedad */}
                 <p className="mt-3 text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1">
                   <Heart className="w-3 h-3 text-rose-400" />
-                  No hay prisa — Capi estará contigo en cada paso del Nivel {levelUpData.nextLevel}
+                  No hay prisa — Capi estará contigo en cada paso del Nivel{" "}
+                  {levelUpData.nextLevel}
                 </p>
               </div>
             </motion.div>
@@ -1937,14 +2563,12 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-
       {/* ENTORNO 3D & ILUMINACIÓN ATMOSFÉRICA CARD CLASH */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[700px] h-48 bg-radial from-white/40 via-sky-300/15 to-transparent blur-3xl pointer-events-none" />
       <div className="absolute right-0 top-1/3 w-64 h-64 bg-radial from-amber-300/20 via-orange-400/10 to-transparent blur-3xl pointer-events-none" />
 
       {/* GUARDIÁN TÁCTICO 3D ZEN INTERACTIVO / HABLA CON ELEVENLABS Y REACCIONA SEGÚN LA SITUACIÓN */}
       <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center select-none pointer-events-auto">
-        
         {/* BOCADILLO DE DIÁLOGO FLOTANTE (ESTILO CÓMIC NEÓN CON TEXTO SINTÉTICO Y MOTIVADOR) */}
         <AnimatePresence>
           {capySpeech.isVisible && capySpeech.text && (
@@ -1952,33 +2576,71 @@ export default function ArcadeArena() {
               initial={{ opacity: 0, scale: 0.85, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: -10 }}
-              transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+              transition={{ type: "spring", stiffness: 350, damping: 25 }}
               className={`absolute -top-26 sm:-top-28 left-0 sm:left-2 w-64 sm:w-72 p-3 rounded-2xl border-2 shadow-2xl backdrop-blur-md z-50 text-left ${
-                capyMood === 'encouraging' || isCapySad
-                  ? 'bg-rose-950/98 border-rose-400 text-rose-100 shadow-[0_0_25px_rgba(244,63,94,0.45)]'
-                  : capyMood === 'happy'
-                  ? 'bg-emerald-950/98 border-emerald-400 text-emerald-100 shadow-[0_0_25px_rgba(52,211,153,0.45)]'
-                  : capyMood === 'hint'
-                  ? 'bg-[#101b2b]/98 border-amber-400 text-amber-100 shadow-[0_0_25px_rgba(251,191,36,0.45)]'
-                  : 'bg-slate-900/98 border-cyan-400 text-slate-100 shadow-[0_0_25px_rgba(6,182,212,0.45)]'
+                capyMood === "encouraging" || isCapySad
+                  ? "bg-rose-950/98 border-rose-400 text-rose-100 shadow-[0_0_25px_rgba(244,63,94,0.45)]"
+                  : capyMood === "happy"
+                    ? "bg-emerald-950/98 border-emerald-400 text-emerald-100 shadow-[0_0_25px_rgba(52,211,153,0.45)]"
+                    : capyMood === "hint"
+                      ? "bg-[#101b2b]/98 border-amber-400 text-amber-100 shadow-[0_0_25px_rgba(251,191,36,0.45)]"
+                      : "bg-slate-900/98 border-cyan-400 text-slate-100 shadow-[0_0_25px_rgba(6,182,212,0.45)]"
               }`}
             >
               <div className="flex items-center justify-between border-b border-white/15 pb-1 mb-1.5">
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-[8.5px] font-mono font-black uppercase flex items-center gap-1 ${
-                    capyMood === 'encouraging' || isCapySad ? 'text-rose-300' : capyMood === 'happy' ? 'text-emerald-300' : capyMood === 'hint' ? 'text-amber-300' : 'text-cyan-300'
-                  }`}>
+                  <span
+                    className={`text-[8.5px] font-mono font-black uppercase flex items-center gap-1 ${
+                      capyMood === "encouraging" || isCapySad
+                        ? "text-rose-300"
+                        : capyMood === "happy"
+                          ? "text-emerald-300"
+                          : capyMood === "hint"
+                            ? "text-amber-300"
+                            : "text-cyan-300"
+                    }`}
+                  >
                     <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
-                    <span>HUBZI {capyMood === 'hint' ? 'PISTA' : capyMood === 'happy' ? 'CELEBRA' : capyMood === 'encouraging' ? 'TE ANIMA' : 'DICE'}:</span>
+                    <span>
+                      HUBZI{" "}
+                      {capyMood === "hint"
+                        ? "PISTA"
+                        : capyMood === "happy"
+                          ? "CELEBRA"
+                          : capyMood === "encouraging"
+                            ? "TE ANIMA"
+                            : "DICE"}
+                      :
+                    </span>
                   </span>
                 </div>
 
                 {/* Ondas / ecualizador de voz animado */}
                 {isCapySpeaking ? (
                   <div className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/40">
-                    <motion.span animate={{ height: [4, 12, 4] }} transition={{ repeat: Infinity, duration: 0.35 }} className="w-1 bg-cyan-400 rounded-full" />
-                    <motion.span animate={{ height: [6, 16, 6] }} transition={{ repeat: Infinity, duration: 0.40, delay: 0.1 }} className="w-1 bg-amber-400 rounded-full" />
-                    <motion.span animate={{ height: [4, 14, 4] }} transition={{ repeat: Infinity, duration: 0.30, delay: 0.2 }} className="w-1 bg-cyan-300 rounded-full" />
+                    <motion.span
+                      animate={{ height: [4, 12, 4] }}
+                      transition={{ repeat: Infinity, duration: 0.35 }}
+                      className="w-1 bg-cyan-400 rounded-full"
+                    />
+                    <motion.span
+                      animate={{ height: [6, 16, 6] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 0.4,
+                        delay: 0.1,
+                      }}
+                      className="w-1 bg-amber-400 rounded-full"
+                    />
+                    <motion.span
+                      animate={{ height: [4, 14, 4] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 0.3,
+                        delay: 0.2,
+                      }}
+                      className="w-1 bg-cyan-300 rounded-full"
+                    />
                   </div>
                 ) : (
                   <span className="text-[7.5px] text-cyan-400/80 font-mono">
@@ -1992,9 +2654,17 @@ export default function ArcadeArena() {
               </p>
 
               {/* Flecha cómic del bocadillo */}
-              <div className={`absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 border-r-2 border-b-2 ${
-                capyMood === 'encouraging' || isCapySad ? 'bg-rose-950 border-rose-400' : capyMood === 'happy' ? 'bg-emerald-950 border-emerald-400' : capyMood === 'hint' ? 'bg-[#101b2b] border-amber-400' : 'bg-slate-900 border-cyan-400'
-              }`} />
+              <div
+                className={`absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 border-r-2 border-b-2 ${
+                  capyMood === "encouraging" || isCapySad
+                    ? "bg-rose-950 border-rose-400"
+                    : capyMood === "happy"
+                      ? "bg-emerald-950 border-emerald-400"
+                      : capyMood === "hint"
+                        ? "bg-[#101b2b] border-amber-400"
+                        : "bg-slate-900 border-cyan-400"
+                }`}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -2024,7 +2694,7 @@ export default function ArcadeArena() {
               <p className="text-[10.5px] text-slate-200 leading-snug font-bold">
                 {zenOffer.distortion
                   ? `¡No te preocupes por ese detalle! Repasar los errores es la mejor forma de fijar el concepto.`
-                  : '¡Buen ritmo de estudio! ¿Hacemos 30 segundos de pausa para despejar la mente y volver con todo?'}
+                  : "¡Buen ritmo de estudio! ¿Hacemos 30 segundos de pausa para despejar la mente y volver con todo?"}
               </p>
               <button
                 onClick={() => {
@@ -2042,56 +2712,88 @@ export default function ArcadeArena() {
 
         <motion.div
           animate={
-            capyMood === 'dancing' ? {
-              x: [0, -14, 14, -10, 10, -6, 6, 0],
-              rotateZ: [-12, 12, -12, 12, -8, 8, 0],
-              scale: [1, 1.08, 0.95, 1.08, 1],
-              y: [0, -8, 0, -8, 0]
-            } : capyMood === 'celebrating' ? {
-              y: [0, -20, 0, -15, 0, -10, 0],
-              scale: [1, 1.12, 0.9, 1.12, 1],
-              rotateZ: [-5, 5, -5, 5, 0]
-            } : capyMood === 'love' ? {
-              scale: [1, 1.06, 1, 1.06, 1],
-              y: [0, -5, 0, -5, 0],
-              rotateZ: [-2, 2, -2, 2, 0]
-            } : capyMood === 'happy' ? {
-              y: [0, -12, 0, -8, 0],
-              scale: [1, 1.08, 1],
-              rotateZ: [-3, 3, -3]
-            } : capyMood === 'thinking' ? {
-              rotateZ: [-3, 3, -3],
-              y: [0, -4, 0],
-              scale: [1, 1.02, 1]
-            } : capyMood === 'surprised' ? {
-              y: [0, -18, 4, 0],
-              scale: [1, 1.15, 0.92, 1],
-              rotateZ: [-6, 6, -3, 0]
-            } : isCapySad ? {
-              x: [0, -8, 8, -8, 8, -5, 5, 0],
-              y: [0, 4, 0, 4, 0],
-              rotateZ: [-4, 4, -4, 4, 0],
-              scale: [1, 0.96, 1]
-            } : isCapySpeaking ? {
-              y: [0, -6, 0],
-              scale: [1, 1.05, 1],
-              rotateZ: [-1.5, 1.5, -1.5]
-            } : {
-              y: [0, -10, 0],
-              rotateZ: [-2, 2, -2],
-              scale: [1, 1.03, 1]
-            }
+            capyMood === "dancing"
+              ? {
+                  x: [0, -14, 14, -10, 10, -6, 6, 0],
+                  rotateZ: [-12, 12, -12, 12, -8, 8, 0],
+                  scale: [1, 1.08, 0.95, 1.08, 1],
+                  y: [0, -8, 0, -8, 0],
+                }
+              : capyMood === "celebrating"
+                ? {
+                    y: [0, -20, 0, -15, 0, -10, 0],
+                    scale: [1, 1.12, 0.9, 1.12, 1],
+                    rotateZ: [-5, 5, -5, 5, 0],
+                  }
+                : capyMood === "love"
+                  ? {
+                      scale: [1, 1.06, 1, 1.06, 1],
+                      y: [0, -5, 0, -5, 0],
+                      rotateZ: [-2, 2, -2, 2, 0],
+                    }
+                  : capyMood === "happy"
+                    ? {
+                        y: [0, -12, 0, -8, 0],
+                        scale: [1, 1.08, 1],
+                        rotateZ: [-3, 3, -3],
+                      }
+                    : capyMood === "thinking"
+                      ? {
+                          rotateZ: [-3, 3, -3],
+                          y: [0, -4, 0],
+                          scale: [1, 1.02, 1],
+                        }
+                      : capyMood === "surprised"
+                        ? {
+                            y: [0, -18, 4, 0],
+                            scale: [1, 1.15, 0.92, 1],
+                            rotateZ: [-6, 6, -3, 0],
+                          }
+                        : isCapySad
+                          ? {
+                              x: [0, -8, 8, -8, 8, -5, 5, 0],
+                              y: [0, 4, 0, 4, 0],
+                              rotateZ: [-4, 4, -4, 4, 0],
+                              scale: [1, 0.96, 1],
+                            }
+                          : isCapySpeaking
+                            ? {
+                                y: [0, -6, 0],
+                                scale: [1, 1.05, 1],
+                                rotateZ: [-1.5, 1.5, -1.5],
+                              }
+                            : {
+                                y: [0, -10, 0],
+                                rotateZ: [-2, 2, -2],
+                                scale: [1, 1.03, 1],
+                              }
           }
           transition={
-            capyMood === 'dancing' ? { repeat: Infinity, duration: 0.55, ease: 'easeInOut' }
-            : capyMood === 'celebrating' ? { repeat: Infinity, duration: 0.7, ease: 'easeInOut' }
-            : capyMood === 'love' ? { repeat: Infinity, duration: 1.8, ease: 'easeInOut' }
-            : capyMood === 'happy' ? { repeat: Infinity, duration: 0.6, ease: 'easeInOut' }
-            : capyMood === 'thinking' ? { repeat: Infinity, duration: 2.2, ease: 'easeInOut' }
-            : capyMood === 'surprised' ? { duration: 0.5, repeat: 2, ease: 'easeOut' }
-            : isCapySad ? { duration: 0.6, repeat: 2, ease: 'easeInOut' }
-            : isCapySpeaking ? { repeat: Infinity, duration: 0.45, ease: 'easeInOut' }
-            : { repeat: Infinity, duration: 3.8, ease: 'easeInOut' }
+            capyMood === "dancing"
+              ? { repeat: Infinity, duration: 0.55, ease: "easeInOut" }
+              : capyMood === "celebrating"
+                ? { repeat: Infinity, duration: 0.7, ease: "easeInOut" }
+                : capyMood === "love"
+                  ? { repeat: Infinity, duration: 1.8, ease: "easeInOut" }
+                  : capyMood === "happy"
+                    ? { repeat: Infinity, duration: 0.6, ease: "easeInOut" }
+                    : capyMood === "thinking"
+                      ? { repeat: Infinity, duration: 2.2, ease: "easeInOut" }
+                      : capyMood === "surprised"
+                        ? { duration: 0.5, repeat: 2, ease: "easeOut" }
+                        : isCapySad
+                          ? { duration: 0.6, repeat: 2, ease: "easeInOut" }
+                          : isCapySpeaking
+                            ? {
+                                repeat: Infinity,
+                                duration: 0.45,
+                                ease: "easeInOut",
+                              }
+                            : {
+                                repeat: Infinity,
+                                duration: 3.8,
+                                ease: "easeInOut",
+                              }
           }
           whileHover={{ scale: 1.15, rotate: 4 }}
           whileTap={{ scale: 0.92 }}
@@ -2099,64 +2801,129 @@ export default function ArcadeArena() {
           className="relative group cursor-pointer flex flex-col items-center"
           title="¡Haz clic en Capi! Te dará una pista con todo su amor 💙"
         >
-          {/* Base Holográfica — color según mood */}
-          <div className={`w-28 h-6 rounded-full blur-md -mb-3 transition-colors duration-300 ${
-            isCapySad ? 'bg-rose-500/50'
-            : capyMood === 'dancing' ? 'bg-purple-500/60'
-            : capyMood === 'celebrating' ? 'bg-amber-400/60'
-            : capyMood === 'love' ? 'bg-rose-400/50'
-            : capyMood === 'happy' ? 'bg-emerald-400/50'
-            : capyMood === 'thinking' ? 'bg-cyan-400/40'
-            : capyMood === 'surprised' ? 'bg-indigo-400/50'
-            : isCapySpeaking ? 'bg-amber-400/50'
-            : 'bg-cyan-400/40'
-          }`} />
-
-          {/* Marco Redondo 3D con Borde Neón — color según mood */}
-          <motion.div
-            className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 overflow-hidden transition-colors duration-500 bg-[#0c1420] ${
+          {/* Base Holográfica — brillo en los pies según mood */}
+          <div
+            className={`w-32 h-7 rounded-full blur-md -mb-4 transition-colors duration-300 ${
               isCapySad
-                ? 'border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.8)]'
-                : capyMood === 'dancing'
-                ? 'border-purple-400 shadow-[0_0_40px_rgba(168,85,247,0.9)]'
-                : capyMood === 'celebrating'
-                ? 'border-amber-400 shadow-[0_0_45px_rgba(251,191,36,1)]'
-                : capyMood === 'love'
-                ? 'border-rose-400 shadow-[0_0_40px_rgba(251,113,133,0.85)]'
-                : capyMood === 'happy'
-                ? 'border-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.8)]'
-                : capyMood === 'thinking'
-                ? 'border-cyan-300 shadow-[0_0_30px_rgba(34,211,238,0.6)]'
-                : capyMood === 'surprised'
-                ? 'border-indigo-400 shadow-[0_0_40px_rgba(99,102,241,0.8)]'
-                : isCapySpeaking
-                ? 'border-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.9)]'
-                : 'border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.6)] group-hover:border-cyan-300 group-hover:shadow-[0_0_45px_rgba(34,211,238,0.8)]'
+                ? "bg-rose-500/40"
+                : capyMood === "dancing"
+                  ? "bg-purple-500/60"
+                  : capyMood === "celebrating"
+                    ? "bg-amber-400/60"
+                    : capyMood === "love"
+                      ? "bg-rose-400/50"
+                      : capyMood === "happy"
+                        ? "bg-emerald-400/50"
+                        : capyMood === "thinking"
+                          ? "bg-cyan-400/40"
+                          : capyMood === "surprised"
+                            ? "bg-indigo-400/50"
+                            : isCapySpeaking
+                              ? "bg-amber-400/50"
+                              : "bg-cyan-400/40"
+            }`}
+          />
+
+          {/* Mascota de Cuerpo Completo (sin recorte circular ni bordes oscuros) */}
+          <motion.div
+            className={`relative w-28 h-36 sm:w-32 sm:h-40 flex items-center justify-center transition-all duration-500 ${
+              isCapySad
+                ? "drop-shadow-[0_10px_20px_rgba(244,63,94,0.7)]"
+                : capyMood === "dancing"
+                  ? "drop-shadow-[0_10px_25px_rgba(168,85,247,0.85)]"
+                  : capyMood === "celebrating"
+                    ? "drop-shadow-[0_10px_30px_rgba(251,191,36,0.9)]"
+                    : capyMood === "love"
+                      ? "drop-shadow-[0_10px_25px_rgba(251,113,133,0.8)]"
+                      : capyMood === "happy"
+                        ? "drop-shadow-[0_10px_25px_rgba(52,211,153,0.75)]"
+                        : capyMood === "thinking"
+                          ? "drop-shadow-[0_10px_20px_rgba(34,211,238,0.6)]"
+                          : capyMood === "surprised"
+                            ? "drop-shadow-[0_10px_25px_rgba(99,102,241,0.8)]"
+                            : isCapySpeaking
+                              ? "drop-shadow-[0_10px_25px_rgba(251,191,36,0.8)]"
+                              : "drop-shadow-[0_10px_20px_rgba(52,211,153,0.5)] group-hover:drop-shadow-[0_12px_28px_rgba(34,211,238,0.8)]"
             }`}
           >
-            <img
-              src={capybara3dImg}
-              alt="Capibara Compañero"
-              className={`w-full h-full object-cover object-center transition-all duration-300 ${
-                isCapySad ? 'brightness-85 saturate-80'
-                : capyMood === 'love' ? 'brightness-110 saturate-110'
-                : capyMood === 'celebrating' ? 'brightness-115 saturate-125'
-                : 'group-hover:scale-105'
-              }`}
-            />
+            {/* CORONA Y BARRA DE VIDA DE JEFE FINAL (NIVEL 20) */}
+            {currentLevel === 20 && (
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center">
+                <Crown className="w-8 h-8 text-[#FFB400] fill-[#FFB400] drop-shadow-[0_3px_6px_rgba(0,0,0,0.8)] animate-bounce" />
+                <div className="w-24 h-2 bg-slate-900 border border-amber-400 rounded-full overflow-hidden shadow-md mt-0.5">
+                  {(() => {
+                    const totalNodes = Object.keys(nodes).length || 20;
+                    const solvedNodes = Object.values(nodes).filter((n) =>
+                      Boolean(n.placedCard),
+                    ).length;
+                    const remainingHpPct = Math.max(
+                      0,
+                      Math.round(
+                        ((totalNodes - solvedNodes) / totalNodes) * 100,
+                      ),
+                    );
+                    return (
+                      <div
+                        className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 transition-all duration-500"
+                        style={{ width: `${remainingHpPct}%` }}
+                      />
+                    );
+                  })()}
+                </div>
+                <span className="text-[8px] font-black uppercase tracking-wider text-amber-300 drop-shadow">
+                  JEFE CAPI HP
+                </span>
+              </div>
+            )}
+
+            {(() => {
+              const activeTheme =
+                boardInfo?.theme || activeFolder?.name || "general";
+              const resolvedMascot = getMascotByDomain(
+                activeTheme,
+                currentUser?.gender,
+              );
+              const mascotSrc = resolvedMascot?.image || capybara3dImg;
+              const mascotTitle = resolvedMascot?.name || "Hubzi Compañero";
+
+              return (
+                <img
+                  src={mascotSrc}
+                  alt={mascotTitle}
+                  title={`${mascotTitle} - ${resolvedMascot?.role || "Acompañante de Estudio"}`}
+                  className={`w-full h-full object-contain object-bottom pointer-events-none select-none transition-all duration-300 ${
+                    isCapySad
+                      ? "brightness-90 saturate-85"
+                      : capyMood === "love"
+                        ? "brightness-105 saturate-110"
+                        : capyMood === "celebrating"
+                          ? "brightness-110 saturate-120"
+                          : "group-hover:scale-105"
+                  }`}
+                />
+              );
+            })()}
 
             {/* ===== OVERLAYS POR MOOD ===== */}
 
             {/* OVERLAY DANCING: notas musicales */}
-            {capyMood === 'dancing' && (
+            {capyMood === "dancing" && (
               <div className="absolute inset-0 pointer-events-none z-20">
-                {['♪','♫','♩','♬'].map((note, i) => (
+                {["♪", "♫", "♩", "♬"].map((note, i) => (
                   <motion.span
                     key={i}
                     className="absolute text-purple-300 font-bold text-xs"
-                    style={{ left: `${15 + i * 20}%`, top: '10%' }}
-                    animate={{ y: [0, -30], opacity: [0, 1, 0], scale: [0.8, 1.2, 0.8] }}
-                    transition={{ repeat: Infinity, duration: 1, delay: i * 0.25 }}
+                    style={{ left: `${15 + i * 20}%`, top: "10%" }}
+                    animate={{
+                      y: [0, -30],
+                      opacity: [0, 1, 0],
+                      scale: [0.8, 1.2, 0.8],
+                    }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1,
+                      delay: i * 0.25,
+                    }}
                   >
                     {note}
                   </motion.span>
@@ -2166,18 +2933,27 @@ export default function ArcadeArena() {
             )}
 
             {/* OVERLAY CELEBRATING: estrellas y destellos */}
-            {capyMood === 'celebrating' && (
+            {capyMood === "celebrating" && (
               <div className="absolute inset-0 pointer-events-none z-20">
-                {['⭐','✨','🌟','💫','⚡'].map((star, i) => (
+                {["⭐", "✨", "🌟", "💫", "⚡"].map((star, i) => (
                   <motion.span
                     key={i}
                     className="absolute text-sm"
-                    style={{ left: `${5 + i * 18}%`, top: `${10 + (i % 3) * 15}%` }}
-                    animate={{
-                      y: [0, -25], x: [(i % 2 === 0 ? 5 : -5)],
-                      opacity: [0, 1, 1, 0], scale: [0.5, 1.3, 0.5]
+                    style={{
+                      left: `${5 + i * 18}%`,
+                      top: `${10 + (i % 3) * 15}%`,
                     }}
-                    transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.16 }}
+                    animate={{
+                      y: [0, -25],
+                      x: [i % 2 === 0 ? 5 : -5],
+                      opacity: [0, 1, 1, 0],
+                      scale: [0.5, 1.3, 0.5],
+                    }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 0.8,
+                      delay: i * 0.16,
+                    }}
                   >
                     {star}
                   </motion.span>
@@ -2187,19 +2963,24 @@ export default function ArcadeArena() {
             )}
 
             {/* OVERLAY LOVE: corazones flotando */}
-            {capyMood === 'love' && (
+            {capyMood === "love" && (
               <div className="absolute inset-0 pointer-events-none z-20">
-                {['❤️','💙','💕','🥰','💖'].map((heart, i) => (
+                {["❤️", "💙", "💕", "🥰", "💖"].map((heart, i) => (
                   <motion.span
                     key={i}
                     className="absolute text-xs"
-                    style={{ left: `${8 + i * 18}%`, bottom: '5%' }}
+                    style={{ left: `${8 + i * 18}%`, bottom: "5%" }}
                     animate={{
-                      y: [0, -50], opacity: [0, 1, 1, 0],
-                      x: [0, (i % 2 === 0 ? 8 : -8)],
-                      scale: [0.7, 1.1, 0.7]
+                      y: [0, -50],
+                      opacity: [0, 1, 1, 0],
+                      x: [0, i % 2 === 0 ? 8 : -8],
+                      scale: [0.7, 1.1, 0.7],
                     }}
-                    transition={{ repeat: Infinity, duration: 1.6, delay: i * 0.32 }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1.6,
+                      delay: i * 0.32,
+                    }}
                   >
                     {heart}
                   </motion.span>
@@ -2209,15 +2990,19 @@ export default function ArcadeArena() {
             )}
 
             {/* OVERLAY HAPPY: chispas verdes */}
-            {capyMood === 'happy' && !isCapySad && (
+            {capyMood === "happy" && !isCapySad && (
               <div className="absolute inset-0 pointer-events-none z-20">
                 {[...Array(4)].map((_, i) => (
                   <motion.div
                     key={i}
                     className="absolute w-2 h-2 rounded-full bg-emerald-400"
-                    style={{ left: `${15 + i * 20}%`, top: '20%' }}
+                    style={{ left: `${15 + i * 20}%`, top: "20%" }}
                     animate={{ y: [0, -20], opacity: [1, 0], scale: [1, 0.5] }}
-                    transition={{ repeat: Infinity, duration: 0.7, delay: i * 0.18 }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 0.7,
+                      delay: i * 0.18,
+                    }}
                   />
                 ))}
                 <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/30 via-transparent to-transparent" />
@@ -2225,7 +3010,7 @@ export default function ArcadeArena() {
             )}
 
             {/* OVERLAY THINKING: burbujas de pensamiento */}
-            {capyMood === 'thinking' && (
+            {capyMood === "thinking" && (
               <div className="absolute inset-0 pointer-events-none z-20">
                 {[...Array(3)].map((_, i) => (
                   <motion.div
@@ -2235,18 +3020,24 @@ export default function ArcadeArena() {
                       width: `${6 + i * 3}px`,
                       height: `${6 + i * 3}px`,
                       top: `${20 + i * 12}%`,
-                      right: `${10 + i * 5}%`
+                      right: `${10 + i * 5}%`,
                     }}
                     animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
-                    transition={{ repeat: Infinity, duration: 1 + i * 0.3, delay: i * 0.2 }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1 + i * 0.3,
+                      delay: i * 0.2,
+                    }}
                   />
                 ))}
-                <span className="absolute top-2 right-2 text-xs text-cyan-300">💭</span>
+                <span className="absolute top-2 right-2 text-xs text-cyan-300">
+                  💭
+                </span>
               </div>
             )}
 
             {/* OVERLAY SURPRISED: destellos de sorpresa */}
-            {capyMood === 'surprised' && (
+            {capyMood === "surprised" && (
               <div className="absolute inset-0 pointer-events-none z-20">
                 <motion.span
                   className="absolute top-2 left-1/2 -translate-x-1/2 text-lg"
@@ -2260,13 +3051,17 @@ export default function ArcadeArena() {
                     key={i}
                     className="absolute w-1.5 h-6 bg-indigo-400 rounded-full"
                     style={{
-                      top: '30%',
-                      left: '50%',
-                      transformOrigin: '50% 100%',
-                      rotate: `${i * 90}deg`
+                      top: "30%",
+                      left: "50%",
+                      transformOrigin: "50% 100%",
+                      rotate: `${i * 90}deg`,
                     }}
                     animate={{ scaleY: [0.3, 1, 0.3], opacity: [0.4, 1, 0.4] }}
-                    transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.12 }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 0.5,
+                      delay: i * 0.12,
+                    }}
                   />
                 ))}
               </div>
@@ -2278,12 +3073,21 @@ export default function ArcadeArena() {
                 <div className="relative w-full h-full">
                   <motion.div
                     animate={{ y: [0, 40], opacity: [1, 0], scale: [0.8, 1.2] }}
-                    transition={{ repeat: Infinity, duration: 0.45, ease: 'easeIn' }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 0.45,
+                      ease: "easeIn",
+                    }}
                     className="absolute top-1/4 left-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
                   />
                   <motion.div
                     animate={{ y: [0, 40], opacity: [1, 0], scale: [0.8, 1.2] }}
-                    transition={{ repeat: Infinity, duration: 0.50, delay: 0.12, ease: 'easeIn' }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 0.5,
+                      delay: 0.12,
+                      ease: "easeIn",
+                    }}
                     className="absolute top-1/4 right-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
                   />
                 </div>
@@ -2292,64 +3096,115 @@ export default function ArcadeArena() {
               </div>
             )}
 
-            {/* Brillo dinámico de iluminación */}
-            <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/40 via-transparent to-white/15 pointer-events-none" />
-            <div className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full animate-ping ${
-              isCapySad ? 'bg-rose-400'
-              : capyMood === 'dancing' ? 'bg-purple-400'
-              : capyMood === 'celebrating' ? 'bg-amber-400'
-              : capyMood === 'love' ? 'bg-rose-400'
-              : capyMood === 'happy' ? 'bg-emerald-400'
-              : capyMood === 'thinking' ? 'bg-cyan-300'
-              : capyMood === 'surprised' ? 'bg-indigo-400'
-              : isCapySpeaking ? 'bg-amber-300'
-              : 'bg-cyan-300'
-            }`} />
+            <div
+              className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full animate-ping ${
+                isCapySad
+                  ? "bg-rose-400"
+                  : capyMood === "dancing"
+                    ? "bg-purple-400"
+                    : capyMood === "celebrating"
+                      ? "bg-amber-400"
+                      : capyMood === "love"
+                        ? "bg-rose-400"
+                        : capyMood === "happy"
+                          ? "bg-emerald-400"
+                          : capyMood === "thinking"
+                            ? "bg-cyan-300"
+                            : capyMood === "surprised"
+                              ? "bg-indigo-400"
+                              : isCapySpeaking
+                                ? "bg-amber-300"
+                                : "bg-cyan-300"
+              }`}
+            />
           </motion.div>
-
 
           {/* Badge 3D interactivo con estado — refleja todos los moods */}
           <div className="mt-2 flex items-center gap-1.5 z-20">
-            <div className={`px-3 py-0.5 rounded-full bg-slate-900/95 shadow-lg text-center backdrop-blur-sm border transition-colors duration-500 ${
-              isCapySad ? 'border-rose-500/80'
-              : capyMood === 'dancing' ? 'border-purple-400/80'
-              : capyMood === 'celebrating' ? 'border-amber-400/80'
-              : capyMood === 'love' ? 'border-rose-400/80'
-              : capyMood === 'happy' ? 'border-emerald-400/80'
-              : capyMood === 'thinking' ? 'border-cyan-400/80'
-              : capyMood === 'surprised' ? 'border-indigo-400/80'
-              : isCapySpeaking ? 'border-cyan-400'
-              : 'border-emerald-400/80'
-            }`}>
-              <span className={`text-[9px] font-black font-mono tracking-wider flex items-center gap-1 justify-center transition-colors duration-300 ${
-                isCapySad ? 'text-rose-300'
-                : capyMood === 'dancing' ? 'text-purple-300'
-                : capyMood === 'celebrating' ? 'text-amber-300'
-                : capyMood === 'love' ? 'text-rose-300'
-                : capyMood === 'happy' ? 'text-emerald-300'
-                : capyMood === 'thinking' ? 'text-cyan-300'
-                : capyMood === 'surprised' ? 'text-indigo-300'
-                : isCapySpeaking ? 'text-cyan-300'
-                : 'text-emerald-300'
-              }`}>
+            <div
+              className={`px-3 py-0.5 rounded-full bg-slate-900/95 shadow-lg text-center backdrop-blur-sm border transition-colors duration-500 ${
+                isCapySad
+                  ? "border-rose-500/80"
+                  : capyMood === "dancing"
+                    ? "border-purple-400/80"
+                    : capyMood === "celebrating"
+                      ? "border-amber-400/80"
+                      : capyMood === "love"
+                        ? "border-rose-400/80"
+                        : capyMood === "happy"
+                          ? "border-emerald-400/80"
+                          : capyMood === "thinking"
+                            ? "border-cyan-400/80"
+                            : capyMood === "surprised"
+                              ? "border-indigo-400/80"
+                              : isCapySpeaking
+                                ? "border-cyan-400"
+                                : "border-emerald-400/80"
+              }`}
+            >
+              <span
+                className={`text-[9px] font-black font-mono tracking-wider flex items-center gap-1 justify-center transition-colors duration-300 ${
+                  isCapySad
+                    ? "text-rose-300"
+                    : capyMood === "dancing"
+                      ? "text-purple-300"
+                      : capyMood === "celebrating"
+                        ? "text-amber-300"
+                        : capyMood === "love"
+                          ? "text-rose-300"
+                          : capyMood === "happy"
+                            ? "text-emerald-300"
+                            : capyMood === "thinking"
+                              ? "text-cyan-300"
+                              : capyMood === "surprised"
+                                ? "text-indigo-300"
+                                : isCapySpeaking
+                                  ? "text-cyan-300"
+                                  : "text-emerald-300"
+                }`}
+              >
                 {isCapySad ? (
-                  <><Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> HUBZY TE APOYA</>
-                ) : capyMood === 'dancing' ? (
-                  <><span className="text-[9px]">🎵</span> HUBZY MOTIVADO</>
-                ) : capyMood === 'celebrating' ? (
-                  <><span className="text-[9px]">🎉</span> HUBZY CELEBRA</>
-                ) : capyMood === 'love' ? (
-                  <><Heart className="w-2.5 h-2.5 text-rose-400 animate-pulse" /> HUBZY CONTIGO</>
-                ) : capyMood === 'happy' ? (
-                  <><Sparkles className="w-2.5 h-2.5 text-emerald-400" /> HUBZY GENIAL</>
-                ) : capyMood === 'thinking' ? (
-                  <><span className="text-[9px]">💭</span> HUBZY PENSANDO</>
-                ) : capyMood === 'surprised' ? (
-                  <><Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" /> HUBZY ASOMBRADO</>
+                  <>
+                    <Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" />{" "}
+                    HUBZY TE APOYA
+                  </>
+                ) : capyMood === "dancing" ? (
+                  <>
+                    <span className="text-[9px]">🎵</span> HUBZY MOTIVADO
+                  </>
+                ) : capyMood === "celebrating" ? (
+                  <>
+                    <span className="text-[9px]">🎉</span> HUBZY CELEBRA
+                  </>
+                ) : capyMood === "love" ? (
+                  <>
+                    <Heart className="w-2.5 h-2.5 text-rose-400 animate-pulse" />{" "}
+                    HUBZY CONTIGO
+                  </>
+                ) : capyMood === "happy" ? (
+                  <>
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" /> HUBZY
+                    GENIAL
+                  </>
+                ) : capyMood === "thinking" ? (
+                  <>
+                    <span className="text-[9px]">💭</span> HUBZY PENSANDO
+                  </>
+                ) : capyMood === "surprised" ? (
+                  <>
+                    <Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" />{" "}
+                    HUBZY ASOMBRADO
+                  </>
                 ) : isCapySpeaking ? (
-                  <><MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" /> HUBZY</>
+                  <>
+                    <MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />{" "}
+                    HUBZY
+                  </>
                 ) : (
-                  <><Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" /> HUBZY</>
+                  <>
+                    <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />{" "}
+                    HUBZY
+                  </>
                 )}
               </span>
             </div>
@@ -2361,15 +3216,23 @@ export default function ArcadeArena() {
                 toggleMicrophone();
               }}
               className={`p-1 rounded-full border transition-all duration-300 shadow-md cursor-pointer flex items-center justify-center ${
-                isListening 
-                  ? 'bg-rose-600 border-rose-400 text-white ring-4 ring-rose-400/60 animate-pulse shadow-[0_0_15px_#f43f5e]' 
+                isListening
+                  ? "bg-rose-600 border-rose-400 text-white ring-4 ring-rose-400/60 animate-pulse shadow-[0_0_15px_#f43f5e]"
                   : isThinkingHint
-                  ? 'bg-amber-600 border-amber-400 text-white ring-4 ring-amber-400/60 animate-spin'
-                  : 'bg-slate-900/90 border-cyan-400/70 hover:border-cyan-300 text-cyan-300 hover:scale-110 shadow-[0_0_10px_rgba(34,211,238,0.3)]'
+                    ? "bg-amber-600 border-amber-400 text-white ring-4 ring-amber-400/60 animate-spin"
+                    : "bg-slate-900/90 border-cyan-400/70 hover:border-cyan-300 text-cyan-300 hover:scale-110 shadow-[0_0_10px_rgba(34,211,238,0.3)]"
               }`}
-              title={isListening ? "Detener micrófono" : "Habla por micrófono con Hubzi para pedirle apoyo o pistas"}
+              title={
+                isListening
+                  ? "Detener micrófono"
+                  : "Habla por micrófono con Hubzi para pedirle apoyo o pistas"
+              }
             >
-              {isListening ? <MicOff className="w-3 h-3 text-white" /> : <Mic className="w-3 h-3 text-cyan-300" />}
+              {isListening ? (
+                <MicOff className="w-3 h-3 text-white" />
+              ) : (
+                <Mic className="w-3 h-3 text-cyan-300" />
+              )}
             </button>
 
             {/* Botón Silenciar / Activar Voz Tierna */}
@@ -2382,9 +3245,15 @@ export default function ArcadeArena() {
                 if (nextMuted) capyVoice.stop();
               }}
               className="p-1 rounded-full bg-slate-900/90 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
-              title={isCapyMuted ? "Activar voz de Hubzi" : "Silenciar voz de Hubzi"}
+              title={
+                isCapyMuted ? "Activar voz de Hubzi" : "Silenciar voz de Hubzi"
+              }
             >
-              {isCapyMuted ? <VolumeX className="w-3 h-3 text-rose-400" /> : <Volume2 className="w-3 h-3 text-cyan-300" />}
+              {isCapyMuted ? (
+                <VolumeX className="w-3 h-3 text-rose-400" />
+              ) : (
+                <Volume2 className="w-3 h-3 text-cyan-300" />
+              )}
             </button>
 
             {/* Botón Música Ambient Calmante */}
@@ -2395,36 +3264,52 @@ export default function ArcadeArena() {
               }}
               className={`p-1 rounded-full border transition-all duration-300 shadow-md cursor-pointer ${
                 isAmbientPlaying
-                  ? 'bg-purple-900/90 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-2 ring-purple-400/40'
-                  : 'bg-slate-900/90 border-slate-700 hover:border-purple-400 text-slate-400 hover:text-purple-300'
+                  ? "bg-purple-900/90 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-2 ring-purple-400/40"
+                  : "bg-slate-900/90 border-slate-700 hover:border-purple-400 text-slate-400 hover:text-purple-300"
               }`}
-              title={isAmbientPlaying ? "Detener música calmante" : "Reproducir música ambient calmante"}
-            >
-              {isAmbientPlaying
-                ? <Music2 className="w-3 h-3 text-purple-300 animate-pulse" />
-                : <Music className="w-3 h-3" />
+              title={
+                isAmbientPlaying
+                  ? "Detener música calmante"
+                  : "Reproducir música ambient calmante"
               }
+            >
+              {isAmbientPlaying ? (
+                <Music2 className="w-3 h-3 text-purple-300 animate-pulse" />
+              ) : (
+                <Music className="w-3 h-3" />
+              )}
             </button>
           </div>
 
           {/* Micro-pista interactiva al pasar el mouse */}
-          <span className={`text-[7.5px] font-mono mt-1 text-center transition-colors ${
-            isListening ? 'text-rose-400 font-bold animate-pulse' : 'text-cyan-300/80 group-hover:text-cyan-200'
-          }`}>
-            {isListening 
-              ? 'Hubzi te escucha...' 
-              : isThinkingHint 
-              ? 'Hubzi preparando sus palabras con calidez...' 
-              : 'Toca el micrófono para hablar con Hubzi'}
+          <span
+            className={`text-[7.5px] font-mono mt-1 text-center transition-colors ${
+              isListening
+                ? "text-rose-400 font-bold animate-pulse"
+                : "text-cyan-300/80 group-hover:text-cyan-200"
+            }`}
+          >
+            {isListening
+              ? "Hubzi te escucha..."
+              : isThinkingHint
+                ? "Hubzi preparando sus palabras con calidez..."
+                : "Toca el micrófono para hablar con Hubzi"}
           </span>
-
         </motion.div>
       </div>
 
-
-
       {/* BARRA SUPERIOR CON CONTROLES LIMPIOS ESTILO CARD CLASH */}
       <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
+        {/* BOTÓN VOLVER AL MAPA DE NIVELES */}
+        <button
+          onClick={() => setIsMapVisible(true)}
+          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#48C838] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#28871E] active:translate-y-1 active:shadow-none cursor-pointer"
+          title="Ver Mapa de Aventura y Niveles"
+        >
+          <Compass className="w-4 h-4 text-[#48C838]" />
+          <span className="hidden sm:inline">Mapa</span>
+        </button>
+
         {/* BOTÓN VOLVER AL MENÚ PRINCIPAL */}
         <button
           onClick={() => {
@@ -2462,14 +3347,18 @@ export default function ArcadeArena() {
         <button
           onClick={() => setIsSubscriptionModalOpen(true)}
           className={`px-3 py-2 rounded-2xl border-2 border-b-4 text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-1 active:shadow-none ${
-            currentUser?.plan === 'pro'
-              ? 'bg-emerald-600/30 hover:bg-emerald-600/50 border-emerald-500 border-b-emerald-700 text-emerald-300 shadow-[0_4px_0_#064e3b]'
-              : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 border-[#0a162b] border-b-[#b45309] text-[#122443] shadow-[0_4px_0_#78350f]'
+            currentUser?.plan === "pro"
+              ? "bg-emerald-600/30 hover:bg-emerald-600/50 border-emerald-500 border-b-emerald-700 text-emerald-300 shadow-[0_4px_0_#064e3b]"
+              : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 border-[#0a162b] border-b-[#b45309] text-[#122443] shadow-[0_4px_0_#78350f]"
           }`}
           title="Ver planes y suscripción a Hubzy Pro"
         >
-          <Crown className={`w-4 h-4 ${currentUser?.plan === 'pro' ? 'text-emerald-300' : 'text-[#122443] fill-current'}`} />
-          <span className="font-extrabold">{currentUser?.plan === 'pro' ? 'PRO' : 'PLAN PRO'}</span>
+          <Crown
+            className={`w-4 h-4 ${currentUser?.plan === "pro" ? "text-emerald-300" : "text-[#122443] fill-current"}`}
+          />
+          <span className="font-extrabold">
+            {currentUser?.plan === "pro" ? "PRO" : "PLAN PRO"}
+          </span>
         </button>
 
         {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
@@ -2480,13 +3369,19 @@ export default function ArcadeArena() {
               className="px-2.5 py-1 text-white text-xs font-black transition-all flex items-center gap-2 hover:bg-[#1a335e] rounded-xl cursor-pointer group"
               title="Configurar perfil de usuario, edad y voz de Capi"
             >
-              <UserIcon className={`w-4 h-4 shrink-0 ${currentUser?.gender === 'femenino' ? 'text-amber-400' : 'text-cyan-300'}`} />
+              <UserIcon
+                className={`w-4 h-4 shrink-0 ${currentUser?.gender === "femenino" ? "text-amber-400" : "text-cyan-300"}`}
+              />
               <div className="flex flex-col text-left leading-tight">
                 <span className="text-[11px] font-black uppercase text-white truncate max-w-[90px]">
-                  {currentUser?.username || currentUser?.email?.split('@')[0] || 'Mi Perfil'}
+                  {currentUser?.username ||
+                    currentUser?.email?.split("@")[0] ||
+                    "Mi Perfil"}
                 </span>
                 <span className="text-[8.5px] font-mono text-amber-300 truncate max-w-[90px]">
-                  {currentUser?.email ? currentUser.email : `${currentUser?.age}a • ${currentUser?.gender === 'femenino' ? 'Voz Masc.' : 'Voz Fem.'}`}
+                  {currentUser?.email
+                    ? currentUser.email
+                    : `${currentUser?.age}a • ${currentUser?.gender === "femenino" ? "Voz Masc." : "Voz Fem."}`}
                 </span>
               </div>
             </button>
@@ -2516,20 +3411,26 @@ export default function ArcadeArena() {
           title="Reiniciar partida y generar un nuevo conjunto de preguntas de este documento"
         >
           <RotateCcw className="w-4 h-4 text-white" />
-          <span className="hidden sm:inline font-black tracking-wide">Reiniciar</span>
+          <span className="hidden sm:inline font-black tracking-wide">
+            Reiniciar
+          </span>
         </button>
       </div>
 
       {/* Marcadores de Puntuación, Nivel Actual y Progreso del Estudiante estilo Card Clash */}
       <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
-        {/* Indicador de Nivel 1 a 5 */}
+        {/* Indicador de Nivel 1 a 20 */}
         {(() => {
-          const lvlInfo = GAME_LEVELS.find(l => l.level === currentLevel) || GAME_LEVELS[0];
+          const lvlInfo =
+            GAME_LEVELS.find((l) => l.level === currentLevel) || GAME_LEVELS[0];
           return (
-            <div className="flex items-center gap-1.5 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]" title={`Nivel ${currentLevel} de 5: ${lvlInfo.name}`}>
+            <div
+              className="flex items-center gap-1.5 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]"
+              title={`Nivel ${currentLevel} de 20: ${lvlInfo.name}`}
+            >
               <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />
               <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider">
-                NIVEL {currentLevel}/5:
+                NIVEL {currentLevel}/20:
               </span>
               <span className="text-xs font-black text-white uppercase tracking-wide">
                 {lvlInfo.name} ({lvlInfo.questions})
@@ -2538,44 +3439,52 @@ export default function ArcadeArena() {
           );
         })()}
 
-        <div className="flex items-center gap-2 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]" title="Progreso del Circuito">
-          <span className="text-[10px] font-black uppercase text-[#48C838] tracking-wider">Progreso:</span>
+        <div
+          className="flex items-center gap-2 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]"
+          title="Progreso del Circuito"
+        >
+          <span className="text-[10px] font-black uppercase text-[#48C838] tracking-wider">
+            Progreso:
+          </span>
           <span className="text-sm font-black text-white">
-            {Object.values(nodes).filter(n => Boolean(n.placedCard)).length} / {Object.keys(nodes).length || 3}
+            {Object.values(nodes).filter((n) => Boolean(n.placedCard)).length} /{" "}
+            {Object.keys(nodes).length || 3}
           </span>
         </div>
       </div>
 
       {/* Contador de Cartas Propias en Mano */}
       <div className="absolute bottom-5 left-4 sm:left-6 z-40 flex items-center gap-2">
-        <div className="flex items-center gap-2 bg-[#101726]/90 border border-amber-400/60 px-3 py-1.5 rounded-xl shadow-lg" title="Tus cartas restantes">
+        <div
+          className="flex items-center gap-2 bg-[#101726]/90 border border-amber-400/60 px-3 py-1.5 rounded-xl shadow-lg"
+          title="Tus cartas restantes"
+        >
           <Layers className="w-4 h-4 text-amber-400" />
           <span className="text-xs font-mono font-bold text-amber-300">
-            {String(hand.length).padStart(2, '0')} cartas
+            {String(hand.length).padStart(2, "0")} cartas
           </span>
         </div>
       </div>
-
 
       {/* CARTA VOLADORA EN VIVO (MOVIMIENTO EN TIEMPO REAL AL JUGAR LA MÁQUINA O EL RIVAL) */}
       <AnimatePresence>
         {flyingCard && (
           <motion.div
-            initial={{ 
-              top: '8%', 
-              left: '50%', 
-              x: '-50%',
-              scale: 0.9, 
-              opacity: 1, 
-              zIndex: 100 
+            initial={{
+              top: "8%",
+              left: "50%",
+              x: "-50%",
+              scale: 0.9,
+              opacity: 1,
+              zIndex: 100,
             }}
-            animate={{ 
-              top: flyingCard.targetPos?.top || '50%', 
-              left: flyingCard.targetPos?.left || '50%', 
-              x: '-50%',
-              y: '-50%',
-              scale: 0.5, 
-              opacity: [1, 1, 0.95] 
+            animate={{
+              top: flyingCard.targetPos?.top || "50%",
+              left: flyingCard.targetPos?.left || "50%",
+              x: "-50%",
+              y: "-50%",
+              scale: 0.5,
+              opacity: [1, 1, 0.95],
             }}
             exit={{ scale: 0.4, opacity: 0 }}
             transition={{ duration: 0.95, ease: [0.16, 1, 0.3, 1] }}
@@ -2583,15 +3492,17 @@ export default function ArcadeArena() {
           >
             <div className="flex items-center justify-between">
               <span className="text-[8px] font-mono font-bold text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-400">
-                {flyingCard.card.domain?.toUpperCase() || 'EN JUEGO'}
+                {flyingCard.card.domain?.toUpperCase() || "EN JUEGO"}
               </span>
               <span className="text-[10px] font-bold text-amber-300 font-mono">
-                {flyingCard.card.cost || '+1'}
+                {flyingCard.card.cost || "+1"}
               </span>
             </div>
             <div className="w-full h-20 rounded-xl bg-cyan-950/60 border border-cyan-400/40 flex flex-col items-center justify-center">
               <Sparkles className="w-5 h-5 text-cyan-300 animate-spin" />
-              <span className="text-[9px] text-cyan-200 font-bold mt-1">Colocando...</span>
+              <span className="text-[9px] text-cyan-200 font-bold mt-1">
+                Colocando...
+              </span>
             </div>
             <div className="w-full py-1 px-1.5 rounded-lg bg-slate-950 border border-slate-700 text-center">
               <p className="text-[9px] font-black text-white truncate uppercase">
@@ -2623,25 +3534,44 @@ export default function ArcadeArena() {
               ¡Aún no has iniciado tu partida!
             </h2>
             <p className="text-slate-600 font-medium text-sm sm:text-base max-w-md mb-6 leading-relaxed">
-              El tablero y tus cartas de batalla se generarán automáticamente a partir de lo que desees estudiar hoy.
+              El tablero y tus cartas de batalla se generarán automáticamente a
+              partir de lo que desees estudiar hoy.
             </p>
 
             {/* Pasos requeridos con diseño arcade */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-left">
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[#122443] text-white text-xs font-black flex items-center justify-center">1</span>
-                <span className="font-bold text-xs text-slate-800 uppercase">Abre tus carpetas</span>
-                <span className="text-[11px] text-slate-500">Haz clic en el botón de carpetas de estudio.</span>
+                <span className="w-6 h-6 rounded-full bg-[#122443] text-white text-xs font-black flex items-center justify-center">
+                  1
+                </span>
+                <span className="font-bold text-xs text-slate-800 uppercase">
+                  Abre tus carpetas
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Haz clic en el botón de carpetas de estudio.
+                </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[#FF7A00] text-white text-xs font-black flex items-center justify-center">2</span>
-                <span className="font-bold text-xs text-slate-800 uppercase">Sube tu tema</span>
-                <span className="text-[11px] text-slate-500">Carga un PDF, video, audio o documento.</span>
+                <span className="w-6 h-6 rounded-full bg-[#FF7A00] text-white text-xs font-black flex items-center justify-center">
+                  2
+                </span>
+                <span className="font-bold text-xs text-slate-800 uppercase">
+                  Sube tu tema
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Carga un PDF, video, audio o documento.
+                </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[#48C838] text-white text-xs font-black flex items-center justify-center">3</span>
-                <span className="font-bold text-xs text-slate-800 uppercase">Genera el circuito</span>
-                <span className="text-[11px] text-slate-500">Presiona "Iniciar Juego" y que comience el duelo.</span>
+                <span className="w-6 h-6 rounded-full bg-[#48C838] text-white text-xs font-black flex items-center justify-center">
+                  3
+                </span>
+                <span className="font-bold text-xs text-slate-800 uppercase">
+                  Genera el circuito
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Presiona "Iniciar Juego" y que comience el duelo.
+                </span>
               </div>
             </div>
 
@@ -2659,23 +3589,25 @@ export default function ArcadeArena() {
         <>
           {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
           <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-1 sm:my-auto px-2 z-10 overflow-visible">
-            
             {/* Carcasa Octogonal Externa con Extrusión de Sombra 3D */}
-            <div 
+            <div
               className="table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] p-3 sm:p-4 flex flex-col justify-between"
               style={{
-                clipPath: 'polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)',
-                boxShadow: '0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)'
+                clipPath:
+                  "polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)",
+                boxShadow:
+                  "0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)",
               }}
             >
-
               {/* Superficie Interior Biselada del Tablero */}
-              <div 
+              <div
                 className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 pointer-events-none"
                 style={{
-                  clipPath: 'polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)',
-                  backgroundImage: 'linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)',
-                  backgroundSize: '32px 32px'
+                  clipPath:
+                    "polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)",
+                  backgroundImage:
+                    "linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)",
+                  backgroundSize: "32px 32px",
                 }}
               />
 
@@ -2743,70 +3675,82 @@ export default function ArcadeArena() {
                 <div className="flex items-center justify-between border-b border-slate-300/70 pb-2 z-10">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300">
-                      {boardInfo?.theme || 'Circuito de Estudio'}
+                      {boardInfo?.theme || "Circuito de Estudio"}
                     </span>
                     <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-700 font-mono uppercase">
-                      {boardInfo?.title || 'Tablero de Aprendizaje'}
+                      {boardInfo?.title || "Tablero de Aprendizaje"}
                     </h1>
                   </div>
 
-                  {/* Selector / Barra de 5 Niveles */}
-                  <div className="hidden sm:flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-xl border border-slate-300 shadow-sm">
-                    {GAME_LEVELS.map((lvl) => {
-                      const isCurrent = lvl.level === currentLevel;
-                      const isCompleted = lvl.level < currentLevel;
-                      return (
-                        <button
-                          key={lvl.level}
-                          onClick={() => handleJumpToLevel(lvl.level)}
-                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all cursor-pointer ${
-                            isCurrent
-                              ? 'bg-orange-500 text-white shadow-[0_2px_8px_rgba(249,115,22,0.5)] scale-105'
-                              : isCompleted
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-400'
-                              : 'bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200'
-                          }`}
-                          title={`Nivel ${lvl.level}: ${lvl.name} (${lvl.questions} preguntas)`}
-                        >
-                          {isCompleted && <Check className="w-2.5 h-2.5 inline mr-1 text-emerald-600" />}
-                          N{lvl.level}: {lvl.name}
-                        </button>
-                      );
-                    })}
+                  {/* Título de Nivel Actual Discreto */}
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-500/10 border border-orange-300/60 shadow-xs">
+                    <span className="text-[10px] font-black uppercase text-orange-600 font-mono tracking-wider">
+                      Nivel {currentLevel}:{" "}
+                      {GAME_LEVELS.find((l) => l.level === currentLevel)
+                        ?.name || "Fácil"}
+                    </span>
                   </div>
                 </div>
 
                 {/* ÁREA CENTRAL DE NODOS */}
                 <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center">
                   {/* Conexiones de red con flechas de flujo */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                  <svg
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
                     <defs>
-                      <marker id="arrow-coral" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
+                      <marker
+                        id="arrow-coral"
+                        markerWidth="8"
+                        markerHeight="8"
+                        refX="5"
+                        refY="4"
+                        orient="auto"
+                      >
                         <polygon points="0 1, 7 4, 0 7" fill="#ea580c" />
                       </marker>
-                      <marker id="arrow-dark" markerWidth="8" markerHeight="8" refX="5" refY="4" orient="auto">
+                      <marker
+                        id="arrow-dark"
+                        markerWidth="8"
+                        markerHeight="8"
+                        refX="5"
+                        refY="4"
+                        orient="auto"
+                      >
                         <polygon points="0 1, 7 4, 0 7" fill="#1e293b" />
                       </marker>
                     </defs>
-                    {Object.values(nodes).map((node, i, arr) => {
-                      const nextNode = arr[(i + 1) % arr.length];
-                      if (!node.pos || !nextNode.pos) return null;
-                      const isEven = i % 2 === 0;
-                      return (
-                        <line
-                          key={`line-${node.id}-${nextNode.id}`}
-                          x1={node.pos.left}
-                          y1={node.pos.top}
-                          x2={nextNode.pos.left}
-                          y2={nextNode.pos.top}
-                          stroke={isEven ? "#ea580c" : "#1e293b"}
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          opacity={isEven ? "0.85" : "0.75"}
-                          markerEnd={isEven ? "url(#arrow-coral)" : "url(#arrow-dark)"}
-                        />
-                      );
-                    })}
+                    {(() => {
+                      const nodeArr = Object.values(nodes);
+                      const totalNodes = nodeArr.length;
+                      return nodeArr.map((node, i) => {
+                        // Si hay muchos nodos (>8), conectar solo con el siguiente sin cerrar el bucle cruzado del último con el primero
+                        if (totalNodes > 8 && i === totalNodes - 1) return null;
+                        const nextNode = nodeArr[(i + 1) % totalNodes];
+                        if (!node.pos || !nextNode.pos) return null;
+                        const isEven = i % 2 === 0;
+                        return (
+                          <line
+                            key={`line-${node.id}-${nextNode.id}`}
+                            x1={node.pos.left}
+                            y1={node.pos.top}
+                            x2={nextNode.pos.left}
+                            y2={nextNode.pos.top}
+                            stroke={isEven ? "#ea580c" : "#1e293b"}
+                            strokeWidth={totalNodes > 8 ? "2" : "3"}
+                            strokeDasharray={totalNodes > 8 ? "4 4" : "none"}
+                            strokeLinecap="round"
+                            opacity={
+                              totalNodes > 8 ? "0.40" : isEven ? "0.85" : "0.75"
+                            }
+                            markerEnd={
+                              isEven ? "url(#arrow-coral)" : "url(#arrow-dark)"
+                            }
+                          />
+                        );
+                      });
+                    })()}
                   </svg>
 
                   {/* Render de los Nodos */}
@@ -2814,7 +3758,10 @@ export default function ArcadeArena() {
                     <div
                       key={node.id}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                      style={{ top: node.pos?.top || "50%", left: node.pos?.left || "50%" }}
+                      style={{
+                        top: node.pos?.top || "50%",
+                        left: node.pos?.left || "50%",
+                      }}
                     >
                       <div className="relative">
                         {node.lockedByOpponent && (
@@ -2860,66 +3807,148 @@ export default function ArcadeArena() {
 
           {/* MANO DE CARTAS EN ABANICO — SOLO SI HAY PARTIDA ACTIVA */}
           {hand.length > 0 && (
-            <div className={`relative w-full flex flex-col items-center justify-center pb-2 z-40 transition-all duration-300 overflow-visible ${
-              !isActualTurn
-                ? 'opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed' 
-                : 'opacity-100'
-            }`}>
-              {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" */}
-              <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
-                <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
-                  {hand.map((card, idx) => {
-                    const isHinted = hintCardId === card.id;
-                    return (
-                      <div 
-                        key={`slot-${card.id || idx}`}
-                        className={`relative rounded-2xl p-1 transition-all ${
-                          isHinted 
-                            ? 'bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]' 
-                            : 'bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner'
-                        } flex items-center justify-center`}
-                        style={{
-                          width: '86px',
-                          height: '112px'
-                        }}
-                      >
-                        {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
-                        {isHinted && (
-                          <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none animate-bounce">
-                            <span className="px-2 py-0.5 rounded-full bg-[#FF7A00] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
-                              ¡USA ÉSTA!
-                            </span>
-                            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#FF7A00]" />
-                          </div>
-                        )}
+            <div
+              className={`relative w-full flex flex-col items-center justify-center pb-2 z-40 transition-all duration-300 overflow-visible ${
+                !isActualTurn
+                  ? "opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed"
+                  : "opacity-100"
+              }`}
+            >
+              {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" CON PAGINACIÓN INTELIGENTE */}
+              {(() => {
+                const CARDS_PER_PAGE = 7;
+                const totalPages = Math.ceil(hand.length / CARDS_PER_PAGE);
+                // Si la carta sugerida por la pista está en otra página, saltar a ella
+                const hintedIndex = hintCardId
+                  ? hand.findIndex((c) => c.id === hintCardId)
+                  : -1;
+                const activePage =
+                  hintedIndex >= 0
+                    ? Math.floor(hintedIndex / CARDS_PER_PAGE)
+                    : Math.min(handPage, Math.max(0, totalPages - 1));
+                const visibleCards =
+                  totalPages > 1
+                    ? hand.slice(
+                        activePage * CARDS_PER_PAGE,
+                        (activePage + 1) * CARDS_PER_PAGE,
+                      )
+                    : hand;
 
-                        <GameCard
-                          id={card.id}
-                          name={card.name}
-                          cost={card.cost}
-                          type={card.type}
-                          sourceType={card.sourceType}
-                          domain={card.domain}
-                          theme={card.theme || boardInfo?.theme}
-                          index={card.cardIndex ?? idx}
-                          rotation={0}
-                          zIndex={isHinted ? 50 : card.zIndex}
-                          isDraggable={isActualTurn}
-                          isSelected={isHinted}
-                          onDragEnd={(id, info) => {
-                            registerUserActivity();
-                            handleDragEnd(id, info);
-                          }}
-                          onClick={() => {
-                            registerUserActivity();
-                            handleCardClick(card);
-                          }}
-                        />
+                return (
+                  <div className="flex flex-col items-center gap-1.5">
+                    {/* Controles de página para niveles con muchas cartas (Niveles 4 y 5) */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-[#122443] border border-[#1e3a6c] shadow-md z-50">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHandPage((prev) => Math.max(0, prev - 1))
+                          }
+                          disabled={activePage === 0}
+                          className={`p-1 rounded-lg border transition-all cursor-pointer ${
+                            activePage === 0
+                              ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
+                              : "bg-[#1a335e] border-[#294c8b] text-[#FFB400] hover:scale-110"
+                          }`}
+                          title="Página anterior de cartas"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+
+                        <span className="text-[10px] font-mono font-black text-slate-200 uppercase tracking-wider">
+                          Mazo: {activePage + 1} / {totalPages}{" "}
+                          <span className="text-amber-400">
+                            ({hand.length} cartas)
+                          </span>
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHandPage((prev) =>
+                              Math.min(totalPages - 1, prev + 1),
+                            )
+                          }
+                          disabled={activePage >= totalPages - 1}
+                          className={`p-1 rounded-lg border transition-all cursor-pointer ${
+                            activePage >= totalPages - 1
+                              ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
+                              : "bg-[#1a335e] border-[#294c8b] text-[#FFB400] hover:scale-110"
+                          }`}
+                          title="Siguiente página de cartas"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    )}
+
+                    <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
+                      <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
+                        {visibleCards.map((card, idx) => {
+                          const isHinted = hintCardId === card.id;
+                          const isHandSelected =
+                            selectedCardInHand?.id === card.id;
+                          return (
+                            <div
+                              key={`slot-${card.id || idx}`}
+                              className={`relative rounded-2xl p-1 transition-all ${
+                                isHandSelected
+                                  ? "bg-cyan-400/40 border-2 border-cyan-400 shadow-[0_0_22px_#22d3ee] scale-105"
+                                  : isHinted
+                                    ? "bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]"
+                                    : "bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner"
+                              } flex items-center justify-center`}
+                              style={{
+                                width: "86px",
+                                height: "112px",
+                              }}
+                            >
+                              {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
+                              {isHinted && (
+                                <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none animate-bounce">
+                                  <span className="px-2 py-0.5 rounded-full bg-[#FF7A00] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
+                                    ¡USA ÉSTA!
+                                  </span>
+                                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#FF7A00]" />
+                                </div>
+                              )}
+
+                              <GameCard
+                                id={card.id}
+                                name={card.name}
+                                cost={card.cost}
+                                type={card.type}
+                                sourceType={card.sourceType}
+                                domain={card.domain}
+                                theme={card.theme || boardInfo?.theme}
+                                index={card.cardIndex ?? idx}
+                                rotation={0}
+                                zIndex={
+                                  isHandSelected
+                                    ? 60
+                                    : isHinted
+                                      ? 50
+                                      : card.zIndex
+                                }
+                                isDraggable={isActualTurn}
+                                isSelected={isHinted || isHandSelected}
+                                onDragEnd={(id, info) => {
+                                  registerUserActivity();
+                                  handleDragEnd(id, info);
+                                }}
+                                onClick={() => {
+                                  registerUserActivity();
+                                  handleCardClick(card);
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </>
@@ -2937,18 +3966,157 @@ export default function ArcadeArena() {
         level={currentLevel}
         accuracy={victoryStats.accuracy}
         totalQuestions={victoryStats.totalQuestions}
+        masteredConcepts={Object.values(nodes)
+          .map((n) => n.placedCard)
+          .filter(Boolean)}
         onNextLevel={() => {
           setIsVictoryModalOpen(false);
-          if (currentLevel < 5) {
-            setCurrentLevel(prev => prev + 1);
+          setIsLevelTransitioning(false);
+          // Calcular estrellas (1 a 3)
+          const earnedStars =
+            victoryStats.accuracy >= 90
+              ? 3
+              : victoryStats.accuracy >= 70
+                ? 2
+                : 1;
+          setLevelStars((prev) => ({
+            ...prev,
+            [currentLevel]: Math.max(prev[currentLevel] || 0, earnedStars),
+          }));
+          // Desbloquear siguiente nivel si no estaba desbloqueado (hasta nivel 20)
+          if (currentLevel < 20) {
+            setUnlockedLevel((prev) => Math.max(prev, currentLevel + 1));
+            setCurrentLevel((prev) => prev + 1);
           }
+          // Regresar al mapa de aventura con el nuevo nivel listo
+          setIsMapVisible(true);
         }}
         onRetry={() => {
           setIsVictoryModalOpen(false);
+          setIsLevelTransitioning(false);
           handleRestartWithNewQuestions();
         }}
-        onReview={() => setIsVictoryModalOpen(false)}
+        onGoToMenu={() => {
+          setIsVictoryModalOpen(false);
+          setIsLevelTransitioning(false);
+          // Si el jugador superó el nivel con al menos 2 estrellas, registrar avance antes de salir
+          const earnedStars =
+            victoryStats.accuracy >= 90 ? 3 : victoryStats.accuracy >= 70 ? 2 : 1;
+          if (earnedStars >= 2) {
+            setLevelStars((prev) => ({
+              ...prev,
+              [currentLevel]: Math.max(prev[currentLevel] || 0, earnedStars),
+            }));
+            if (currentLevel < 20) {
+              setUnlockedLevel((prev) => Math.max(prev, currentLevel + 1));
+            }
+          }
+          setIsMapVisible(true);
+        }}
+        onReview={() => {
+          setIsVictoryModalOpen(false);
+          setIsLevelTransitioning(false);
+        }}
       />
+
+      {/* MODAL DE OPCIONES DE REINICIO (OPCIÓN A: REPETIR MISMO EXAMEN VS OPCIÓN B: NUEVAS PREGUNTAS CON IA) */}
+      <AnimatePresence>
+        {isRestartOptionsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none font-sans">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 340, damping: 25 }}
+              className="relative w-full max-w-lg rounded-3xl bg-[#122443] border-4 border-[#0a162b] p-6 sm:p-7 text-white shadow-[0_16px_0_#050a13,0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-hidden"
+            >
+              {/* Botón cerrar X */}
+              <button
+                onClick={() => setIsRestartOptionsModalOpen(false)}
+                className="absolute top-4 right-4 p-2 rounded-xl bg-[#0a162b] text-slate-400 hover:text-white transition-colors cursor-pointer border border-[#1e3a6c]"
+                title="Cancelar y volver al juego"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Encabezado */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] mb-3">
+                <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
+                <span className="text-[11px] font-black uppercase text-[#FF7A00] tracking-wider">
+                  ¿Cómo deseas reiniciar?
+                </span>
+              </div>
+
+              <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight mb-2">
+                Elige tu modo de práctica
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 font-medium mb-6 max-w-md">
+                Puedes reintentar el examen actual para afianzar conceptos o
+                generar preguntas completamente nuevas con IA.
+              </p>
+
+              {/* Las 2 Opciones en tarjetas interactivas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full mb-5">
+                {/* OPCIÓN A */}
+                <button
+                  onClick={handleResetCurrentBoard}
+                  className="group relative p-4 rounded-2xl bg-[#0d1b33] hover:bg-[#162c52] border-2 border-[#1e3a6c] hover:border-[#48C838] border-b-4 hover:border-b-[#2e8a22] text-left transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#48C838]/20 border border-[#48C838]/50 flex items-center justify-center">
+                      <RefreshCw className="w-5 h-5 text-[#48C838] group-hover:rotate-180 transition-transform duration-500" />
+                    </div>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#48C838]/20 text-[#48C838] border border-[#48C838]/40">
+                      ⚡ Instantáneo
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white group-hover:text-[#48C838] transition-colors mb-1">
+                      Mismo Examen
+                    </h4>
+                    <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                      Limpia el tablero y devuelve tus cartas a la mano para
+                      reintentar este mismo circuito (0 seg).
+                    </p>
+                  </div>
+                </button>
+
+                {/* OPCIÓN B */}
+                <button
+                  onClick={handleRegenerateWithNewQuestions}
+                  className="group relative p-4 rounded-2xl bg-[#0d1b33] hover:bg-[#162c52] border-2 border-[#1e3a6c] hover:border-[#FFB400] border-b-4 hover:border-b-[#b88200] text-left transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#FFB400]/20 border border-[#FFB400]/50 flex items-center justify-center">
+                      <Dices className="w-5 h-5 text-[#FFB400] group-hover:rotate-12 transition-transform" />
+                    </div>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#FFB400]/20 text-[#FFB400] border border-[#FFB400]/40">
+                      ✨ IA Gemini
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white group-hover:text-[#FFB400] transition-colors mb-1">
+                      Nuevas Preguntas
+                    </h4>
+                    <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                      La IA extraerá nuevos conceptos y preguntas diferentes del
+                      mismo documento (~2-5 seg).
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Botón cancelar */}
+              <button
+                onClick={() => setIsRestartOptionsModalOpen(false)}
+                className="w-full py-2.5 rounded-xl bg-[#0a162b] hover:bg-[#142340] border border-[#1e3a6c] text-xs font-bold text-slate-400 hover:text-white uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Volver al juego
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* MODAL DE SUSCRIPCIÓN STRIPE CHECKOUT (HUBZY PRO) */}
       <SubscriptionModal
@@ -2957,7 +4125,7 @@ export default function ArcadeArena() {
         currentUser={currentUser}
         onSubscriptionSuccess={() => {
           setIsSubscriptionModalOpen(false);
-          setSuccessNotif('¡Tu cuenta ahora tiene acceso a Hubzy Pro!');
+          setSuccessNotif("¡Tu cuenta ahora tiene acceso a Hubzy Pro!");
         }}
       />
 
@@ -2969,35 +4137,7 @@ export default function ArcadeArena() {
       />
 
       {/* BANNER DE CONSENTIMIENTO DE COOKIES */}
-      <CookieConsentBanner
-        onOpenLegal={handleOpenLegal}
-      />
-
-      {/* FOOTER DE TRANSPARENCIA Y LEGALIDAD (ALTA LEGIBILIDAD) */}
-      <footer className="w-full py-2 px-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-semibold text-slate-800 select-none z-20">
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg backdrop-blur-md text-slate-300 text-[11px]">
-          <span className="font-bold text-amber-400">Hubzy © {new Date().getFullYear()}</span>
-          <span className="text-slate-600">•</span>
-          <button onClick={() => handleOpenLegal('terms')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
-            Términos de Servicio
-          </button>
-          <span className="text-slate-600">•</span>
-          <button onClick={() => handleOpenLegal('privacy')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
-            Privacidad
-          </button>
-          <span className="text-slate-600">•</span>
-          <button onClick={() => handleOpenLegal('refunds')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
-            Reembolsos
-          </button>
-          <span className="text-slate-600">•</span>
-          <button onClick={() => handleOpenLegal('business')} className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer">
-            Datos de la Empresa
-          </button>
-        </div>
-      </footer>
-
+      <CookieConsentBanner onOpenLegal={handleOpenLegal} />
     </div>
   );
 }
-
-

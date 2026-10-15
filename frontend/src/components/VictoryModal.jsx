@@ -20,10 +20,13 @@ export default function VictoryModal({
   level = 1, 
   accuracy = 100, 
   totalQuestions = 5, 
+  masteredConcepts = [],
   onNextLevel, 
   onRetry,
+  onGoToMenu,
   onReview 
 }) {
+  const [showSummary, setShowSummary] = React.useState(false);
   React.useEffect(() => {
     if (isOpen) {
       try {
@@ -71,7 +74,7 @@ export default function VictoryModal({
         </p>
 
         {/* Estrellas de Recompensa */}
-        <div className="flex items-center justify-center gap-2 mb-5">
+        <div className="flex items-center justify-center gap-2 mb-3">
           {[1, 2, 3].map((starIdx) => {
             const isEarned = starIdx <= stars;
             return (
@@ -90,6 +93,17 @@ export default function VictoryModal({
               </motion.div>
             );
           })}
+        </div>
+
+        {/* Indicador de Desbloqueo (Mínimo 2 estrellas) */}
+        <div className={`w-full py-1.5 px-3 rounded-xl text-xs font-black uppercase tracking-wide mb-4 ${
+          stars >= 2 
+            ? 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300' 
+            : 'bg-rose-950/80 border border-rose-500/60 text-rose-300'
+        }`}>
+          {stars >= 2 
+            ? '🎉 ¡Nivel Superado! (Mínimo 2★ conseguidas)' 
+            : '⚠️ Necesitas mínimo 2★ para desbloquear el siguiente nivel'}
         </div>
 
         {/* Estadísticas de la Ronda */}
@@ -150,7 +164,7 @@ export default function VictoryModal({
         </div>
 
         {/* Mensaje de Capibara Acompañante */}
-        <div className="flex items-center gap-3 w-full p-3 rounded-2xl bg-[#1a335e]/60 border-2 border-[#1e3a6c] mb-5 text-left">
+        <div className="flex items-center gap-3 w-full p-3 rounded-2xl bg-[#1a335e]/60 border-2 border-[#1e3a6c] mb-3 text-left">
           <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-[#FFB400] shrink-0 bg-[#0a162b]">
             <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
           </div>
@@ -164,24 +178,72 @@ export default function VictoryModal({
           </div>
         </div>
 
-        {/* Botones de Acción Estilo Card Clash */}
-        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full">
-          {onRetry && (
+        {/* Resumen / Glosario de Aprendizaje del Nivel */}
+        {masteredConcepts && masteredConcepts.length > 0 && (
+          <div className="w-full mb-4">
             <button
-              onClick={onRetry}
-              className="w-full sm:w-1/2 py-3 px-4 rounded-2xl bg-[#0a162b] hover:bg-[#162a4d] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-slate-200 font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-1 active:shadow-none"
+              type="button"
+              onClick={() => setShowSummary(prev => !prev)}
+              className="w-full py-2 px-3 rounded-xl bg-[#0a162b] hover:bg-[#152747] border border-[#1e3a6c] text-[11px] font-black text-[#FFB400] uppercase tracking-wider flex items-center justify-between cursor-pointer transition-colors"
             >
-              <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
-              <span>Repetir</span>
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-[#FFB400]" />
+                Glosario Dominado ({masteredConcepts.length} conceptos)
+              </span>
+              <span className="text-xs text-slate-400">{showSummary ? '▲ Ocultar' : '▼ Ver'}</span>
             </button>
-          )}
 
-          {onNextLevel && (
+            {showSummary && (
+              <div className="mt-2 p-2.5 rounded-xl bg-[#081224] border border-[#1e3a6c] max-h-44 overflow-y-auto space-y-2 text-left">
+                {masteredConcepts.map((item, idx) => (
+                  <div key={idx} className="p-2 rounded-lg bg-[#0e1e38] border border-slate-700/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black text-[#48C838] uppercase">
+                        {item.name || item.concept_name || item.label}
+                      </span>
+                      <span className="text-[9px] font-mono text-cyan-300">✓ Dominado</span>
+                    </div>
+                    {item.content && (
+                      <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                        {item.content}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Botones de Acción Estilo Card Clash */}
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex items-center gap-2 w-full">
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="flex-1 py-3 px-3 rounded-2xl bg-[#0a162b] hover:bg-[#162a4d] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-slate-200 font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-1 active:shadow-none"
+              >
+                <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
+                <span>Reiniciar</span>
+              </button>
+            )}
+
+            {onGoToMenu && (
+              <button
+                onClick={onGoToMenu}
+                className="flex-1 py-3 px-3 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-1 active:shadow-none"
+              >
+                <span>🗺️ Menú / Mapa</span>
+              </button>
+            )}
+          </div>
+
+          {onNextLevel && stars >= 2 && (
             <button
               onClick={onNextLevel}
-              className="w-full sm:w-1/2 py-3 px-4 rounded-2xl bg-[#48C838] hover:bg-[#57d847] border-2 border-[#67dc59] border-b-4 border-b-[#28871E] text-white font-black text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none"
+              className="w-full py-3.5 px-4 rounded-2xl bg-[#48C838] hover:bg-[#57d847] border-2 border-[#67dc59] border-b-4 border-b-[#28871E] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none"
             >
-              <span>Siguiente Nivel</span>
+              <span>¡Avanzar al Siguiente Nivel!</span>
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
           )}

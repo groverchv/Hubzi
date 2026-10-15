@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mail, 
@@ -26,7 +26,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [gender, setGender] = useState('masculino');
-  const [age, setAge] = useState('20');
+  const [age, setAge] = useState('14');
   const [showPassword, setShowPassword] = useState(false);
 
   // Estados de UI
@@ -52,23 +52,23 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setErrorMsg('Por favor introduce un correo electr├│nico v├ílido.');
+      setErrorMsg('Por favor introduce un correo electrónico válido.');
       return;
     }
 
     if (!password || password.length < 6) {
-      setErrorMsg('La contrase├▒a debe tener al menos 6 caracteres.');
+      setErrorMsg('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
 
     if (mode === 'register') {
       if (!username.trim() || username.trim().length < 2) {
-        setErrorMsg('Por favor introduce tu nombre o apodo (m├¡nimo 2 letras).');
+        setErrorMsg('Por favor introduce tu nombre o apodo (mínimo 2 letras).');
         return;
       }
       const numAge = parseInt(age, 10);
-      if (isNaN(numAge) || numAge < 6 || numAge > 110) {
-        setErrorMsg('Ingresa una edad v├ílida (entre 6 y 110 a├▒os).');
+      if (isNaN(numAge) || numAge < 5 || numAge > 20) {
+        setErrorMsg('Ingresa una edad válida (entre 5 y 20 años).');
         return;
       }
     }
@@ -98,7 +98,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       const data = await res.json();
 
       if (res.ok && data.user) {
-        setSuccessMsg(mode === 'login' ? '┬íBienvenido de vuelta!' : '┬íCuenta creada con ├®xito!');
+        setSuccessMsg(mode === 'login' ? '¡Bienvenido de vuelta!' : '¡Cuenta creada con éxito!');
         
         // Guardar token y usuario
         if (data.token) {
@@ -110,17 +110,17 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           onAuthSuccess(data.user);
         }, 500);
       } else {
-        setErrorMsg(data.detail || 'Ocurri├│ un error al procesar tu solicitud.');
+        setErrorMsg(data.detail || 'Ocurrió un error al procesar tu solicitud.');
       }
     } catch (err) {
-      console.warn("Error en autenticaci├│n API, intentando fallback:", err);
-      // Fallback local en caso de desconexi├│n moment├ínea de red
+      console.warn("Error en autenticación API, intentando fallback:", err);
+      // Fallback local en caso de desconexión momentánea de red
       const fallbackUser = {
         id: `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
         email: cleanEmail,
         username: mode === 'register' ? username.trim() : cleanEmail.split('@')[0],
         gender: mode === 'register' ? gender : 'masculino',
-        age: mode === 'register' ? parseInt(age, 10) : 20,
+        age: mode === 'register' ? parseInt(age, 10) : 14,
         avatar: 'capy_fan',
         voice_preference: 'auto',
         assigned_voice_gender: (mode === 'register' ? gender : 'masculino') === 'masculino' ? 'female' : 'male',
@@ -136,6 +136,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     }
   };
 
+  const getAgeCategory = (numAge) => {
+    if (numAge <= 11) return 'Primaria / Infantil (5-11)';
+    if (numAge <= 16) return 'Secundaria (12-16)';
+    return 'Preparatoria / Joven (17-20)';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
       <motion.div
@@ -148,7 +154,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#FF7A00]/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[#48C838]/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Bot├│n Cerrar (X) */}
+        {/* Botón Cerrar (X) */}
         <button
           type="button"
           onClick={onClose}
@@ -158,28 +164,28 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <X className="w-5 h-5 stroke-[2.5]" />
         </button>
 
-        {/* Header con Capibara y T├¡tulo */}
+        {/* Header con Capibara y Título */}
         <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[#1e3a6c]">
           <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-3 border-[#FFB400] shadow-[0_4px_0_#D48800] shrink-0 bg-[#0a162b]">
-            <img src={capybara3dImg} alt="Capi Guardi├ín" className="w-full h-full object-cover" />
+            <img src={capybara3dImg} alt="Capi Guardián" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono font-black uppercase text-[#FFB400] tracking-wider">
-                Portal de Acceso
+              <span className="text-[10px] font-sans font-black uppercase text-[#FFB400] tracking-wider">
+                PORTAL DE ACCESO
               </span>
               <span className="px-2 py-0.5 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] text-[9px] font-black text-white uppercase tracking-wider">
-                Hubzi Arena
+                HUBZI ARENA
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide mt-0.5 drop-shadow">
-              {mode === 'login' ? 'Iniciar Sesi├│n' : 'Crear Cuenta'}
+              {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
             </h2>
           </div>
         </div>
 
-        {/* Selector de Pesta├▒as (Login / Registro estilo Card Clash) */}
+        {/* Selector de Pestañas (Login / Registro estilo Card Clash) */}
         <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-[#0a162b] border-3 border-[#1e3a6c] mb-5">
           <button
             type="button"
@@ -207,7 +213,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           </button>
         </div>
 
-        {/* Mensajes de Alerta / ├ëxito */}
+        {/* Mensajes de Alerta / Éxito */}
         <AnimatePresence>
           {errorMsg && (
             <motion.div
@@ -240,7 +246,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           {/* Campo Nombre de Usuario (Solo en Registro) */}
           {mode === 'register' && (
             <div>
-              <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1 flex items-center gap-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-purple-400" />
                 <span>Nombre o Apodo</span>
               </label>
@@ -249,17 +255,17 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ej. Alex, Sof├¡a, Mateo..."
+                placeholder="Ej. Alex, Sofía, Mateo..."
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700 focus:border-purple-400 focus:outline-none text-white text-xs font-medium placeholder:text-slate-500 transition-colors"
               />
             </div>
           )}
 
-          {/* Campo Correo Electr├│nico */}
+          {/* Campo Correo Electrónico */}
           <div>
-            <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1 flex items-center gap-1.5">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Correo Electr├│nico</span>
+              <span>Correo Electrónico</span>
             </label>
             <input
               type="email"
@@ -271,15 +277,15 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             />
           </div>
 
-          {/* Campo Contrase├▒a con Toggle de Ojo */}
+          {/* Campo Contraseña con Toggle de Ojo */}
           <div>
-            <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1 flex items-center justify-between">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
-                <span>Contrase├▒a</span>
+                <span>Contraseña</span>
               </span>
               {mode === 'register' && (
-                <span className="text-[10px] text-slate-400 font-normal">M├¡n. 6 caracteres</span>
+                <span className="text-[10px] text-slate-400 font-normal">Mín. 6 caracteres</span>
               )}
             </label>
             <div className="relative">
@@ -288,14 +294,14 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó"
-                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900/90 border border-slate-700 focus:border-amber-400 focus:outline-none text-white text-xs font-mono placeholder:text-slate-500 transition-colors"
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900/90 border border-slate-700 focus:border-amber-400 focus:outline-none text-white text-xs placeholder:text-slate-500 transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-                title={showPassword ? "Ocultar contrase├▒a" : "Ver contrase├▒a"}
+                title={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -309,10 +315,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               animate={{ opacity: 1, height: 'auto' }}
               className="space-y-3 pt-1 border-t border-slate-800"
             >
-              {/* Selector de G├®nero */}
+              {/* Selector de Género */}
               <div>
-                <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
-                  Sexo / G├®nero
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Sexo / Género
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -325,7 +331,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     }`}
                   >
                     <span>Hombre</span>
-                    <span className="text-[9px] font-mono text-pink-400">Voz Capi Fem.</span>
+                    <span className="text-[9px] text-pink-400">Voz Capi Fem.</span>
                   </button>
 
                   <button
@@ -338,43 +344,49 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     }`}
                   >
                     <span>Mujer</span>
-                    <span className="text-[9px] font-mono text-cyan-400">Voz Capi Masc.</span>
+                    <span className="text-[9px] text-cyan-400">Voz Capi Masc.</span>
                   </button>
                 </div>
               </div>
 
-              {/* Selector de Edad */}
+              {/* Selector de Edad (Rango de 5 a 20 años) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1">
                     <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Edad: <strong className="text-amber-300">{age} a├▒os</strong></span>
+                    <span>Edad: <strong className="text-amber-300 font-extrabold">{age} años</strong></span>
                   </label>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {parseInt(age, 10) < 18 ? 'Escolar' : parseInt(age, 10) <= 25 ? 'Universitario' : 'Adulto'}
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {getAgeCategory(parseInt(age, 10))}
                   </span>
                 </div>
                 <input
                   type="range"
-                  min="10"
-                  max="70"
+                  min="5"
+                  max="20"
+                  step="1"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
                   className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                 />
+                <div className="flex justify-between text-[9px] text-slate-500 font-bold px-0.5 mt-0.5">
+                  <span>5 años</span>
+                  <span>12 años</span>
+                  <span>20 años</span>
+                </div>
               </div>
 
               {/* Indicador de voz complementaria asignada */}
               <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-cyan-400 shrink-0" />
-                <span className="text-[11px] text-slate-300 font-mono">
+                <span className="text-[11px] text-slate-300 font-medium">
                   Asignado: <strong className="text-cyan-300">{assignedVoiceLabel}</strong>
                 </span>
               </div>
             </motion.div>
           )}
 
-          {/* Bot├│n de Enviar (Estilo Bot├│n Primario Arcade Card Clash) */}
+          {/* Botón de Enviar (Estilo Botón Primario Arcade Card Clash) */}
           <div className="pt-2 space-y-2.5">
             <button
               type="submit"
@@ -395,7 +407,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               ) : mode === 'login' ? (
                 <>
                   <LogIn className="w-4 h-4 text-white" />
-                  <span>Iniciar Sesi├│n en Hubzi</span>
+                  <span>Iniciar Sesión en Hubzi</span>
                 </>
               ) : (
                 <>
@@ -405,7 +417,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               )}
             </button>
 
-            {/* Ingreso Directo sin registrarse (Modo Invitado con Estilo Bot├│n P├¡ldora Marina) */}
+            {/* Ingreso Directo sin registrarse (Modo Invitado) */}
             <button
               type="button"
               onClick={() => {
@@ -414,7 +426,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   email: 'invitado@hubzi.app',
                   username: 'Invitado',
                   gender: 'masculino',
-                  age: 20,
+                  age: 14,
                   avatar: 'capy_fan',
                   voice_preference: 'auto',
                   assigned_voice_gender: 'female',
@@ -422,7 +434,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   created_at: new Date().toISOString()
                 };
                 localStorage.setItem('hubzy_current_user', JSON.stringify(guestUser));
-                setSuccessMsg('┬íIngreso directo concedido! Bienvenido.');
+                setSuccessMsg('¡Ingreso directo concedido! Bienvenido.');
                 setTimeout(() => {
                   onAuthSuccess(guestUser);
                 }, 400);
@@ -437,7 +449,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
         {/* Footer / Nota de privacidad de documentos */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 text-center">
-          <p className="text-[10px] text-slate-400 font-mono flex items-center justify-center gap-1">
+          <p className="text-[10px] text-slate-400 flex items-center justify-center gap-1 font-medium">
             <ShieldCheck className="w-3 h-3 text-emerald-400" />
             <span>Tus documentos y carpetas son 100% privados e independientes</span>
           </p>
