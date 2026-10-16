@@ -1,37 +1,19 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Settings,
-  Search,
   Layers,
-  Check,
-  Lock,
-  Hourglass,
   RotateCcw,
-  RefreshCw,
-  Dices,
   LogOut,
   Sparkles,
   BookOpen,
   Trophy,
-  Bot,
-  Swords,
-  AlertTriangle,
-  Target,
-  UploadCloud,
-  HelpCircle,
   LogIn as LogInIcon,
   Folder as FolderIcon,
   User as UserIcon,
   Home,
   Crown,
-  X,
-  ChevronLeft,
-  ChevronRight,
   Compass,
 } from "lucide-react";
-import GameCard from "../components/GameCard";
-import ArcadeNode from "../components/ArcadeNode";
 import QuestionModal from "../components/QuestionModal";
 import CardDetailModal from "../components/CardDetailModal";
 import GameModeModal from "../components/GameModeModal";
@@ -49,6 +31,9 @@ import CookieConsentBanner from "../components/CookieConsentBanner";
 import GameOverModal from "../components/GameOverModal";
 import LevelUpModal from "../components/LevelUpModal";
 import CapyCompanion from "../components/CapyCompanion";
+import RestartOptionsModal from "../components/RestartOptionsModal";
+import HandTray from "../components/HandTray";
+import BoardConsole from "../components/BoardConsole";
 import { capyAudio } from "../utils/capyAudio";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
@@ -2222,369 +2207,32 @@ export default function ArcadeArena() {
       ) : (
         <>
           {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
-          <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-1 sm:my-auto px-2 z-10 overflow-visible">
-            {/* Carcasa Octogonal Externa con Extrusión de Sombra 3D */}
-            <div
-              className="table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] p-3 sm:p-4 flex flex-col justify-between"
-              style={{
-                clipPath:
-                  "polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)",
-                boxShadow:
-                  "0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)",
-              }}
-            >
-              {/* Superficie Interior Biselada del Tablero */}
-              <div
-                className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 pointer-events-none"
-                style={{
-                  clipPath:
-                    "polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)",
-                  backgroundImage:
-                    "linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)",
-                  backgroundSize: "32px 32px",
-                }}
-              />
-
-              {/* MÓDULOS DECORATIVOS COLORIDOS INCRUSTADOS EN LOS BORDES */}
-              {/* 1. ESQUINA SUPERIOR IZQUIERDA */}
-              <div className="absolute top-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#1e293b] to-[#334155] border border-[#475569] shadow-md transform -rotate-[35deg] pointer-events-none">
-                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse" />
-                <span className="w-5 h-1 rounded-full bg-slate-300/60" />
-              </div>
-
-              {/* 2. ESQUINA SUPERIOR DERECHA */}
-              <div className="absolute top-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ea580c] to-[#f97316] border border-[#fb923c] shadow-md transform rotate-[35deg] pointer-events-none">
-                <div className="w-2 h-2 rounded-full bg-amber-200 shadow-[0_0_8px_#fde68a]" />
-                <span className="w-5 h-1 rounded-full bg-white/70" />
-              </div>
-
-              {/* 3. ESQUINA INFERIOR IZQUIERDA */}
-              <div className="absolute bottom-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#312e81] to-[#4f46e5] border border-[#6366f1] shadow-md transform rotate-[35deg] pointer-events-none">
-                <div className="w-2 h-2 rounded-full bg-indigo-200 shadow-[0_0_8px_#c7d2fe]" />
-                <span className="w-5 h-1 rounded-full bg-white/60" />
-              </div>
-
-              {/* 4. ESQUINA INFERIOR DERECHA */}
-              <div className="absolute bottom-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-[#ca8a04] to-[#eab308] border border-[#facc15] shadow-md transform -rotate-[35deg] pointer-events-none">
-                <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff]" />
-                <span className="w-5 h-1 rounded-full bg-amber-950/40" />
-              </div>
-
-              {/* 5. LATERAL IZQUIERDO */}
-              <div className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#f87171] to-[#fb923c] border-2 border-[#fdba74] shadow-[0_4px_12px_rgba(248,113,113,0.35)] pointer-events-none">
-                <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70 flex items-center justify-center">
-                  <div className="w-1 h-4 rounded-full bg-white" />
-                </div>
-                <div className="w-4 h-4 rounded-lg bg-[#b91c1c]/50 border border-white/80 flex items-center justify-center shadow-inner">
-                  <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
-                </div>
-                <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70" />
-              </div>
-
-              {/* 6. LATERAL DERECHO */}
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-2xl bg-gradient-to-b from-[#0f172a] to-[#1e293b] border-2 border-[#475569] shadow-[0_4px_12px_rgba(15,23,42,0.45)] pointer-events-none">
-                <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
-                <div className="w-4 h-4 rounded-lg bg-orange-500 border border-orange-300 flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.8)]">
-                  <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-white ml-0.5" />
-                </div>
-                <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
-              </div>
-
-              {/* 7. BORDE SUPERIOR */}
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-6 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
-                <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
-                <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-              </div>
-
-              {/* 8. BORDE INFERIOR */}
-              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-10 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
-                <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]" />
-                <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
-              </div>
-
-              {/* PANTALLA TÁCTICA CON DISTRIBUCIÓN ESPACIAL ABIERTA */}
-              <div className="w-full h-full rounded-2xl bg-[#f8fafc]/70 border border-slate-300/80 p-3 sm:p-4 flex flex-col justify-between relative overflow-hidden">
-                <div className="flex items-center justify-between border-b border-slate-300/70 pb-2 z-10">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300">
-                      {boardInfo?.theme || "Circuito de Estudio"}
-                    </span>
-                    <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-700 font-mono uppercase">
-                      {boardInfo?.title || "Tablero de Aprendizaje"}
-                    </h1>
-                  </div>
-
-                  {/* Título de Nivel Actual Discreto */}
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-500/10 border border-orange-300/60 shadow-xs">
-                    <span className="text-[10px] font-black uppercase text-orange-600 font-mono tracking-wider">
-                      Nivel {currentLevel}:{" "}
-                      {GAME_LEVELS.find((l) => l.level === currentLevel)
-                        ?.name || "Fácil"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* ÁREA CENTRAL DE NODOS */}
-                <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center">
-                  {/* Conexiones de red con flechas de flujo */}
-                  <svg
-                    className="absolute inset-0 w-full h-full pointer-events-none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <defs>
-                      <marker
-                        id="arrow-coral"
-                        markerWidth="8"
-                        markerHeight="8"
-                        refX="5"
-                        refY="4"
-                        orient="auto"
-                      >
-                        <polygon points="0 1, 7 4, 0 7" fill="#ea580c" />
-                      </marker>
-                      <marker
-                        id="arrow-dark"
-                        markerWidth="8"
-                        markerHeight="8"
-                        refX="5"
-                        refY="4"
-                        orient="auto"
-                      >
-                        <polygon points="0 1, 7 4, 0 7" fill="#1e293b" />
-                      </marker>
-                    </defs>
-                    {(() => {
-                      const nodeArr = Object.values(nodes);
-                      const totalNodes = nodeArr.length;
-                      return nodeArr.map((node, i) => {
-                        // Si hay muchos nodos (>8), conectar solo con el siguiente sin cerrar el bucle cruzado del último con el primero
-                        if (totalNodes > 8 && i === totalNodes - 1) return null;
-                        const nextNode = nodeArr[(i + 1) % totalNodes];
-                        if (!node.pos || !nextNode.pos) return null;
-                        const isEven = i % 2 === 0;
-                        return (
-                          <line
-                            key={`line-${node.id}-${nextNode.id}`}
-                            x1={node.pos.left}
-                            y1={node.pos.top}
-                            x2={nextNode.pos.left}
-                            y2={nextNode.pos.top}
-                            stroke={isEven ? "#ea580c" : "#1e293b"}
-                            strokeWidth={totalNodes > 8 ? "2" : "3"}
-                            strokeDasharray={totalNodes > 8 ? "4 4" : "none"}
-                            strokeLinecap="round"
-                            opacity={
-                              totalNodes > 8 ? "0.40" : isEven ? "0.85" : "0.75"
-                            }
-                            markerEnd={
-                              isEven ? "url(#arrow-coral)" : "url(#arrow-dark)"
-                            }
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-
-                  {/* Render de los Nodos */}
-                  {Object.values(nodes).map((node) => (
-                    <div
-                      key={node.id}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                      style={{
-                        top: node.pos?.top || "50%",
-                        left: node.pos?.left || "50%",
-                      }}
-                    >
-                      <div className="relative">
-                        {node.lockedByOpponent && (
-                          <span className="absolute -top-3 -right-3 z-30 px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[8px] flex items-center gap-0.5 shadow-md animate-pulse">
-                            <Lock className="w-2.5 h-2.5" /> RIVAL
-                          </span>
-                        )}
-
-                        {/* Indicador de casilla destino para la pista de 30s */}
-                        {hintNodeId === node.id && (
-                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40 px-2.5 py-0.5 rounded-full bg-[#FFB400] text-[#122443] font-black text-[9px] uppercase tracking-wider shadow-lg flex items-center gap-1 animate-bounce border-2 border-white">
-                            <span>¡COLOCA AQUÍ!</span>
-                          </div>
-                        )}
-
-                        <ArcadeNode
-                          id={node.id}
-                          icon={node.icon}
-                          color={node.color}
-                          shape={node.shape}
-                          domain={node.domain}
-                          theme={node.theme || boardInfo?.theme}
-                          index={node.nodeIndex ?? 0}
-                          label={node.label}
-                          question={node.question}
-                          hint={node.hint}
-                          placedCard={node.placedCard}
-                          onClick={handleNodeClick}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Luces Neón de Piso */}
-                <div className="flex items-center justify-center gap-12 mt-1">
-                  <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
-                  <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] animate-pulse" />
-                </div>
-              </div>
-            </div>
-          </div>
+          <BoardConsole
+            boardInfo={boardInfo}
+            currentLevel={currentLevel}
+            nodes={nodes}
+            hintNodeId={hintNodeId}
+            onNodeClick={handleNodeClick}
+          />
 
           {/* MANO DE CARTAS EN ABANICO — SOLO SI HAY PARTIDA ACTIVA */}
-          {hand.length > 0 && (
-            <div
-              className={`relative w-full flex flex-col items-center justify-center pb-2 z-40 transition-all duration-300 overflow-visible ${
-                !isActualTurn
-                  ? "opacity-50 grayscale-[35%] pointer-events-none cursor-not-allowed"
-                  : "opacity-100"
-              }`}
-            >
-              {/* BANDEJA / DOCK FÍSICO DE CARTAS "EL MAZO" CON PAGINACIÓN INTELIGENTE */}
-              {(() => {
-                const CARDS_PER_PAGE = 7;
-                const totalPages = Math.ceil(hand.length / CARDS_PER_PAGE);
-                // Si la carta sugerida por la pista está en otra página, saltar a ella
-                const hintedIndex = hintCardId
-                  ? hand.findIndex((c) => c.id === hintCardId)
-                  : -1;
-                const activePage =
-                  hintedIndex >= 0
-                    ? Math.floor(hintedIndex / CARDS_PER_PAGE)
-                    : Math.min(handPage, Math.max(0, totalPages - 1));
-                const visibleCards =
-                  totalPages > 1
-                    ? hand.slice(
-                        activePage * CARDS_PER_PAGE,
-                        (activePage + 1) * CARDS_PER_PAGE,
-                      )
-                    : hand;
-
-                return (
-                  <div className="flex flex-col items-center gap-1.5">
-                    {/* Controles de página para niveles con muchas cartas (Niveles 4 y 5) */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-[#122443] border border-[#1e3a6c] shadow-md z-50">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setHandPage((prev) => Math.max(0, prev - 1))
-                          }
-                          disabled={activePage === 0}
-                          className={`p-1 rounded-lg border transition-all cursor-pointer ${
-                            activePage === 0
-                              ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
-                              : "bg-[#1a335e] border-[#294c8b] text-[#FFB400] hover:scale-110"
-                          }`}
-                          title="Página anterior de cartas"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-
-                        <span className="text-[10px] font-mono font-black text-slate-200 uppercase tracking-wider">
-                          Mazo: {activePage + 1} / {totalPages}{" "}
-                          <span className="text-amber-400">
-                            ({hand.length} cartas)
-                          </span>
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setHandPage((prev) =>
-                              Math.min(totalPages - 1, prev + 1),
-                            )
-                          }
-                          disabled={activePage >= totalPages - 1}
-                          className={`p-1 rounded-lg border transition-all cursor-pointer ${
-                            activePage >= totalPages - 1
-                              ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
-                              : "bg-[#1a335e] border-[#294c8b] text-[#FFB400] hover:scale-110"
-                          }`}
-                          title="Siguiente página de cartas"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
-                      <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
-                        {visibleCards.map((card, idx) => {
-                          const isHinted = hintCardId === card.id;
-                          const isHandSelected =
-                            selectedCardInHand?.id === card.id;
-                          return (
-                            <div
-                              key={`slot-${card.id || idx}`}
-                              className={`relative rounded-2xl p-1 transition-all ${
-                                isHandSelected
-                                  ? "bg-cyan-400/40 border-2 border-cyan-400 shadow-[0_0_22px_#22d3ee] scale-105"
-                                  : isHinted
-                                    ? "bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]"
-                                    : "bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner"
-                              } flex items-center justify-center`}
-                              style={{
-                                width: "86px",
-                                height: "112px",
-                              }}
-                            >
-                              {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
-                              {isHinted && (
-                                <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none animate-bounce">
-                                  <span className="px-2 py-0.5 rounded-full bg-[#FF7A00] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
-                                    ¡USA ÉSTA!
-                                  </span>
-                                  <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#FF7A00]" />
-                                </div>
-                              )}
-
-                              <GameCard
-                                id={card.id}
-                                name={card.name}
-                                cost={card.cost}
-                                type={card.type}
-                                sourceType={card.sourceType}
-                                domain={card.domain}
-                                theme={card.theme || boardInfo?.theme}
-                                index={card.cardIndex ?? idx}
-                                rotation={0}
-                                zIndex={
-                                  isHandSelected
-                                    ? 60
-                                    : isHinted
-                                      ? 50
-                                      : card.zIndex
-                                }
-                                isDraggable={isActualTurn}
-                                isSelected={isHinted || isHandSelected}
-                                onDragEnd={(id, info) => {
-                                  registerUserActivity();
-                                  handleDragEnd(id, info);
-                                }}
-                                onClick={() => {
-                                  registerUserActivity();
-                                  handleCardClick(card);
-                                }}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
+          <HandTray
+            hand={hand}
+            handPage={handPage}
+            setHandPage={setHandPage}
+            hintCardId={hintCardId}
+            selectedCardInHand={selectedCardInHand}
+            isActualTurn={isActualTurn}
+            theme={boardInfo?.theme}
+            onCardClick={(card) => {
+              registerUserActivity();
+              handleCardClick(card);
+            }}
+            onCardDragEnd={(id, info) => {
+              registerUserActivity();
+              handleDragEnd(id, info);
+            }}
+          />
         </>
       )}
 
@@ -2654,103 +2302,12 @@ export default function ArcadeArena() {
       />
 
       {/* MODAL DE OPCIONES DE REINICIO (OPCIÓN A: REPETIR MISMO EXAMEN VS OPCIÓN B: NUEVAS PREGUNTAS CON IA) */}
-      <AnimatePresence>
-        {isRestartOptionsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none font-sans">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", stiffness: 340, damping: 25 }}
-              className="relative w-full max-w-lg rounded-3xl bg-[#122443] border-4 border-[#0a162b] p-6 sm:p-7 text-white shadow-[0_16px_0_#050a13,0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-hidden"
-            >
-              {/* Botón cerrar X */}
-              <button
-                onClick={() => setIsRestartOptionsModalOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-xl bg-[#0a162b] text-slate-400 hover:text-white transition-colors cursor-pointer border border-[#1e3a6c]"
-                title="Cancelar y volver al juego"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              {/* Encabezado */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] mb-3">
-                <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
-                <span className="text-[11px] font-black uppercase text-[#FF7A00] tracking-wider">
-                  ¿Cómo deseas reiniciar?
-                </span>
-              </div>
-
-              <h3 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight mb-2">
-                Elige tu modo de práctica
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 font-medium mb-6 max-w-md">
-                Puedes reintentar el examen actual para afianzar conceptos o
-                generar preguntas completamente nuevas con IA.
-              </p>
-
-              {/* Las 2 Opciones en tarjetas interactivas */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 w-full mb-5">
-                {/* OPCIÓN A */}
-                <button
-                  onClick={handleResetCurrentBoard}
-                  className="group relative p-4 rounded-2xl bg-[#0d1b33] hover:bg-[#162c52] border-2 border-[#1e3a6c] hover:border-[#48C838] border-b-4 hover:border-b-[#2e8a22] text-left transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 flex flex-col justify-between"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#48C838]/20 border border-[#48C838]/50 flex items-center justify-center">
-                      <RefreshCw className="w-5 h-5 text-[#48C838] group-hover:rotate-180 transition-transform duration-500" />
-                    </div>
-                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#48C838]/20 text-[#48C838] border border-[#48C838]/40">
-                      ⚡ Instantáneo
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-white group-hover:text-[#48C838] transition-colors mb-1">
-                      Mismo Examen
-                    </h4>
-                    <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
-                      Limpia el tablero y devuelve tus cartas a la mano para
-                      reintentar este mismo circuito (0 seg).
-                    </p>
-                  </div>
-                </button>
-
-                {/* OPCIÓN B */}
-                <button
-                  onClick={handleRegenerateWithNewQuestions}
-                  className="group relative p-4 rounded-2xl bg-[#0d1b33] hover:bg-[#162c52] border-2 border-[#1e3a6c] hover:border-[#FFB400] border-b-4 hover:border-b-[#b88200] text-left transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 flex flex-col justify-between"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#FFB400]/20 border border-[#FFB400]/50 flex items-center justify-center">
-                      <Dices className="w-5 h-5 text-[#FFB400] group-hover:rotate-12 transition-transform" />
-                    </div>
-                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#FFB400]/20 text-[#FFB400] border border-[#FFB400]/40">
-                      ✨ IA Gemini
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-white group-hover:text-[#FFB400] transition-colors mb-1">
-                      Nuevas Preguntas
-                    </h4>
-                    <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
-                      La IA extraerá nuevos conceptos y preguntas diferentes del
-                      mismo documento (~2-5 seg).
-                    </p>
-                  </div>
-                </button>
-              </div>
-
-              {/* Botón cancelar */}
-              <button
-                onClick={() => setIsRestartOptionsModalOpen(false)}
-                className="w-full py-2.5 rounded-xl bg-[#0a162b] hover:bg-[#142340] border border-[#1e3a6c] text-xs font-bold text-slate-400 hover:text-white uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                Volver al juego
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <RestartOptionsModal
+        open={isRestartOptionsModalOpen}
+        onClose={() => setIsRestartOptionsModalOpen(false)}
+        onSameExam={handleResetCurrentBoard}
+        onNewQuestions={handleRegenerateWithNewQuestions}
+      />
 
       {/* MODAL DE SUSCRIPCIÓN STRIPE CHECKOUT (HUBZY PRO) */}
       <SubscriptionModal
