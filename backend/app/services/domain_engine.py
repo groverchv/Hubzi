@@ -101,9 +101,9 @@ _PATTERNS = [
 
 # Qué generador usa cada dominio
 GENERATOR_KIND = {
-    "matematica": "procedural",   # motor procedural: 0 tokens, verificación exacta
-    "fisica": "hybrid",           # plantillas + LLM para enunciados
-    "quimica": "hybrid",
+    "matematica": "procedural",   # math_engine: 0 tokens, verificación exacta
+    "fisica": "procedural",       # physics_engine: plantillas magnitud/fórmula/conversión
+    "quimica": "hybrid",          # (pendiente) plantillas + LLM para enunciados
     "biologia": "llm_rag",
     "historia": "llm_rag",
     "idiomas": "hybrid",

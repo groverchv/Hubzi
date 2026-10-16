@@ -16,6 +16,7 @@ from app.schemas.schemas import AnswerSpec, GameBoardResponse, GenerateBoardRequ
 from app.services.ai_service import ai_service
 from app.services.domain_engine import classify_domain, detect_math_topics
 from app.services.math_engine import generate_math_problems
+from app.services.physics_engine import generate_physics_problems
 from app.services.safety_filter import filter_board_for_band
 from app.builders.builder import GameBoardBuilder
 
@@ -40,26 +41,16 @@ def save_to_l1_cache(signature_hash: str, board: GameBoardResponse):
     L1_RAM_CACHE[signature_hash] = board
 
 
-def _build_math_board(payload: GenerateBoardRequest, band_key: str,
-                      level: int, question_count: int,
-                      variation_seed: int = 0) -> GameBoardResponse:
+def _build_solve_board(problems: list, band_key: str, domain: str,
+                       title: str) -> GameBoardResponse:
     """
-    Construye un tablero de arquetipo 'solve' con el motor matemático procedural.
-    Sin llamadas a IA: problemas generados por plantillas con distractores
-    basados en misconcepciones reales. La carta = la respuesta; el nodo = el problema.
+    Ensambla problemas {question, correct, distractors, ...} en un tablero
+    de arquetipo 'solve': carta = respuesta, nodo = problema.
+    Compartido por el motor matemático y el de física (ambos procedurales).
     """
-    topics = detect_math_topics(payload.text)
-    seed = payload.level * 7919 + len(payload.text) + variation_seed * 104729
-    problems = generate_math_problems(topics, band_key, level, question_count, seed=seed)
-    if not problems:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se pudieron generar problemas de matemática para este material."
-        )
-
     band = get_band(band_key)
-    builder = GameBoardBuilder(title="Circuito de Matemática")
-    builder.set_meta(domain="matematica", age_band=band_key)
+    builder = GameBoardBuilder(title=title)
+    builder.set_meta(domain=domain, age_band=band_key)
 
     distractor_pool = []
     for idx, p in enumerate(problems, start=1):
@@ -68,7 +59,7 @@ def _build_math_board(payload: GenerateBoardRequest, band_key: str,
             card_id=card_id,
             concept_name=p["correct"],
             content=p.get("explanation") or f"Respuesta de {p['concept']}",
-            points_multiplier="2x" if p.get("topic") in ("algebra", "trigonometria") else "1x",
+            points_multiplier="2x" if p.get("topic") in ("algebra", "trigonometria", "energía cinética") else "1x",
         )
         builder.add_node(
             node_id=node_id,
@@ -95,7 +86,7 @@ def _build_math_board(payload: GenerateBoardRequest, band_key: str,
     used = set()
     d_idx = 0
     for val in distractor_pool:
-        if d_idx >= n_traps or val in seen_answers or val in used:
+        if d_idx >= n_traps or str(val) in seen_answers or val in used:
             continue
         used.add(val)
         d_idx += 1
@@ -107,6 +98,38 @@ def _build_math_board(payload: GenerateBoardRequest, band_key: str,
         )
 
     return builder.build()
+
+
+def _build_math_board(payload: GenerateBoardRequest, band_key: str,
+                      level: int, question_count: int,
+                      variation_seed: int = 0) -> GameBoardResponse:
+    """
+    Tablero de matemática procedural (0 tokens, verificación exacta,
+    distractores = misconcepciones reales de estudiantes).
+    """
+    topics = detect_math_topics(payload.text)
+    seed = payload.level * 7919 + len(payload.text) + variation_seed * 104729
+    problems = generate_math_problems(topics, band_key, level, question_count, seed=seed)
+    if not problems:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se pudieron generar problemas de matemática para este material."
+        )
+    return _build_solve_board(problems, band_key, "matematica", "Circuito de Matemática")
+
+
+def _build_physics_board(payload: GenerateBoardRequest, band_key: str,
+                         level: int, question_count: int,
+                         variation_seed: int = 0) -> GameBoardResponse:
+    """Tablero de física procedural (magnitudes, unidades, fórmulas, conversiones)."""
+    seed = payload.level * 104723 + len(payload.text) + variation_seed * 7919
+    problems = generate_physics_problems(band_key, level, question_count, seed=seed)
+    if not problems:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se pudieron generar problemas de física para este material."
+        )
+    return _build_solve_board(problems, band_key, "fisica", "Circuito de Física")
 
 
 async def generate_board(
@@ -165,19 +188,23 @@ async def generate_board(
             logger.warning(f"Error consultando caché de análisis: {ce}")
 
     # =====================================================================
-    # DOMINIO MATEMÁTICA → motor procedural (0 tokens, respuestas exactas,
-    # distractors = misconcepciones reales de estudiantes)
+    # DOMINIOS PROCEDURALES (matemática, física) → motores de plantillas:
+    # 0 tokens, respuestas exactas, distractors = misconcepciones reales.
     # =====================================================================
-    if domain == "matematica":
+    PROCEDURAL_BUILDERS = {
+        "matematica": _build_math_board,
+        "fisica": _build_physics_board,
+    }
+    if domain in PROCEDURAL_BUILDERS:
         try:
-            board_result = _build_math_board(
+            board_result = PROCEDURAL_BUILDERS[domain](
                 payload, band_key, level, question_count,
                 variation_seed=variation_seed,
             )
         except HTTPException:
             raise
         except Exception as me:
-            logger.error(f"Motor matemático falló, cayendo a LLM: {me}")
+            logger.error(f"Motor procedural '{domain}' falló, cayendo a LLM: {me}")
         else:
             board_result = filter_board_for_band(board_result, band_key)
             if db_manager.db is not None:
@@ -198,14 +225,14 @@ async def generate_board(
                             "content_hash": content_hash,
                             "title": board_result.title,
                             "board": board_dict,
-                            "generator": "math_engine",
+                            "generator": f"{domain}_engine",
                             "updated_at": utcnow_iso()
                         }},
                         upsert=True
                     )
                     save_to_l1_cache(content_hash, board_result)
                 except Exception as dbe:
-                    logger.warning(f"Error guardando tablero matemático en MongoDB: {dbe}")
+                    logger.warning(f"Error guardando tablero {domain} en MongoDB: {dbe}")
             else:
                 save_to_l1_cache(content_hash, board_result)
             return board_result

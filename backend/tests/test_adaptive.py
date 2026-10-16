@@ -11,6 +11,7 @@ from app.core.age_bands import (
 )
 from app.services.domain_engine import classify_domain, detect_math_topics
 from app.services.math_engine import generate_math_problems
+from app.services.physics_engine import generate_physics_problems
 from app.services.safety_filter import (
     contains_blocked_content, contains_punitive_tone,
     filter_text_for_band, filter_board_for_band,
@@ -163,6 +164,42 @@ class TestMathEngine:
     def test_unsupported_topics_fall_back_to_operaciones(self):
         problems = generate_math_problems(["topologia_avanzada"], "scholar", 1, 2, seed=1)
         assert len(problems) == 2
+
+
+# =====================================================================
+# MOTOR DE FÍSICA PROCEDURAL
+# =====================================================================
+
+class TestPhysicsEngine:
+    def test_generates_requested_count(self):
+        problems = generate_physics_problems("scholar", 3, 5, seed=42)
+        assert len(problems) == 5
+
+    def test_sprout_only_magnitudes(self):
+        # Bandas pequeñas: solo matching magnitud↔unidad (sin fórmulas)
+        problems = generate_physics_problems("sprout", 1, 4, seed=7)
+        assert len(problems) == 4
+        for p in problems:
+            assert p["topic"] == "magnitudes_unidades"
+
+    def test_explorer_adds_conversions(self):
+        problems = generate_physics_problems("explorer", 2, 6, seed=3)
+        topics = {p["topic"] for p in problems}
+        assert "magnitudes_unidades" in topics or "conversiones" in topics
+
+    def test_distractors_not_correct(self):
+        problems = generate_physics_problems("challenger", 3, 6, seed=11)
+        for p in problems:
+            assert p["correct"] not in p["distractors"]
+
+    def test_formulas_have_latex(self):
+        problems = generate_physics_problems("scholar", 4, 8, seed=5)
+        # Al menos un problema debe tener LaTeX de fórmula
+        assert any(p["question_latex"] for p in problems)
+
+    def test_misconceptions_documented(self):
+        problems = generate_physics_problems("challenger", 3, 5, seed=13)
+        assert any(p["misconception_tags"] for p in problems)
 
 
 # =====================================================================
