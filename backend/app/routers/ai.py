@@ -22,9 +22,12 @@ async def get_training_dataset_stats(current_user: dict = Depends(get_current_us
     if db_manager.db is not None:
         try:
             count = await db_manager.db["ai_training_dataset"].count_documents({})
-            cursor = db_manager.db["ai_training_dataset"].find(
-                {}, {"source_title": 1, "created_at": 1}
-            ).sort("_id", -1).limit(5)
+            cursor = (
+                db_manager.db["ai_training_dataset"]
+                .find({}, {"source_title": 1, "created_at": 1})
+                .sort("_id", -1)
+                .limit(5)
+            )
             async for doc in cursor:
                 recent_titles.append(doc.get("source_title", "Sin título"))
         except Exception as e:
@@ -34,7 +37,7 @@ async def get_training_dataset_stats(current_user: dict = Depends(get_current_us
         "status": "ready",
         "total_training_sessions": count,
         "recent_topics": recent_titles,
-        "target_model_for_finetuning": "Qwen-2.5-7B / Llama-3.3-8B (LoRA)"
+        "target_model_for_finetuning": "Qwen-2.5-7B / Llama-3.3-8B (LoRA)",
     }
 
 
@@ -57,8 +60,8 @@ async def export_training_dataset(current_user: dict = Depends(get_current_user)
                             "question": sample.get("question"),
                             "hint": sample.get("hint"),
                             "target_concept": sample.get("target_concept"),
-                            "explanation": sample.get("explanation")
-                        }
+                            "explanation": sample.get("explanation"),
+                        },
                     }
                     jsonl_lines.append(json.dumps(line, ensure_ascii=False))
         except Exception as e:

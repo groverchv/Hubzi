@@ -1,17 +1,26 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import db_manager
 from app.core.rate_limit import limiter
 from app.routers import (
-    auth, users, arena, folders, zen, voice, psychology, payments, ai, ws,
     adaptive,
+    ai,
+    arena,
+    auth,
+    folders,
+    payments,
+    psychology,
+    users,
+    voice,
+    ws,
+    zen,
 )
 
 logger = logging.getLogger("hubzy.main")
@@ -29,6 +38,7 @@ async def lifespan(app: FastAPI):
 if settings.SENTRY_DSN:
     try:
         import sentry_sdk
+
         sentry_sdk.init(
             dsn=settings.SENTRY_DSN,
             environment=settings.ENVIRONMENT,
@@ -43,7 +53,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Backend API para Hubzi (SynapseHub) - Gamificación EdTech anti-estrés con Gemini, MongoDB, Qdrant y WebSockets.",
     version=settings.VERSION,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Rate limiting
@@ -62,6 +72,23 @@ app.add_middleware(
 )
 
 
+# Headers de seguridad HTTP (OWASP baseline)
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), payment=()"
+    # CSP orientada a API: este servicio no sirve HTML en producción
+    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    if settings.ENVIRONMENT == "production":
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
+    return response
+
+
 @app.get("/health", status_code=status.HTTP_200_OK, tags=["System"])
 async def health_check():
     """Endpoint básico de monitoreo de salud del sistema."""
@@ -76,8 +103,8 @@ async def health_check():
         "databases": {
             "mongodb": mongo_status,
             "mongodb_db": settings.MONGODB_DB_NAME,
-            "qdrant": qdrant_status
-        }
+            "qdrant": qdrant_status,
+        },
     }
 
 

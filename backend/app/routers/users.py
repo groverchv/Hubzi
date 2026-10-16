@@ -6,7 +6,7 @@ from app.core.age_bands import band_for_age, needs_parental_consent
 from app.core.database import db_manager
 from app.core.security import get_current_user, utcnow_iso
 from app.core.session_store import in_memory_auth_users, in_memory_study_folders
-from app.models.user import UserRegisterRequest, UserProfileResponse
+from app.models.user import UserProfileResponse, UserRegisterRequest
 from app.routers.auth import assign_voice_gender
 from app.services.rag_service import rag_service
 
@@ -28,7 +28,7 @@ async def register_or_login_user(payload: UserRegisterRequest):
     if needs_parental_consent(age_band) and not payload.parental_consent:
         raise HTTPException(
             status_code=400,
-            detail="Las cuentas de menores de 11 años requieren el consentimiento de un padre, madre o tutor."
+            detail="Las cuentas de menores de 11 años requieren el consentimiento de un padre, madre o tutor.",
         )
 
     user_doc = {
@@ -44,19 +44,22 @@ async def register_or_login_user(payload: UserRegisterRequest):
 
     if db_manager.db is not None:
         try:
-            existing = await db_manager.db["users"].find_one({
-                "username": {"$regex": f"^{clean_username}$", "$options": "i"}
-            })
+            existing = await db_manager.db["users"].find_one(
+                {"username": {"$regex": f"^{clean_username}$", "$options": "i"}}
+            )
             if existing:
                 await db_manager.db["users"].update_one(
                     {"_id": existing["_id"]},
-                    {"$set": {
-                        "gender": norm_gender,
-                        "age": payload.age,
-                        "assigned_voice_gender": assigned_voice,
-                        "avatar": payload.avatar or existing.get("avatar", "capy_fan"),
-                        "voice_preference": payload.voice_preference or existing.get("voice_preference", "auto")
-                    }}
+                    {
+                        "$set": {
+                            "gender": norm_gender,
+                            "age": payload.age,
+                            "assigned_voice_gender": assigned_voice,
+                            "avatar": payload.avatar or existing.get("avatar", "capy_fan"),
+                            "voice_preference": payload.voice_preference
+                            or existing.get("voice_preference", "auto"),
+                        }
+                    },
                 )
                 existing_id = str(existing["_id"])
                 return UserProfileResponse(
@@ -66,9 +69,10 @@ async def register_or_login_user(payload: UserRegisterRequest):
                     age=payload.age,
                     age_band=age_band,
                     avatar=payload.avatar or existing.get("avatar", "capy_fan"),
-                    voice_preference=payload.voice_preference or existing.get("voice_preference", "auto"),
+                    voice_preference=payload.voice_preference
+                    or existing.get("voice_preference", "auto"),
                     assigned_voice_gender=assigned_voice,
-                    created_at=str(existing.get("created_at", ""))
+                    created_at=str(existing.get("created_at", "")),
                 )
 
             user_doc["created_at"] = utcnow_iso()
@@ -79,6 +83,7 @@ async def register_or_login_user(payload: UserRegisterRequest):
             logger.error(f"Error registrando usuario en MongoDB: {e}")
 
     import hashlib
+
     fallback_id = f"user_{hashlib.md5(clean_username.lower().encode()).hexdigest()[:8]}"
     return UserProfileResponse(
         id=fallback_id,
@@ -88,7 +93,7 @@ async def register_or_login_user(payload: UserRegisterRequest):
         avatar=payload.avatar or "capy_fan",
         voice_preference=payload.voice_preference or "auto",
         assigned_voice_gender=assigned_voice,
-        created_at=utcnow_iso()
+        created_at=utcnow_iso(),
     )
 
 
@@ -135,7 +140,9 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
     folder_ids = []
     if db_manager.db is not None:
         try:
-            async for f in db_manager.db["study_folders"].find({"user_id": uid}, {"documents.id": 1}):
+            async for f in db_manager.db["study_folders"].find(
+                {"user_id": uid}, {"documents.id": 1}
+            ):
                 folder_ids.append(str(f["_id"]))
                 for doc in f.get("documents", []):
                     if doc.get("id"):
@@ -159,9 +166,7 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
         except Exception as e:
             logger.error(f"Error eliminando carpetas del usuario {uid}: {e}")
 
-    mem_folder_ids = [
-        fid for fid, f in in_memory_study_folders.items() if f.get("user_id") == uid
-    ]
+    mem_folder_ids = [fid for fid, f in in_memory_study_folders.items() if f.get("user_id") == uid]
     for fid in mem_folder_ids:
         del in_memory_study_folders[fid]
         deleted["folders"] += 1
@@ -170,6 +175,7 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
     if db_manager.db is not None:
         try:
             from bson import ObjectId
+
             query = {"_id": ObjectId(uid)} if len(uid) == 24 else {"id": uid}
             res = await db_manager.db["users"].delete_one(query)
             deleted["user"] = deleted["user"] or res.deleted_count > 0
@@ -185,5 +191,7 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
                 del in_memory_auth_users[key]
                 deleted["user"] = True
 
-    logger.info(f"Cuenta eliminada: user={uid} folders={deleted['folders']} vectors={deleted['vectors']}")
+    logger.info(
+        f"Cuenta eliminada: user={uid} folders={deleted['folders']} vectors={deleted['vectors']}"
+    )
     return {"status": "account_deleted", "deleted": deleted}

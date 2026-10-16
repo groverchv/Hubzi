@@ -104,6 +104,21 @@ export default function LandingPage() {
           <p>{t("landing.disclaimer")}</p>
         </div>
       </main>
+
+      {/* Footer legal */}
+      <footer className="relative z-10 border-t border-[#122443]/10 py-6 text-center text-xs font-semibold text-slate-600">
+        <div className="flex items-center justify-center gap-4">
+          <Link to="/legal/terminos" className="hover:text-[#122443] transition-colors">
+            Términos de Servicio
+          </Link>
+          <span>·</span>
+          <Link to="/legal/privacidad" className="hover:text-[#122443] transition-colors">
+            Política de Privacidad
+          </Link>
+          <span>·</span>
+          <span>© 2026 Hubzy — SynapseHub</span>
+        </div>
+      </footer>
     </div>
   );
 }

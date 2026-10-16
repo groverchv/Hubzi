@@ -2,6 +2,7 @@
 Tests del flujo de autenticación JWT + protección de endpoints.
 Usan el almacén en memoria (sin MongoDB) — deterministas y rápidos.
 """
+
 import uuid
 
 import pytest
@@ -19,13 +20,16 @@ def client():
 @pytest.fixture
 def registered_user(client):
     email = f"pytest_{uuid.uuid4().hex[:8]}@hubzy.dev"
-    res = client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": "secreto123",
-        "username": "PytestUser",
-        "gender": "femenino",
-        "age": 21,
-    })
+    res = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "password": "secreto123",
+            "username": "PytestUser",
+            "gender": "femenino",
+            "age": 21,
+        },
+    )
     assert res.status_code == 200
     data = res.json()
     data["email"] = email
@@ -45,30 +49,39 @@ def test_register_returns_jwt(registered_user):
 
 
 def test_register_duplicate_email(client, registered_user):
-    res = client.post("/api/v1/auth/register", json={
-        "email": registered_user["email"],
-        "password": "otro123",
-        "username": "Otro",
-        "gender": "masculino",
-        "age": 30,
-    })
+    res = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": registered_user["email"],
+            "password": "otro123",
+            "username": "Otro",
+            "gender": "masculino",
+            "age": 30,
+        },
+    )
     assert res.status_code == 400
 
 
 def test_login_ok(client, registered_user):
-    res = client.post("/api/v1/auth/login", json={
-        "email": registered_user["email"],
-        "password": "secreto123",
-    })
+    res = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": registered_user["email"],
+            "password": "secreto123",
+        },
+    )
     assert res.status_code == 200
     assert res.json()["token"]
 
 
 def test_login_wrong_password(client, registered_user):
-    res = client.post("/api/v1/auth/login", json={
-        "email": registered_user["email"],
-        "password": "mala",
-    })
+    res = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": registered_user["email"],
+            "password": "mala",
+        },
+    )
     assert res.status_code == 401
 
 
@@ -118,10 +131,89 @@ def test_crisis_resources_public(client):
 
 def test_psychology_analyze_crisis_detection(client):
     """El detector heurístico debe marcar crisis sin necesidad de IA."""
-    res = client.post("/api/v1/psychology/analyze", json={
-        "text": "no puedo más, me quiero morir",
-    })
+    res = client.post(
+        "/api/v1/psychology/analyze",
+        json={
+            "text": "no puedo más, me quiero morir",
+        },
+    )
     assert res.status_code == 200
     data = res.json()
     assert data["is_crisis"] is True
     assert data["stress_category"] == "crisis"
+
+
+# ---------------------------------------------------------------------
+# Flujos de email: verificación y reset de contraseña
+# ---------------------------------------------------------------------
+
+
+def test_verify_email_flow(client, registered_user):
+    """El token de verificación marca email_verified en el perfil."""
+    from app.core.security import create_purpose_token
+
+    uid = registered_user["user"]["id"]
+    email = registered_user["email"]
+    token = create_purpose_token(uid, email, "verify_email", 60)
+
+    res = client.post("/api/v1/auth/verify-email", json={"token": token})
+    assert res.status_code == 200
+
+    headers = {"Authorization": f"Bearer {registered_user['token']}"}
+    resend = client.post("/api/v1/auth/resend-verification", headers=headers)
+    assert resend.status_code == 200
+    assert "ya está verificado" in resend.json()["detail"]
+
+
+def test_verify_email_rejects_wrong_purpose(client, registered_user):
+    """Un token de reset no sirve para verificar email."""
+    from app.core.security import create_purpose_token
+
+    uid = registered_user["user"]["id"]
+    email = registered_user["email"]
+    bad = create_purpose_token(uid, email, "reset_password", 60)
+
+    res = client.post("/api/v1/auth/verify-email", json={"token": bad})
+    assert res.status_code == 400
+
+
+def test_forgot_password_no_enumeration(client):
+    """Email inexistente también devuelve 200 genérico (anti-enumeración)."""
+    res = client.post("/api/v1/auth/forgot-password", json={"email": "fantasma@x.com"})
+    assert res.status_code == 200
+
+
+def test_reset_password_flow(client, registered_user):
+    """Reset token → nueva contraseña → login con la nueva funciona."""
+    from app.core.security import create_purpose_token
+
+    uid = registered_user["user"]["id"]
+    email = registered_user["email"]
+    token = create_purpose_token(uid, email, "reset_password", 60)
+
+    res = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": token, "new_password": "nuevaClave456"},
+    )
+    assert res.status_code == 200
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "nuevaClave456"},
+    )
+    assert login.status_code == 200
+
+    # La contraseña vieja ya no funciona
+    old_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "secreto123"},
+    )
+    assert old_login.status_code == 401
+
+
+def test_reset_password_rejects_bad_token(client):
+    res = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": "token-falso-de-verdad", "new_password": "cualquiera1"},
+    )
+    assert res.status_code == 400

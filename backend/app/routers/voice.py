@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
@@ -14,11 +13,13 @@ router = APIRouter(prefix="/api/v1/voice", tags=["Voice"])
 
 class SpeechRequest(BaseModel):
     text: str
-    voice_id: Optional[str] = None
-    profile: Optional[str] = "loving_psychologist"  # "loving_psychologist" | "crisis_soothing" | "anxiety_relief" | "zen" | "cute"
-    stress_level: Optional[float] = None
-    voice_gender: Optional[str] = None  # "female" | "male"
-    user_gender: Optional[str] = None  # "masculino" | "femenino"
+    voice_id: str | None = None
+    profile: str | None = (
+        "loving_psychologist"  # "loving_psychologist" | "crisis_soothing" | "anxiety_relief" | "zen" | "cute"
+    )
+    stress_level: float | None = None
+    voice_gender: str | None = None  # "female" | "male"
+    user_gender: str | None = None  # "masculino" | "femenino"
 
 
 @router.post("/speak")
@@ -35,11 +36,8 @@ async def speak_zen_voice(request: Request, payload: SpeechRequest):
         profile=payload.profile or "loving_psychologist",
         stress_level=payload.stress_level,
         voice_gender=payload.voice_gender,
-        user_gender=payload.user_gender
+        user_gender=payload.user_gender,
     )
     if not audio_bytes:
-        raise HTTPException(
-            status_code=503,
-            detail="No se pudo generar el audio."
-        )
+        raise HTTPException(status_code=503, detail="No se pudo generar el audio.")
     return Response(content=audio_bytes, media_type="audio/mpeg")

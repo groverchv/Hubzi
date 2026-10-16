@@ -1,12 +1,11 @@
 import logging
 import secrets
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 
@@ -32,6 +31,7 @@ def verify_password(stored_password_hash: str, provided_password: str) -> bool:
         # Migración: formato legado "salt$sha256"
         if "$" in stored_password_hash:
             import hashlib
+
             salt, expected_hash = stored_password_hash.split("$", 1)
             calculated = hashlib.sha256((salt + provided_password).encode("utf-8")).hexdigest()
             return secrets.compare_digest(calculated, expected_hash)
@@ -44,7 +44,7 @@ def is_legacy_password_hash(stored_password_hash: str) -> bool:
     return bool(stored_password_hash) and not stored_password_hash.startswith("$2")
 
 
-def create_access_token(user_id: str, email: Optional[str] = None) -> str:
+def create_access_token(user_id: str, email: str | None = None) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": user_id,
@@ -56,11 +56,35 @@ def create_access_token(user_id: str, email: Optional[str] = None) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
     except jwt.PyJWTError:
         return None
+
+
+def create_purpose_token(user_id: str, email: str, purpose: str, expires_minutes: int) -> str:
+    """Token firmado de un solo propósito (verify_email | reset_password)."""
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "iat": now,
+        "exp": now + timedelta(minutes=expires_minutes),
+        "type": "purpose",
+        "purpose": purpose,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_purpose_token(token: str, expected_purpose: str) -> dict | None:
+    """Decodifica un token de propósito; rechaza si el propósito no coincide."""
+    payload = decode_access_token(token)
+    if not payload or payload.get("type") != "purpose":
+        return None
+    if payload.get("purpose") != expected_purpose:
+        return None
+    return payload
 
 
 def utcnow_iso() -> str:
@@ -71,7 +95,8 @@ def utcnow_iso() -> str:
 # Dependencias de autenticación
 # ---------------------------------------------------------------------
 
-async def _resolve_user(user_id: str) -> Optional[dict]:
+
+async def _resolve_user(user_id: str) -> dict | None:
     """Busca al usuario en MongoDB y luego en el almacén en memoria (dev sin BD)."""
     from app.core.database import db_manager
     from app.core.session_store import in_memory_auth_users
@@ -79,6 +104,7 @@ async def _resolve_user(user_id: str) -> Optional[dict]:
     if db_manager.db is not None:
         try:
             from bson import ObjectId
+
             query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
             user = await db_manager.db["users"].find_one(query)
             if user:
@@ -122,7 +148,7 @@ async def get_current_user(
 
 async def get_optional_user(
     credentials: HTTPAuthorizationCredentials = Depends(optional_bearer),
-) -> Optional[dict]:
+) -> dict | None:
     """Retorna el usuario autenticado o None para flujos de invitado."""
     if credentials is None:
         return None
@@ -132,7 +158,7 @@ async def get_optional_user(
     return await _resolve_user(payload["sub"])
 
 
-def resolve_effective_user_id(user: Optional[dict], requested_user_id: Optional[str]) -> str:
+def resolve_effective_user_id(user: dict | None, requested_user_id: str | None) -> str:
     """
     Regla anti-IDOR: si hay sesión autenticada, el user_id SIEMPRE sale del token.
     Sin sesión (invitado), se acepta el user_id del cliente o 'default_user'.
@@ -142,7 +168,7 @@ def resolve_effective_user_id(user: Optional[dict], requested_user_id: Optional[
     return requested_user_id or "default_user"
 
 
-def assert_can_access_user_resource(user: Optional[dict], resource_owner_id: Optional[str]):
+def assert_can_access_user_resource(user: dict | None, resource_owner_id: str | None):
     """Con sesión activa, un usuario solo puede tocar recursos propios o de invitados."""
     if not user:
         return
@@ -154,7 +180,7 @@ def assert_can_access_user_resource(user: Optional[dict], resource_owner_id: Opt
         )
 
 
-def get_user_plan(user: Optional[dict]) -> str:
+def get_user_plan(user: dict | None) -> str:
     if not user:
         return "guest"
     return user.get("plan", "free")

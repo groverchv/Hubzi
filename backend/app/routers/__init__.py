@@ -1,6 +1,27 @@
-from app.routers import auth, users, arena, folders, zen, voice, psychology, payments, ai, ws, adaptive
+from app.routers import (
+    adaptive,
+    ai,
+    arena,
+    auth,
+    folders,
+    payments,
+    psychology,
+    users,
+    voice,
+    ws,
+    zen,
+)
 
 __all__ = [
-    "auth", "users", "arena", "folders", "zen",
-    "voice", "psychology", "payments", "ai", "ws", "adaptive",
+    "adaptive",
+    "ai",
+    "arena",
+    "auth",
+    "folders",
+    "payments",
+    "psychology",
+    "users",
+    "voice",
+    "ws",
+    "zen",
 ]

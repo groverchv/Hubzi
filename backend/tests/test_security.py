@@ -2,6 +2,7 @@
 Tests de seguridad y privacidad: IDOR entre usuarios, límites freemium,
 webhook de Stripe y derecho de supresión de cuenta.
 """
+
 import uuid
 
 import pytest
@@ -18,13 +19,16 @@ def client():
 
 def _register(client, tag="sec"):
     email = f"pytest_{tag}_{uuid.uuid4().hex[:8]}@hubzy.dev"
-    res = client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": "secreto123",
-        "username": f"User{tag}",
-        "gender": "femenino",
-        "age": 21,
-    })
+    res = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "password": "secreto123",
+            "username": f"User{tag}",
+            "gender": "femenino",
+            "age": 21,
+        },
+    )
     assert res.status_code == 200
     data = res.json()
     return {"Authorization": f"Bearer {data['token']}"}, data["user"]
@@ -43,6 +47,7 @@ def user_b(client):
 # ---------------------------------------------------------------------
 # Anti-IDOR: un usuario no puede tocar recursos de otro
 # ---------------------------------------------------------------------
+
 
 def test_user_b_cannot_add_docs_to_user_a_folder(client, user_a, user_b):
     headers_a, _ = user_a
@@ -116,6 +121,7 @@ def test_profile_of_other_user_forbidden(client, user_a, user_b):
 # Límites freemium
 # ---------------------------------------------------------------------
 
+
 def test_free_plan_folder_limit(client, user_a):
     headers_a, _ = user_a
     for i in range(3):
@@ -129,6 +135,7 @@ def test_free_plan_folder_limit(client, user_a):
 # ---------------------------------------------------------------------
 # Webhook de Stripe
 # ---------------------------------------------------------------------
+
 
 def test_webhook_never_accepts_unsigned_payload(client):
     """El webhook jamás debe aceptar un evento sin firma válida."""
@@ -145,8 +152,9 @@ def test_webhook_never_accepts_unsigned_payload(client):
 # Derecho de supresión (datos sensibles de salud mental)
 # ---------------------------------------------------------------------
 
+
 def test_delete_account_removes_user_and_folders(client, user_a):
-    headers_a, user = user_a
+    headers_a, _user = user_a
 
     res = client.post("/api/v1/folders", json={"name": "Carpeta personal"}, headers=headers_a)
     assert res.status_code == 201

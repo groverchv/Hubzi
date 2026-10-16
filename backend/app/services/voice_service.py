@@ -1,8 +1,8 @@
-import logging
-import urllib.request
-import urllib.error
 import json
-from typing import Optional, Dict, Any
+import logging
+import urllib.error
+import urllib.request
+
 from app.core.config import settings
 
 logger = logging.getLogger("hubzy.voice_service")
@@ -11,18 +11,19 @@ logger = logging.getLogger("hubzy.voice_service")
 # IDENTIFICADORES DE VOZ CURADOS ELEVENLABS
 # =====================================================================
 # Voces Femeninas (Cálidas, dulces, maternales y reconfortantes)
-FEMALE_VOICE_PRIMARY = "pFZP5JQG7iQjIQuC4Bku"   # Lily (dulce y maternal)
-FEMALE_VOICE_BACKUP = "XrExE9yKIg1WjnnlVkGX"    # Matilda
-FEMALE_VOICE_BACKUP2 = "EXAVITQu4vr4xnSDxMaL"   # Sarah
+FEMALE_VOICE_PRIMARY = "pFZP5JQG7iQjIQuC4Bku"  # Lily (dulce y maternal)
+FEMALE_VOICE_BACKUP = "XrExE9yKIg1WjnnlVkGX"  # Matilda
+FEMALE_VOICE_BACKUP2 = "EXAVITQu4vr4xnSDxMaL"  # Sarah
 
 # Voces Masculinas (Cálidas, sabias, serenas y protectoras)
-MALE_VOICE_PRIMARY = "nPczCjzI2devNBz1zQrb"     # Brian (sabio, reflexivo y sereno)
-MALE_VOICE_BACKUP = "ErXwobaYiN019PkySvjV"      # Antoni (cálido y motivador)
-MALE_VOICE_BACKUP2 = "pNInz6obpgDQGcFmaJgB"     # Adam
+MALE_VOICE_PRIMARY = "nPczCjzI2devNBz1zQrb"  # Brian (sabio, reflexivo y sereno)
+MALE_VOICE_BACKUP = "ErXwobaYiN019PkySvjV"  # Antoni (cálido y motivador)
+MALE_VOICE_BACKUP2 = "pNInz6obpgDQGcFmaJgB"  # Adam
 
 # Edge-TTS Neural Voices
-EDGE_VOICE_FEMALE = "es-ES-ElviraNeural"         # Femenina cálida y dulce
-EDGE_VOICE_MALE = "es-ES-AlvaroNeural"           # Masculina serena y empática
+EDGE_VOICE_FEMALE = "es-ES-ElviraNeural"  # Femenina cálida y dulce
+EDGE_VOICE_MALE = "es-ES-AlvaroNeural"  # Masculina serena y empática
+
 
 class VoiceService:
     def __init__(self):
@@ -30,9 +31,7 @@ class VoiceService:
         self.elevenlabs_quota_exceeded = False
 
     def determine_voice_gender(
-        self, 
-        voice_gender: Optional[str] = None, 
-        user_gender: Optional[str] = None
+        self, voice_gender: str | None = None, user_gender: str | None = None
     ) -> str:
         """
         Determina el género de la voz de Capi según la regla psicológica del usuario:
@@ -47,27 +46,28 @@ class VoiceService:
 
         norm_user = (user_gender or "").strip().lower()
         if norm_user in ("masculino", "hombre", "varon", "male", "chico"):
-            return "female" # Usuario hombre -> voz femenina
+            return "female"  # Usuario hombre -> voz femenina
         elif norm_user in ("femenino", "mujer", "dama", "female", "chica"):
-            return "male"   # Usuaria mujer -> voz masculina
-        
+            return "male"  # Usuaria mujer -> voz masculina
+
         # Por defecto voz femenina empática
         return "female"
 
     async def generate_speech(
-        self, 
-        text: str, 
-        voice_id: Optional[str] = None, 
+        self,
+        text: str,
+        voice_id: str | None = None,
         profile: str = "loving_psychologist",
-        stress_level: Optional[float] = None,
-        voice_gender: Optional[str] = None,
-        user_gender: Optional[str] = None
-    ) -> Optional[bytes]:
+        stress_level: float | None = None,
+        voice_gender: str | None = None,
+        user_gender: str | None = None,
+    ) -> bytes | None:
         """
         Genera audio MP3 mediante ElevenLabs o Edge-TTS modulando prosodia y ternura
         según el nivel de estrés o perfil terapéutico del estudiante.
         """
         import asyncio
+
         target_gender = self.determine_voice_gender(voice_gender, user_gender)
 
         # 1. Calibración de velocidad y estabilidad según estrés y perfil
@@ -101,7 +101,7 @@ class VoiceService:
                 speed = 0.92
                 stability = 0.75
                 style = 0.45
-            else: # "cute"
+            else:  # "cute"
                 speed = 0.98
                 stability = 0.68
                 style = 0.40
@@ -110,7 +110,7 @@ class VoiceService:
             "stability": stability,
             "similarity_boost": 0.90,
             "style": style,
-            "use_speaker_boost": True
+            "use_speaker_boost": True,
         }
 
         payload = {
@@ -118,19 +118,17 @@ class VoiceService:
             "model_id": "eleven_multilingual_v2",
             "voice_settings": voice_settings,
             "pronunciation_dictionary_locators": [],
-            "speed": speed
+            "speed": speed,
         }
 
         # Selección de voces según el género asignado
         if target_gender == "female":
             primary_voice = voice_id or FEMALE_VOICE_PRIMARY
             backup_voice_1 = FEMALE_VOICE_BACKUP
-            backup_voice_2 = FEMALE_VOICE_BACKUP2
             edge_voice_name = EDGE_VOICE_FEMALE
         else:
             primary_voice = voice_id or MALE_VOICE_PRIMARY
             backup_voice_1 = MALE_VOICE_BACKUP
-            backup_voice_2 = MALE_VOICE_BACKUP2
             edge_voice_name = EDGE_VOICE_MALE
 
         # 2. Si hay API key de ElevenLabs y no se ha agotado la cuota, intentar en hilo separado
@@ -151,23 +149,20 @@ class VoiceService:
 
         return None
 
-    async def _call_edge_tts_async(self, text: str, speed: float = 0.92, voice: str = EDGE_VOICE_FEMALE) -> Optional[bytes]:
+    async def _call_edge_tts_async(
+        self, text: str, speed: float = 0.92, voice: str = EDGE_VOICE_FEMALE
+    ) -> bytes | None:
         """
         Sintetiza audio con Microsoft Edge Neural TTS en español de forma asíncrona sin bloqueos.
         """
         try:
             import edge_tts
 
-            rate_pct = int(round((speed - 1.0) * 100))
+            rate_pct = round((speed - 1.0) * 100)
             rate_str = f"{rate_pct:+d}%" if rate_pct != 0 else "+0%"
             pitch_str = "+3Hz" if voice == EDGE_VOICE_FEMALE else "-2Hz"
 
-            communicate = edge_tts.Communicate(
-                text,
-                voice=voice,
-                rate=rate_str,
-                pitch=pitch_str
-            )
+            communicate = edge_tts.Communicate(text, voice=voice, rate=rate_str, pitch=pitch_str)
             audio_buf = bytearray()
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
@@ -177,30 +172,29 @@ class VoiceService:
             logger.error(f"Error en Edge-TTS: {e}")
             return None
 
-    def _call_elevenlabs(self, v_id: str, payload: dict) -> Optional[bytes]:
+    def _call_elevenlabs(self, v_id: str, payload: dict) -> bytes | None:
         if not self.api_key or self.elevenlabs_quota_exceeded:
             return None
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{v_id}"
         headers = {
             "Accept": "audio/mpeg",
             "Content-Type": "application/json",
-            "xi-api-key": self.api_key.strip()
+            "xi-api-key": self.api_key.strip(),
         }
         try:
             req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers=headers,
-                method="POST"
+                url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
             )
-            with urllib.request.urlopen(req, timeout=3.5) as response:
+            with urllib.request.urlopen(req, timeout=3.5) as response:  # noqa: S310 -- URL fija de API ElevenLabs con https
                 if response.status == 200:
                     return response.read()
                 return None
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="ignore")
             if e.code == 401 and "quota_exceeded" in err_body:
-                logger.warning("Cuota de ElevenLabs agotada. Activando Edge-TTS Neural instantáneo permanentemente.")
+                logger.warning(
+                    "Cuota de ElevenLabs agotada. Activando Edge-TTS Neural instantáneo permanentemente."
+                )
                 self.elevenlabs_quota_exceeded = True
             else:
                 logger.error(f"Error HTTP ElevenLabs ({v_id}): {e.code} - {err_body}")
@@ -208,5 +202,6 @@ class VoiceService:
         except Exception as e:
             logger.error(f"Error al conectar con ElevenLabs ({v_id}): {e}")
             return None
+
 
 voice_service = VoiceService()

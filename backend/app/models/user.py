@@ -1,14 +1,17 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional
-from datetime import datetime
+from pydantic import BaseModel, Field
+
 
 class UserRegisterRequest(BaseModel):
     username: str = Field(..., min_length=2, max_length=50, description="Nombre de usuario o apodo")
     gender: str = Field(..., description="Género: 'masculino' | 'femenino' | 'otro'")
     age: int = Field(..., ge=4, le=120, description="Edad del estudiante")
-    avatar: Optional[str] = "capy_fan"
-    voice_preference: Optional[str] = "auto" # "auto" | "female" | "male"
-    parental_consent: Optional[bool] = Field(default=None, description="Consentimiento parental — requerido si la edad implica banda infantil")
+    avatar: str | None = "capy_fan"
+    voice_preference: str | None = "auto"  # "auto" | "female" | "male"
+    parental_consent: bool | None = Field(
+        default=None,
+        description="Consentimiento parental — requerido si la edad implica banda infantil",
+    )
+
 
 class UserAuthRegisterRequest(BaseModel):
     email: str = Field(..., description="Correo electrónico del usuario")
@@ -16,31 +19,38 @@ class UserAuthRegisterRequest(BaseModel):
     username: str = Field(..., min_length=2, max_length=50, description="Nombre o apodo")
     gender: str = Field(..., description="Género: 'masculino' | 'femenino' | 'otro'")
     age: int = Field(..., ge=4, le=120, description="Edad del estudiante")
-    avatar: Optional[str] = "capy_fan"
-    voice_preference: Optional[str] = "auto"
-    parental_consent: Optional[bool] = Field(default=None, description="Consentimiento del padre/madre/tutor — obligatorio para menores de 11 años")
+    avatar: str | None = "capy_fan"
+    voice_preference: str | None = "auto"
+    parental_consent: bool | None = Field(
+        default=None,
+        description="Consentimiento del padre/madre/tutor — obligatorio para menores de 11 años",
+    )
+
 
 class UserAuthLoginRequest(BaseModel):
     email: str = Field(..., description="Correo electrónico del usuario")
     password: str = Field(..., description="Contraseña del usuario")
 
+
 class UserUpdateRequest(BaseModel):
-    gender: Optional[str] = None
-    age: Optional[int] = None
-    avatar: Optional[str] = None
-    voice_preference: Optional[str] = None
+    gender: str | None = None
+    age: int | None = None
+    avatar: str | None = None
+    voice_preference: str | None = None
+
 
 class UserProfileResponse(BaseModel):
     id: str
-    email: Optional[str] = None
+    email: str | None = None
     username: str
     gender: str
     age: int
-    age_band: Optional[str] = None  # sprout|explorer|adventurer|challenger|scholar|pro
+    age_band: str | None = None  # sprout|explorer|adventurer|challenger|scholar|pro
     avatar: str
     voice_preference: str
-    assigned_voice_gender: str # "female" si es hombre, "male" si es mujer
-    created_at: Optional[str] = None
+    assigned_voice_gender: str  # "female" si es hombre, "male" si es mujer
+    created_at: str | None = None
+
 
 class AuthResponse(BaseModel):
     token: str

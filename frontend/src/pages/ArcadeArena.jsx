@@ -25,6 +25,7 @@ import SubscriptionModal from "../components/SubscriptionModal";
 import TutorialModal from "../components/TutorialModal";
 import VictoryModal from "../components/VictoryModal";
 import WelcomeScreen from "../components/WelcomeScreen";
+import GenerationOverlay from "../components/GenerationOverlay";
 import AdventureMap from "../components/AdventureMap";
 import LegalModal from "../components/LegalModal";
 import CookieConsentBanner from "../components/CookieConsentBanner";
@@ -1864,20 +1865,7 @@ export default function ArcadeArena() {
       />
 
       {/* OVERLAY DE PROCESAMIENTO PROFUNDO DE DOCUMENTOS CON IA */}
-      {isGeneratingArena && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md">
-          <div className="flex flex-col items-center max-w-md p-8 bg-slate-900/90 border border-cyan-500/40 rounded-2xl shadow-[0_0_50px_rgba(6,182,212,0.25)] text-center animate-pulse">
-            <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-4" />
-            <h3 className="text-xl font-black tracking-wider text-cyan-300 mb-2 uppercase">
-              Analizando Contenido Interno
-            </h3>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Extrayendo texto de los documentos cargados y generando preguntas
-              conceptuales profundas mediante Gemini...
-            </p>
-          </div>
-        </div>
-      )}
+      {isGeneratingArena && <GenerationOverlay />}
 
       {/* 3. MODAL DE PREGUNTA */}
       <QuestionModal

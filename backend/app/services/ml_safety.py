@@ -20,8 +20,8 @@ son pesados; solo instalar donde se active el flag).
 Diseño: fail-safe. Si el modelo no carga, las heurísticas siguen
 funcionando — el ML solo AUMENTA el recall, nunca lo reemplaza.
 """
+
 import logging
-from typing import Optional
 
 from app.core.config import settings
 
@@ -36,13 +36,14 @@ _crisis_failed = False
 # en rutas de seguridad, pero no disparar crisis con ruido bajo.
 SAFETY_THRESHOLD = 0.65
 CRISIS_EMOTION_THRESHOLD = 0.55  # sadness/fear
-CRISIS_SCORE_THRESHOLD = 0.85    # eleva directamente a crisis
+CRISIS_SCORE_THRESHOLD = 0.85  # eleva directamente a crisis
 
 
 def _load_pipeline(task_model: str):
     """Carga un pipeline de text-classification con lazy import."""
     try:
-        from transformers import pipeline  # noqa: lazy import — pesado
+        from transformers import pipeline
+
         return pipeline(
             "text-classification",
             model=task_model,
@@ -81,7 +82,7 @@ def _get_crisis_pipe():
     return _crisis_pipe
 
 
-def _run(pipe, text: str) -> Optional[list]:
+def _run(pipe, text: str) -> list | None:
     """Ejecuta un pipeline HF devolviendo [{label, score}, ...] o None."""
     try:
         out = pipe(text[:512])
@@ -111,15 +112,22 @@ def ml_detect_unsafe(text: str) -> dict:
         return {"unsafe": False, "score": 0.0, "label": None, "available": False}
 
     # toxic-bert devuelve labels tipo toxic/severe_toxic/insult/threat/...
-    unsafe_labels = {"toxic", "severe_toxic", "obscene", "threat",
-                     "insult", "identity_hate", "LABEL_1", "1"}
+    unsafe_labels = {
+        "toxic",
+        "severe_toxic",
+        "obscene",
+        "threat",
+        "insult",
+        "identity_hate",
+        "LABEL_1",
+        "1",
+    }
     best = max(results, key=lambda r: r.get("score", 0))
     label = (best.get("label") or "").lower()
     score = best.get("score", 0.0)
     unsafe = label in unsafe_labels and score >= SAFETY_THRESHOLD
 
-    return {"unsafe": unsafe, "score": round(score, 3),
-            "label": label, "available": True}
+    return {"unsafe": unsafe, "score": round(score, 3), "label": label, "available": True}
 
 
 def ml_detect_crisis_emotion(text: str) -> dict:
@@ -134,13 +142,23 @@ def ml_detect_crisis_emotion(text: str) -> dict:
     """
     pipe = _get_crisis_pipe()
     if pipe is None or not text or not text.strip():
-        return {"risk_level": 0.0, "emotion": None, "score": 0.0,
-                "is_crisis_signal": False, "available": False}
+        return {
+            "risk_level": 0.0,
+            "emotion": None,
+            "score": 0.0,
+            "is_crisis_signal": False,
+            "available": False,
+        }
 
     results = _run(pipe, text)
     if not results:
-        return {"risk_level": 0.0, "emotion": None, "score": 0.0,
-                "is_crisis_signal": False, "available": False}
+        return {
+            "risk_level": 0.0,
+            "emotion": None,
+            "score": 0.0,
+            "is_crisis_signal": False,
+            "available": False,
+        }
 
     # beto-emotion: labels en español (sadness, fear, anger, joy, surprise, others)
     by_label = {r["label"].lower(): r.get("score", 0) for r in results}
@@ -155,10 +173,7 @@ def ml_detect_crisis_emotion(text: str) -> dict:
     best_score = by_label.get(best_emotion, 0.0)
 
     # Señal de crisis: sadness/fear muy alta confianza — expresión indirecta
-    is_crisis_signal = (
-        risk_score >= CRISIS_SCORE_THRESHOLD and
-        best_emotion in ("sadness", "fear")
-    )
+    is_crisis_signal = risk_score >= CRISIS_SCORE_THRESHOLD and best_emotion in ("sadness", "fear")
 
     return {
         "risk_level": round(risk_score, 3),

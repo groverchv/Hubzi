@@ -21,7 +21,7 @@ import { fetchWithAuth } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
   
   // Estados de formulario
   const [email, setEmail] = useState('');
@@ -56,6 +56,26 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
       setErrorMsg('Por favor introduce un correo electrónico válido.');
+      return;
+    }
+
+    if (mode === 'forgot') {
+      setIsLoading(true);
+      try {
+        const res = await fetchWithAuth('/api/v1/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail })
+        });
+        const data = await res.json().catch(() => ({}));
+        setSuccessMsg(
+          data.detail || 'Si el correo existe, recibirás un enlace de recuperación.'
+        );
+      } catch {
+        setErrorMsg('No se pudo enviar la solicitud. Inténtalo de nuevo.');
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -193,12 +213,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide mt-0.5 drop-shadow">
-              {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              {mode === 'login' ? 'Iniciar Sesión' : mode === 'register' ? 'Crear Cuenta' : 'Recuperar Contraseña'}
             </h2>
           </div>
         </div>
 
         {/* Selector de Pestañas (Login / Registro estilo Card Clash) */}
+        {mode !== 'forgot' && (
         <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-[#0a162b] border-3 border-[#1e3a6c] mb-5">
           <button
             type="button"
@@ -225,6 +246,14 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             <span>Registrarme</span>
           </button>
         </div>
+        )}
+
+        {/* Cabecera del modo recuperación */}
+        {mode === 'forgot' && (
+          <div className="mb-4 p-3 rounded-xl bg-[#0a162b] border border-[#1e3a6c] text-xs text-slate-300 leading-snug">
+            Escribe tu correo y te enviaremos un enlace para restablecer tu contraseña.
+          </div>
+        )}
 
         {/* Mensajes de Alerta / Éxito */}
         <AnimatePresence>
@@ -290,7 +319,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             />
           </div>
 
-          {/* Campo Contraseña con Toggle de Ojo */}
+          {/* Campo Contraseña con Toggle de Ojo (oculto en modo forgot) */}
+          {mode !== 'forgot' && (
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -319,7 +349,17 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {mode === 'login' && (
+              <button
+                type="button"
+                onClick={() => handleToggleMode('forgot')}
+                className="mt-1.5 text-[10px] font-bold text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
           </div>
+          )}
 
           {/* Opciones de Perfil (Solo en Registro) */}
           {mode === 'register' && (
@@ -438,6 +478,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   <LogIn className="w-4 h-4 text-white" />
                   <span>Iniciar Sesión en Hubzi</span>
                 </>
+              ) : mode === 'forgot' ? (
+                <>
+                  <Mail className="w-4 h-4 text-white" />
+                  <span>Enviar Enlace de Recuperación</span>
+                </>
               ) : (
                 <>
                   <UserPlus className="w-4 h-4 text-white" />
@@ -446,7 +491,19 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               )}
             </button>
 
+            {/* Volver al login desde modo forgot */}
+            {mode === 'forgot' && (
+              <button
+                type="button"
+                onClick={() => handleToggleMode('login')}
+                className="w-full py-2 rounded-xl text-[11px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                ← Volver a iniciar sesión
+              </button>
+            )}
+
             {/* Ingreso Directo sin registrarse (Modo Invitado) */}
+            {mode !== 'forgot' && (
             <button
               type="button"
               onClick={() => {
@@ -473,6 +530,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               <Sparkles className="w-3.5 h-3.5 text-[#FFB400] animate-pulse" />
               <span>Ingresar Directo (Sin Registro / Invitado)</span>
             </button>
+            )}
           </div>
         </form>
 

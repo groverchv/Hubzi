@@ -65,6 +65,10 @@ export default function StudyFolderManagerModal({
   const [processingCountdown, setProcessingCountdown] = useState(5);
   const processingTimerRef = useRef(null);
 
+  // Catálogo de documentos de muestra (probar sin PDF propio)
+  const [sampleCatalog, setSampleCatalog] = useState([]);
+  const [addingSample, setAddingSample] = useState(null);
+
   // Limpiar temporizador al desmontar o cerrar modal
   useEffect(() => {
     return () => {
@@ -118,6 +122,12 @@ export default function StudyFolderManagerModal({
     } catch {
       setFolders([DEFAULT_ADMIN_FOLDER]);
     }
+
+    // Catálogo de muestras curadas (una sola vez por apertura)
+    fetch('/api/v1/folders/samples/catalog')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.samples) setSampleCatalog(data.samples); })
+      .catch(() => {});
 
     const userIdParam = currentUser?.id ? `?user_id=${currentUser.id}` : '';
     fetchWithAuth(`/api/v1/folders${userIdParam}`)
@@ -181,6 +191,42 @@ export default function StudyFolderManagerModal({
     setIsCreating(false);
     // Abrir directamente la carpeta creada
     setActiveFolderView(folderItem);
+  };
+
+  // Añadir documento de muestra a la carpeta activa
+  const handleAddSample = async (sampleId) => {
+    if (!activeFolderView || addingSample) return;
+    setAddingSample(sampleId);
+    try {
+      const res = await fetchWithAuth(
+        `/api/v1/folders/${activeFolderView.id}/add-sample`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sample_id: sampleId }),
+        }
+      );
+      const data = res.ok ? await res.json() : null;
+      const doc = data?.document || {
+        id: `doc_sample_${sampleId}`,
+        name: sampleCatalog.find(s => s.id === sampleId)?.name || 'Muestra',
+        is_sample: true,
+      };
+      const docWithMeta = { ...doc, uploaded_at: 'Muestra', is_sample: true };
+      const updated = folders.map(f =>
+        f.id === activeFolderView.id
+          ? { ...f, documents: [...(f.documents || []), docWithMeta] }
+          : f
+      );
+      saveFolders(updated);
+      setActiveFolderView(prev =>
+        prev ? { ...prev, documents: [...(prev.documents || []), docWithMeta] } : prev
+      );
+    } catch (err) {
+      console.warn('Error añadiendo muestra:', err);
+    } finally {
+      setAddingSample(null);
+    }
   };
 
   // Eliminar carpeta
@@ -685,6 +731,26 @@ export default function StudyFolderManagerModal({
                 <span className="drop-shadow-sm">Subir Más Archivos</span>
               </button>
             </div>
+
+            {/* Franja de muestras: probar el juego sin tener un PDF a mano */}
+            {sampleCatalog.length > 0 && (
+              <div className="px-6 py-3 bg-[#0d1a30] border-b-2 border-[#1e3a6c] flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 mr-1">
+                  ¿Sin material? Prueba un ejemplo:
+                </span>
+                {sampleCatalog.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => handleAddSample(s.id)}
+                    disabled={Boolean(addingSample)}
+                    title={s.description}
+                    className="px-3 py-1.5 rounded-xl bg-[#1a263a] hover:bg-[#223147] border-2 border-[#2b3f5f] hover:border-cyan-400/60 text-[11px] font-bold text-cyan-200 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                  >
+                    {addingSample === s.id ? 'Añadiendo…' : `+ ${s.name.replace('.txt', '')}`}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Listado de Documentos de la Carpeta */}
             <div className="p-6 flex-1 overflow-y-auto space-y-4 bg-[#0f1726]">

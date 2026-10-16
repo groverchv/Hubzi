@@ -2,7 +2,7 @@
 Límites del modelo freemium de Hubzy.
 None = ilimitado.
 """
-from typing import Optional
+
 from fastapi import HTTPException, status
 
 PLAN_LIMITS = {
@@ -49,7 +49,7 @@ def enforce_docs_limit(plan: str, current_docs: int):
         )
 
 
-def enforce_question_limit(plan: str, requested: Optional[int]) -> Optional[int]:
+def enforce_question_limit(plan: str, requested: int | None) -> int | None:
     limit = get_limits(plan)["max_questions_per_game"]
     if requested is not None and limit is not None and requested > limit:
         return limit

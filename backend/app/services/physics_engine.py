@@ -8,10 +8,13 @@ Dos arquetipos:
 Distractores físicos = errores típicos documentados: confusión de unidades
 (km/h vs m/s), masa vs peso, inversión de fórmulas.
 """
+
+import logging
 import random
-from typing import Optional
 
 from app.core.age_bands import get_band
+
+logger = logging.getLogger("hubzy.physics_engine")
 
 # Tabla de magnitudes fundamentales del SI — base del juego de matching
 MAGNITUDES = [
@@ -34,13 +37,19 @@ MAGNITUDES_DERIVADAS = [
     {"name": "voltaje", "symbol": "V", "unit": "V", "unit_name": "volt"},
     {"name": "resistencia", "symbol": "R", "unit": "Ω", "unit_name": "ohmio"},
     {"name": "velocidad", "symbol": "v", "unit": "m/s", "unit_name": "metro por segundo"},
-    {"name": "aceleración", "symbol": "a", "unit": "m/s²", "unit_name": "metro por segundo cuadrado"},
+    {
+        "name": "aceleración",
+        "symbol": "a",
+        "unit": "m/s²",
+        "unit_name": "metro por segundo cuadrado",
+    },
 ]
 
 # Fórmulas de cinemática/dinámica con números amigables para 'solve'
 _FORMULAS = [
     {
-        "name": "velocidad media", "latex": "v = \\frac{d}{t}",
+        "name": "velocidad media",
+        "latex": "v = \\frac{d}{t}",
         "vars": {"d": (10, 300), "t": (2, 15)},
         "solve": lambda d, t: d / t,
         "units": "m/s",
@@ -48,7 +57,8 @@ _FORMULAS = [
         "misconceptions": ["invirtió la fórmula (t/d)", "usó unidades distintas"],
     },
     {
-        "name": "segunda ley de Newton", "latex": "F = m \\cdot a",
+        "name": "segunda ley de Newton",
+        "latex": "F = m \\cdot a",
         "vars": {"m": (2, 50), "a": (1, 10)},
         "solve": lambda m, a: m * a,
         "units": "N",
@@ -56,7 +66,8 @@ _FORMULAS = [
         "misconceptions": ["sumó m+a en vez de multiplicar", "confundió masa con peso"],
     },
     {
-        "name": "trabajo mecánico", "latex": "W = F \\cdot d",
+        "name": "trabajo mecánico",
+        "latex": "W = F \\cdot d",
         "vars": {"F": (5, 100), "d": (2, 20)},
         "solve": lambda F, d: F * d,
         "units": "J",
@@ -64,7 +75,8 @@ _FORMULAS = [
         "misconceptions": ["dividió F/d en vez de multiplicar", "confundió trabajo con potencia"],
     },
     {
-        "name": "densidad", "latex": "\\rho = \\frac{m}{V}",
+        "name": "densidad",
+        "latex": "\\rho = \\frac{m}{V}",
         "vars": {"m": (10, 500), "V": (2, 50)},
         "solve": lambda m, V: m / V,
         "units": "kg/m³",
@@ -72,15 +84,17 @@ _FORMULAS = [
         "misconceptions": ["multiplicó m×V", "invirtió la fórmula (V/m)"],
     },
     {
-        "name": "ley de Ohm", "latex": "V = I \\cdot R",
+        "name": "ley de Ohm",
+        "latex": "V = I \\cdot R",
         "vars": {"I": (1, 10), "R": (2, 20)},
-        "solve": lambda I, R: I * R,
+        "solve": lambda I, R: I * R,  # noqa: E741 -- I y R son la notación física estándar (corriente, resistencia)
         "units": "V",
         "statement": "Una corriente de {I} A pasa por una resistencia de {R} Ω. ¿Cuál es el voltaje?",
         "misconceptions": ["confundió corriente con voltaje", "sumó en vez de multiplicar"],
     },
     {
-        "name": "presión", "latex": "p = \\frac{F}{A}",
+        "name": "presión",
+        "latex": "p = \\frac{F}{A}",
         "vars": {"F": (10, 200), "A": (2, 20)},
         "solve": lambda F, A: F / A,
         "units": "Pa",
@@ -88,7 +102,8 @@ _FORMULAS = [
         "misconceptions": ["multiplicó F×A", "confundió presión con fuerza"],
     },
     {
-        "name": "energía cinética", "latex": "E_c = \\frac{1}{2} m v^2",
+        "name": "energía cinética",
+        "latex": "E_c = \\frac{1}{2} m v^2",
         "vars": {"m": (2, 20), "v": (2, 10)},
         "solve": lambda m, v: 0.5 * m * v * v,
         "units": "J",
@@ -96,7 +111,8 @@ _FORMULAS = [
         "misconceptions": ["olvidó el ½", "usó v en vez de v²", "confundió con energía potencial"],
     },
     {
-        "name": "energía potencial", "latex": "E_p = m \\cdot g \\cdot h",
+        "name": "energía potencial",
+        "latex": "E_p = m \\cdot g \\cdot h",
         "vars": {"m": (2, 30), "h": (2, 20)},
         "solve": lambda m, h: m * 9.8 * h,
         "units": "J",
@@ -116,7 +132,9 @@ def _fmt(v) -> str:
 
 def _magnitude_match(band, level):
     """Arquetipo match: magnitud ↔ unidad (o ↔ símbolo)."""
-    pool = MAGNITUDES + MAGNITUDES_DERIVADAS if level > 2 or band["numbers_max"] >= 100 else MAGNITUDES
+    pool = (
+        MAGNITUDES + MAGNITUDES_DERIVADAS if level > 2 or band["numbers_max"] >= 100 else MAGNITUDES
+    )
     mag = random.choice(pool)
     field = random.choice(["unit", "symbol"]) if level > 3 else "unit"
 
@@ -138,7 +156,9 @@ def _magnitude_match(band, level):
         "question_latex": None,
         "correct": correct,
         "distractors": distract,
-        "misconception_tags": {d: "confundió la unidad/símbolo con otra magnitud" for d in distract},
+        "misconception_tags": dict.fromkeys(
+            distract, "confundió la unidad/símbolo con otra magnitud"
+        ),
         "concept": f"magnitud: {mag['name']}",
         "hint": hint,
         "explanation": f"{mag['name']} → {mag['symbol']} en {mag['unit_name']} ({mag['unit']}).",
@@ -194,14 +214,38 @@ def _formula_solve(band, level):
 def _unit_conversion(band, level):
     """Arquetipo: conversión de unidades (error típico km/h vs m/s)."""
     convs = [
-        ("km/h → m/s", lambda v: v / 3.6, "Un vehículo va a {v} km/h. ¿Cuánto es en m/s?", "m/s",
-         "dividir entre 3.6", "confundió con multiplicar por 3.6"),
-        ("m → cm", lambda v: v * 100, "{v} metros equivalen a ¿cuántos centímetros?", "cm",
-         "multiplicar por 100", "dividió en vez de multiplicar"),
-        ("g → kg", lambda v: v / 1000, "{v} gramos equivalen a ¿cuántos kilogramos?", "kg",
-         "dividir entre 1000", "multiplicó en vez de dividir"),
-        ("min → s", lambda v: v * 60, "{v} minutos equivalen a ¿cuántos segundos?", "s",
-         "multiplicar por 60", "usó factor 100 en vez de 60"),
+        (
+            "km/h → m/s",
+            lambda v: v / 3.6,
+            "Un vehículo va a {v} km/h. ¿Cuánto es en m/s?",
+            "m/s",
+            "dividir entre 3.6",
+            "confundió con multiplicar por 3.6",
+        ),
+        (
+            "m → cm",
+            lambda v: v * 100,
+            "{v} metros equivalen a ¿cuántos centímetros?",
+            "cm",
+            "multiplicar por 100",
+            "dividió en vez de multiplicar",
+        ),
+        (
+            "g → kg",
+            lambda v: v / 1000,
+            "{v} gramos equivalen a ¿cuántos kilogramos?",
+            "kg",
+            "dividir entre 1000",
+            "multiplicó en vez de dividir",
+        ),
+        (
+            "min → s",
+            lambda v: v * 60,
+            "{v} minutos equivalen a ¿cuántos segundos?",
+            "s",
+            "multiplicar por 60",
+            "usó factor 100 en vez de 60",
+        ),
     ]
     name, conv, template, unit, method, misconception = random.choice(convs)
     base = random.choice([2, 4, 5, 8, 10, 20, 36, 72, 90, 120, 180, 360])
@@ -210,8 +254,11 @@ def _unit_conversion(band, level):
     val = conv(base)
     correct = _fmt(val)
     # Distractores = error de dirección de la conversión + ±10%
-    distract = {_fmt(base * 3.6) if "3.6" in method else _fmt(base / 100 if "100" in method else base * 60),
-                _fmt(val * 10), _fmt(val / 10)}
+    distract = {
+        _fmt(base * 3.6) if "3.6" in method else _fmt(base / 100 if "100" in method else base * 60),
+        _fmt(val * 10),
+        _fmt(val / 10),
+    }
     distract.discard(correct)
     distract = list(distract)[:3]
     while len(distract) < 3:
@@ -239,8 +286,9 @@ _GENERATORS = [
 ]
 
 
-def generate_physics_problems(band_key: str, level: int,
-                              count: int, seed: Optional[int] = None) -> list:
+def generate_physics_problems(
+    band_key: str, level: int, count: int, seed: int | None = None
+) -> list:
     """Genera `count` problemas de física mezclando los 3 arquetipos."""
     if seed is not None:
         random.seed(seed)
@@ -261,7 +309,8 @@ def generate_physics_problems(band_key: str, level: int,
         gen = random.choice(gens)
         try:
             p = gen(band, level)
-        except Exception:
+        except Exception as gen_err:
+            logger.debug(f"Generador de física falló, reintentando: {gen_err}")
             continue
         sig = p["question"] + p["correct"]
         if sig in seen:

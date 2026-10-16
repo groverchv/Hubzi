@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
@@ -14,13 +13,13 @@ router = APIRouter(prefix="/api/v1/zen", tags=["Zen"])
 class ZenLogRequest(BaseModel):
     log_type: str = "breathing_session"
     duration_seconds: int = 60
-    notes: Optional[str] = "Sesión completada con Capi Zen"
+    notes: str | None = "Sesión completada con Capi Zen"
 
 
 @router.post("/log", status_code=status.HTTP_201_CREATED)
 async def log_zen_session(
     payload: ZenLogRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """Guarda los ciclos de respiración o pausas activas completadas por el usuario."""
     doc = payload.model_dump()
@@ -37,7 +36,7 @@ async def log_zen_session(
 
 
 @router.get("/stats")
-async def get_zen_stats(current_user: Optional[dict] = Depends(get_optional_user)):
+async def get_zen_stats(current_user: dict | None = Depends(get_optional_user)):
     """Estadísticas agregadas de bienestar del usuario autenticado."""
     if not current_user:
         return {"total_sessions": 0, "total_seconds": 0, "plan": "guest"}
@@ -47,11 +46,13 @@ async def get_zen_stats(current_user: Optional[dict] = Depends(get_optional_user
         try:
             pipeline = [
                 {"$match": {"user_id": uid}},
-                {"$group": {
-                    "_id": None,
-                    "total_sessions": {"$sum": 1},
-                    "total_seconds": {"$sum": "$duration_seconds"},
-                }},
+                {
+                    "$group": {
+                        "_id": None,
+                        "total_sessions": {"$sum": 1},
+                        "total_seconds": {"$sum": "$duration_seconds"},
+                    }
+                },
             ]
             async for row in db_manager.db["zen_logs"].aggregate(pipeline):
                 stats["total_sessions"] = row.get("total_sessions", 0)

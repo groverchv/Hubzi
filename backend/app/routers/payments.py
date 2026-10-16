@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -15,29 +14,35 @@ router = APIRouter(prefix="/api/v1/payments", tags=["Monetization"])
 
 def _stripe():
     import stripe
+
     stripe.api_key = settings.STRIPE_SECRET_KEY
     if not stripe.api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="La clave secreta de Stripe no está configurada."
+            detail="La clave secreta de Stripe no está configurada.",
         )
     return stripe
 
 
-async def _upgrade_user_to_pro(user_id: str, customer_id: Optional[str] = None, subscription_id: Optional[str] = None):
+async def _upgrade_user_to_pro(
+    user_id: str, customer_id: str | None = None, subscription_id: str | None = None
+):
     if db_manager.db is None:
         return
     try:
         from bson import ObjectId
+
         query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
         await db_manager.db["users"].update_one(
             query,
-            {"$set": {
-                "plan": "pro",
-                "pro_since": utcnow_iso(),
-                "stripe_customer": customer_id,
-                "stripe_subscription": subscription_id,
-            }}
+            {
+                "$set": {
+                    "plan": "pro",
+                    "pro_since": utcnow_iso(),
+                    "stripe_customer": customer_id,
+                    "stripe_subscription": subscription_id,
+                }
+            },
         )
         logger.info(f"Usuario {user_id} actualizado al Plan PRO.")
     except Exception as dbe:
@@ -50,19 +55,21 @@ async def _downgrade_user(customer_id: str):
     try:
         await db_manager.db["users"].update_one(
             {"stripe_customer": customer_id},
-            {"$set": {"plan": "free"}, "$unset": {"stripe_subscription": ""}}
+            {"$set": {"plan": "free"}, "$unset": {"stripe_subscription": ""}},
         )
-        logger.info(f"Suscripción cancelada para customer {customer_id}; usuario vuelve a plan free.")
+        logger.info(
+            f"Suscripción cancelada para customer {customer_id}; usuario vuelve a plan free."
+        )
     except Exception as dbe:
         logger.warning(f"Error degradando plan de usuario: {dbe}")
 
 
 class CreateCheckoutSessionRequest(BaseModel):
-    user_id: Optional[str] = None  # ignorado: el user real viene del JWT
-    email: Optional[str] = None
+    user_id: str | None = None  # ignorado: el user real viene del JWT
+    email: str | None = None
     plan_id: str = "pro_monthly"
-    success_url: Optional[str] = None
-    cancel_url: Optional[str] = None
+    success_url: str | None = None
+    cancel_url: str | None = None
 
 
 @router.post("/create-checkout-session")
@@ -79,7 +86,9 @@ async def create_checkout_session(
     stripe = _stripe()
 
     user_id = str(current_user.get("id") or current_user.get("_id"))
-    email = current_user.get("email") or (payload.email if payload.email and "@" in payload.email else None)
+    email = current_user.get("email") or (
+        payload.email if payload.email and "@" in payload.email else None
+    )
     frontend = settings.FRONTEND_URL.rstrip("/")
     success_url = payload.success_url or f"{frontend}/?payment=success"
     cancel_url = payload.cancel_url or f"{frontend}/?payment=cancelled"
@@ -99,17 +108,19 @@ async def create_checkout_session(
         else:
             # Fallback legacy (pago único) para entornos sin price_id configurado
             session = stripe.checkout.Session.create(
-                line_items=[{
-                    "price_data": {
-                        "currency": "usd",
-                        "product_data": {
-                            "name": "Hubzy Pro (Estudiante Zen)",
-                            "description": "Carpetas ilimitadas, batallas 1v1 y 'pregúntale a tus apuntes' con Capi IA.",
+                line_items=[
+                    {
+                        "price_data": {
+                            "currency": "usd",
+                            "product_data": {
+                                "name": "Hubzy Pro (Estudiante Zen)",
+                                "description": "Carpetas ilimitadas, batallas 1v1 y 'pregúntale a tus apuntes' con Capi IA.",
+                            },
+                            "unit_amount": 299,
                         },
-                        "unit_amount": 299,
-                    },
-                    "quantity": 1,
-                }],
+                        "quantity": 1,
+                    }
+                ],
                 mode="payment",
                 customer_email=email,
                 client_reference_id=user_id,
@@ -127,9 +138,8 @@ async def create_checkout_session(
     except Exception as e:
         logger.error(f"Error creando sesión de Stripe Checkout: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error en Stripe: {str(e)}"
-        )
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error en Stripe: {e!s}"
+        ) from e
 
 
 @router.get("/verify-session/{session_id}")
@@ -148,7 +158,9 @@ async def verify_payment_session(
 
         # El pago solo puede acreditar al dueño de la sesión de checkout
         if is_paid and session_user and session_user != uid:
-            raise HTTPException(status_code=403, detail="Esta sesión de pago no pertenece a tu cuenta.")
+            raise HTTPException(
+                status_code=403, detail="Esta sesión de pago no pertenece a tu cuenta."
+            )
 
         if is_paid and session_user:
             await _upgrade_user_to_pro(
@@ -170,9 +182,8 @@ async def verify_payment_session(
     except Exception as e:
         logger.error(f"Error verificando sesión Stripe: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error al verificar pago: {str(e)}"
-        )
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error al verificar pago: {e!s}"
+        ) from e
 
 
 @router.post("/webhook", include_in_schema=False)
@@ -193,7 +204,7 @@ async def stripe_webhook(request: Request):
         event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         logger.warning(f"Firma de webhook Stripe inválida: {e}")
-        raise HTTPException(status_code=400, detail="Firma inválida.")
+        raise HTTPException(status_code=400, detail="Firma inválida.") from e
 
     etype = event["type"]
     data = event["data"]["object"]

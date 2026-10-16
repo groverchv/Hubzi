@@ -9,6 +9,9 @@ import { useAuthStore } from './store/authStore';
 const ArcadeArena = lazy(() => import('./pages/ArcadeArena'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ZenPage = lazy(() => import('./pages/ZenPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 
 function RouteFallback() {
   return (
@@ -54,6 +57,10 @@ function App() {
               }
             />
             <Route path="/zen" element={<ZenPage />} />
+            <Route path="/legal/terminos" element={<LegalPage type="terminos" />} />
+            <Route path="/legal/privacidad" element={<LegalPage type="privacidad" />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

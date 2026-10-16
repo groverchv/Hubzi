@@ -1,12 +1,14 @@
 import json
 import logging
 import re
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 try:
     from google import genai
     from google.genai import types as genai_types
+
     GENAI_AVAILABLE = True
 except ImportError:
     genai = None
@@ -15,13 +17,13 @@ except ImportError:
 
 try:
     from groq import Groq
+
     GROQ_AVAILABLE = True
 except ImportError:
     Groq = None
     GROQ_AVAILABLE = False
 
 from app.core.config import settings
-
 
 logger = logging.getLogger("hubzy.psychology_service")
 
@@ -37,16 +39,40 @@ GEMINI_FALLBACK_MODELS = [
 # ESQUEMAS PYDANTIC PARA PSICOLOGÍA Y SALUD EMOCIONAL
 # =====================================================================
 
+
 class PsychologyAnalysisResult(BaseModel):
-    stress_level: float = Field(default=0.1, description="Nivel de estrés de 0.0 (total serenidad) a 1.0 (pánico/alta tensión)")
-    stress_category: str = Field(default="calm", description="calm | mild_tension | moderate_anxiety | high_stress | crisis")
-    emotion_detected: str = Field(default="calma", description="Emoción predominante identificada en el estudiante")
-    cognitive_distortion: Optional[str] = Field(default=None, description="Distorsión cognitiva TCC (ej. Catastrofismo, Todo o Nada, Impostor)")
-    needs_somatic_intervention: bool = Field(default=False, description="Verdadero si se recomienda activar respiración o grounding")
-    recommended_intervention: str = Field(default="cognitive_reframe", description="breathing_478 | physiological_sigh | grounding_54321 | cognitive_reframe | micro_step")
-    empathic_response: str = Field(default="Estoy aquí contigo. Respira con calma y avancemos paso a paso.", description="Mensaje cálido y terapéutico de Capi")
-    clinical_rationale: str = Field(default="Regulación del tono vagal y desactivación simpática.", description="Fundamento neuropsicológico")
-    is_crisis: bool = Field(default=False, description="Bandera roja de seguridad clínica (autolesión o crisis severa)")
+    stress_level: float = Field(
+        default=0.1,
+        description="Nivel de estrés de 0.0 (total serenidad) a 1.0 (pánico/alta tensión)",
+    )
+    stress_category: str = Field(
+        default="calm", description="calm | mild_tension | moderate_anxiety | high_stress | crisis"
+    )
+    emotion_detected: str = Field(
+        default="calma", description="Emoción predominante identificada en el estudiante"
+    )
+    cognitive_distortion: str | None = Field(
+        default=None,
+        description="Distorsión cognitiva TCC (ej. Catastrofismo, Todo o Nada, Impostor)",
+    )
+    needs_somatic_intervention: bool = Field(
+        default=False, description="Verdadero si se recomienda activar respiración o grounding"
+    )
+    recommended_intervention: str = Field(
+        default="cognitive_reframe",
+        description="breathing_478 | physiological_sigh | grounding_54321 | cognitive_reframe | micro_step",
+    )
+    empathic_response: str = Field(
+        default="Estoy aquí contigo. Respira con calma y avancemos paso a paso.",
+        description="Mensaje cálido y terapéutico de Capi",
+    )
+    clinical_rationale: str = Field(
+        default="Regulación del tono vagal y desactivación simpática.",
+        description="Fundamento neuropsicológico",
+    )
+    is_crisis: bool = Field(
+        default=False, description="Bandera roja de seguridad clínica (autolesión o crisis severa)"
+    )
 
 
 # =====================================================================
@@ -60,10 +86,10 @@ EVIDENCE_BASED_PROTOCOLS = {
         "steps": [
             "Inhala profundamente por la nariz durante 4 segundos.",
             "Retén el aire con calma en tus pulmones durante 7 segundos.",
-            "Exhala lentamente por la boca en 8 segundos, vaciando toda la tensión."
+            "Exhala lentamente por la boca en 8 segundos, vaciando toda la tensión.",
         ],
         "duration_seconds": 38,
-        "ideal_for": ["moderate_anxiety", "high_stress", "taquicardia", "bloqueo_mental"]
+        "ideal_for": ["moderate_anxiety", "high_stress", "taquicardia", "bloqueo_mental"],
     },
     "physiological_sigh": {
         "name": "Suspiro Fisiológico (Neurobiología de Stanford)",
@@ -71,10 +97,10 @@ EVIDENCE_BASED_PROTOCOLS = {
         "steps": [
             "Toma una inhalación profunda por la nariz.",
             "Inmediatamente, da una segunda micro-inhalación corta por la nariz para llenar al máximo.",
-            "Suelta todo el aire por la boca en una exhalación larga, suave y completa."
+            "Suelta todo el aire por la boca en una exhalación larga, suave y completa.",
         ],
         "duration_seconds": 15,
-        "ideal_for": ["mild_tension", "impaciencia", "inicio_de_estres"]
+        "ideal_for": ["mild_tension", "impaciencia", "inicio_de_estres"],
     },
     "grounding_54321": {
         "name": "Técnica de Enraizamiento Sensorial 5-4-3-2-1",
@@ -84,10 +110,10 @@ EVIDENCE_BASED_PROTOCOLS = {
             "Toca 4 texturas u objetos cercanos.",
             "Escucha 3 sonidos sutiles de tu entorno.",
             "Identifica 2 aromas.",
-            "Reconoce 1 sensación agradable en tu cuerpo o sabor."
+            "Reconoce 1 sensación agradable en tu cuerpo o sabor.",
         ],
         "duration_seconds": 45,
-        "ideal_for": ["desconexión", "ataque_de_pánico", "rumiación_obsesiva"]
+        "ideal_for": ["desconexión", "ataque_de_pánico", "rumiación_obsesiva"],
     },
     "cognitive_reframe": {
         "name": "Reestructuración Cognitiva TCC (Aaron Beck)",
@@ -95,10 +121,10 @@ EVIDENCE_BASED_PROTOCOLS = {
         "steps": [
             "Identifica el pensamiento limitante (ej: 'no voy a poder').",
             "Examina la evidencia real: ¿un error en una carta significa que no sabes nada?",
-            "Reformula en una afirmación compasiva y realista basada en el aprendizaje continuo."
+            "Reformula en una afirmación compasiva y realista basada en el aprendizaje continuo.",
         ],
         "duration_seconds": 30,
-        "ideal_for": ["perfeccionismo", "miedo_a_fallar", "autocrítica"]
+        "ideal_for": ["perfeccionismo", "miedo_a_fallar", "autocrítica"],
     },
     "micro_step": {
         "name": "Fraccionamiento de Carga Cognitiva",
@@ -106,11 +132,11 @@ EVIDENCE_BASED_PROTOCOLS = {
         "steps": [
             "Olvida el resto del tablero.",
             "Lee únicamente una sola palabra del concepto más simple.",
-            "Toma una sola carta sin preocuparte por el puntaje total."
+            "Toma una sola carta sin preocuparte por el puntaje total.",
         ],
         "duration_seconds": 20,
-        "ideal_for": ["abrumamiento", "sobrecarga_de_información"]
-    }
+        "ideal_for": ["abrumamiento", "sobrecarga_de_información"],
+    },
 }
 
 
@@ -121,32 +147,92 @@ EVIDENCE_BASED_PROTOCOLS = {
 STRESS_KEYWORDS_MAP = {
     # Nivel Alto / Pánico (0.8 - 1.0)
     "crisis": [
-        "no puedo más", "me quiero morir", "odio mi vida", "me rindo", "me voy a matar",
-        "desesperado", "ataque de pánico", "no respiro", "me ahogo", "colapso"
+        "no puedo más",
+        "me quiero morir",
+        "odio mi vida",
+        "me rindo",
+        "me voy a matar",
+        "desesperado",
+        "ataque de pánico",
+        "no respiro",
+        "me ahogo",
+        "colapso",
     ],
     "high_stress": [
-        "estoy muy estresado", "demasiado estresada", "ansiedad", "muy nervioso", "muy nerviosa",
-        "no sirvo para nada", "voy a reprobar", "no entiendo nada", "todo mal", "no doy más",
-        "bloqueado", "bloqueada", "me tiemblan las manos", "llorar", "frustración total"
+        "estoy muy estresado",
+        "demasiado estresada",
+        "ansiedad",
+        "muy nervioso",
+        "muy nerviosa",
+        "no sirvo para nada",
+        "voy a reprobar",
+        "no entiendo nada",
+        "todo mal",
+        "no doy más",
+        "bloqueado",
+        "bloqueada",
+        "me tiemblan las manos",
+        "llorar",
+        "frustración total",
     ],
     # Nivel Moderado (0.5 - 0.79)
     "moderate_anxiety": [
-        "estresado", "estresada", "difícil", "complicado", "tengo miedo", "no sé qué hacer",
-        "me cuesta", "me equivoqué", "fallé", "qué rabia", "confuso", "no llego", "apuro",
-        "presión", "angustia", "tensión", "preocupado", "preocupada"
+        "estresado",
+        "estresada",
+        "difícil",
+        "complicado",
+        "tengo miedo",
+        "no sé qué hacer",
+        "me cuesta",
+        "me equivoqué",
+        "fallé",
+        "qué rabia",
+        "confuso",
+        "no llego",
+        "apuro",
+        "presión",
+        "angustia",
+        "tensión",
+        "preocupado",
+        "preocupada",
     ],
     # Nivel Leve / Impaciencia (0.25 - 0.49)
     "mild_tension": [
-        "uhm", "a ver", "no sé", "duda", "pista", "ayuda", "perdido", "perdida",
-        "un poco difícil", "no me sale", "vamos a ver"
-    ]
+        "uhm",
+        "a ver",
+        "no sé",
+        "duda",
+        "pista",
+        "ayuda",
+        "perdido",
+        "perdida",
+        "un poco difícil",
+        "no me sale",
+        "vamos a ver",
+    ],
 }
 
 DISTORTIONS_PATTERNS = [
-    (r"\b(nunca|jamás|todo|nada|siempre)\b", "Pensamiento Todo o Nada (Polarización)", "Pensamiento dicotómico que ignora los matices y el progreso parcial."),
-    (r"\b(voy a reprobar|es el fin|es un desastre|todo saldrá mal|arruiné todo)\b", "Catastrofismo", "Anticipación del peor escenario posible sin evidencia proporcional."),
-    (r"\b(no sirvo|soy tonto|soy inútil|todos son mejores|no soy capaz)\b", "Desvalorización / Síndrome del Impostor", "Atribución interna negativa que socava la autoeficacia académica."),
-    (r"\b(debería saber|tengo que ser perfecto|no puedo fallar)\b", "Exigencias Rígidas ('Los Debería')", "Autoexigencia desadaptativa que detona cortisol y parálisis.")
+    (
+        r"\b(nunca|jamás|todo|nada|siempre)\b",
+        "Pensamiento Todo o Nada (Polarización)",
+        "Pensamiento dicotómico que ignora los matices y el progreso parcial.",
+    ),
+    (
+        r"\b(voy a reprobar|es el fin|es un desastre|todo saldrá mal|arruiné todo)\b",
+        "Catastrofismo",
+        "Anticipación del peor escenario posible sin evidencia proporcional.",
+    ),
+    (
+        r"\b(no sirvo|soy tonto|soy inútil|todos son mejores|no soy capaz)\b",
+        "Desvalorización / Síndrome del Impostor",
+        "Atribución interna negativa que socava la autoeficacia académica.",
+    ),
+    (
+        r"\b(debería saber|tengo que ser perfecto|no puedo fallar)\b",
+        "Exigencias Rígidas ('Los Debería')",
+        "Autoexigencia desadaptativa que detona cortisol y parálisis.",
+    ),
 ]
 
 
@@ -190,7 +276,9 @@ class PsychologyNLPService:
         if GROQ_AVAILABLE and settings.GROQ_API_KEY:
             try:
                 self.groq_client = Groq(api_key=settings.GROQ_API_KEY)
-                logger.info("Psychology NLP Service conectado a Groq Cloud para análisis ultrarrápido.")
+                logger.info(
+                    "Psychology NLP Service conectado a Groq Cloud para análisis ultrarrápido."
+                )
             except Exception as e:
                 self.groq_client = None
                 logger.warning(f"No se pudo inicializar Groq en PsychologyService: {e}")
@@ -202,8 +290,9 @@ class PsychologyNLPService:
             except Exception as e:
                 logger.warning(f"No se pudo inicializar Gemini para PsychologyService: {e}")
 
-
-    def analyze_emotional_state(self, text: str, context: Optional[Dict[str, Any]] = None) -> PsychologyAnalysisResult:
+    def analyze_emotional_state(
+        self, text: str, context: dict[str, Any] | None = None
+    ) -> PsychologyAnalysisResult:
         """
         Analiza el estado psicológico y nivel de estrés del usuario a partir de texto o transcripción de voz.
         Combina un analizador heurístico neuropsicológico determinista ultrarrápido con Gemini Multimodal.
@@ -215,7 +304,7 @@ class PsychologyNLPService:
                 emotion_detected="serenidad",
                 needs_somatic_intervention=False,
                 recommended_intervention="micro_step",
-                empathic_response="Estoy aquí para acompañarte en tu estudio. ¿En qué concepto te gustaría enfocarte?"
+                empathic_response="Estoy aquí para acompañarte en tu estudio. ¿En qué concepto te gustaría enfocarte?",
             )
 
         clean_text = text.lower().strip()
@@ -223,7 +312,9 @@ class PsychologyNLPService:
         # 1. VERIFICACIÓN DE SEGURIDAD CLÍNICA / BANDERA ROJA (CRISIS)
         for crisis_word in STRESS_KEYWORDS_MAP["crisis"]:
             if crisis_word in clean_text:
-                logger.warning(f"🚨 ALERTA DE SEGURIDAD PSICOLÓGICA DETECTADA: '{crisis_word}' en texto.")
+                logger.warning(
+                    f"🚨 ALERTA DE SEGURIDAD PSICOLÓGICA DETECTADA: '{crisis_word}' en texto."
+                )
                 return PsychologyAnalysisResult(
                     stress_level=1.0,
                     stress_category="crisis",
@@ -233,7 +324,7 @@ class PsychologyNLPService:
                     recommended_intervention="grounding_54321",
                     empathic_response="Tu vida y tu bienestar son lo más valioso. Por favor detén la pantalla, respira conmigo y recuerda que no estás solo. Puedes llamar a las líneas de ayuda gratuita en salud mental.",
                     clinical_rationale="Protocolo ético de protección y contención inmediata en crisis.",
-                    is_crisis=True
+                    is_crisis=True,
                 )
 
         # 1.5. CAPA ML OPCIONAL — clasificador pretrained de emociones (español)
@@ -243,6 +334,7 @@ class PsychologyNLPService:
         # heurística — solo eleva el nivel si detecta sadness/fear extremo.
         try:
             from app.services.ml_safety import ml_detect_crisis_emotion
+
             ml = ml_detect_crisis_emotion(clean_text)
             if ml.get("available"):
                 if ml.get("is_crisis_signal"):
@@ -267,13 +359,17 @@ class PsychologyNLPService:
                     logger.info(f"ML elevó riesgo a {ml_elevation} (emoción: {ml['emotion']})")
                     heur = self._heuristic_analysis(clean_text)
                     if heur.stress_level < ml_elevation:
-                        heur = heur.model_copy(update={
-                            "stress_level": max(heur.stress_level, ml_elevation),
-                            "stress_category": "high_stress" if ml_elevation >= 0.75 else "moderate_anxiety",
-                            "needs_somatic_intervention": True,
-                            "emotion_detected": f"{heur.emotion_detected} + {ml['emotion']}",
-                            "clinical_rationale": f"{heur.clinical_rationale} [ML risk={ml_elevation}]",
-                        })
+                        heur = heur.model_copy(
+                            update={
+                                "stress_level": max(heur.stress_level, ml_elevation),
+                                "stress_category": "high_stress"
+                                if ml_elevation >= 0.75
+                                else "moderate_anxiety",
+                                "needs_somatic_intervention": True,
+                                "emotion_detected": f"{heur.emotion_detected} + {ml['emotion']}",
+                                "clinical_rationale": f"{heur.clinical_rationale} [ML risk={ml_elevation}]",
+                            }
+                        )
                     base_result = heur
                     # Continuar con Gemini si está disponible para profundizar
                     if self.client:
@@ -297,7 +393,9 @@ class PsychologyNLPService:
                 if ai_result:
                     return ai_result
             except Exception as e:
-                logger.warning(f"Error en evaluación clínica Gemini, usando análisis heurístico: {e}")
+                logger.warning(
+                    f"Error en evaluación clínica Gemini, usando análisis heurístico: {e}"
+                )
 
         return base_result
 
@@ -356,10 +454,12 @@ class PsychologyNLPService:
             needs_somatic_intervention=needs_breathing,
             recommended_intervention=intervention,
             empathic_response=empathic_text,
-            clinical_rationale=f"Evaluación de carga alostática: {category} con distorsión '{distortion or 'Ninguna'}'."
+            clinical_rationale=f"Evaluación de carga alostática: {category} con distorsión '{distortion or 'Ninguna'}'.",
         )
 
-    def _gemini_clinical_evaluation(self, text: str, context: Optional[Dict[str, Any]] = None) -> Optional[PsychologyAnalysisResult]:
+    def _gemini_clinical_evaluation(
+        self, text: str, context: dict[str, Any] | None = None
+    ) -> PsychologyAnalysisResult | None:
         """
         Ejecuta el pipeline de NLP psicológico con Groq o Gemini para captar sutilezas emocionales,
         ironía, fatiga o sobrecarga mental con latencia mínima.
@@ -368,7 +468,7 @@ class PsychologyNLPService:
         if context:
             context_str = f"\nContexto del estudiante: {json.dumps(context, ensure_ascii=False)}"
 
-        user_content = f"Mensaje del estudiante (voz/texto):\n\"{text}\"{context_str}"
+        user_content = f'Mensaje del estudiante (voz/texto):\n"{text}"{context_str}'
 
         # 1. Intentar con Groq primero (velocidad instantánea)
         if self.groq_client:
@@ -378,11 +478,11 @@ class PsychologyNLPService:
                         model=g_model,
                         messages=[
                             {"role": "system", "content": PSYCHOLOGY_SYSTEM_PROMPT},
-                            {"role": "user", "content": user_content}
+                            {"role": "user", "content": user_content},
                         ],
                         response_format={"type": "json_object"},
                         temperature=0.3,
-                        max_tokens=350
+                        max_tokens=350,
                     )
                     raw_text = (chat_comp.choices[0].message.content or "").strip()
                     if raw_text:
@@ -392,11 +492,25 @@ class PsychologyNLPService:
                             stress_category=str(data.get("stress_category", "calm")),
                             emotion_detected=str(data.get("emotion_detected", "calma")),
                             cognitive_distortion=data.get("cognitive_distortion"),
-                            needs_somatic_intervention=bool(data.get("needs_somatic_intervention", False)),
-                            recommended_intervention=str(data.get("recommended_intervention", "cognitive_reframe")),
-                            empathic_response=str(data.get("empathic_response", "Estoy contigo para ayudarte a aprender con serenidad.")),
-                            clinical_rationale=str(data.get("clinical_rationale", f"Intervención rápida calibrada con {g_model}.")),
-                            is_crisis=bool(data.get("is_crisis", False))
+                            needs_somatic_intervention=bool(
+                                data.get("needs_somatic_intervention", False)
+                            ),
+                            recommended_intervention=str(
+                                data.get("recommended_intervention", "cognitive_reframe")
+                            ),
+                            empathic_response=str(
+                                data.get(
+                                    "empathic_response",
+                                    "Estoy contigo para ayudarte a aprender con serenidad.",
+                                )
+                            ),
+                            clinical_rationale=str(
+                                data.get(
+                                    "clinical_rationale",
+                                    f"Intervención rápida calibrada con {g_model}.",
+                                )
+                            ),
+                            is_crisis=bool(data.get("is_crisis", False)),
                         )
                 except Exception as ge:
                     logger.debug(f"Groq psychology eval ({g_model}) no disponible: {ge}")
@@ -406,7 +520,6 @@ class PsychologyNLPService:
             return None
 
         for model_name in GEMINI_FALLBACK_MODELS:
-
             try:
                 response = self.client.models.generate_content(
                     model=model_name,
@@ -415,8 +528,8 @@ class PsychologyNLPService:
                         system_instruction=PSYCHOLOGY_SYSTEM_PROMPT,
                         temperature=0.3,
                         response_mime_type="application/json",
-                        max_output_tokens=350
-                    )
+                        max_output_tokens=350,
+                    ),
                 )
 
                 if response and response.text:
@@ -426,11 +539,24 @@ class PsychologyNLPService:
                         stress_category=str(data.get("stress_category", "calm")),
                         emotion_detected=str(data.get("emotion_detected", "calma")),
                         cognitive_distortion=data.get("cognitive_distortion"),
-                        needs_somatic_intervention=bool(data.get("needs_somatic_intervention", False)),
-                        recommended_intervention=str(data.get("recommended_intervention", "cognitive_reframe")),
-                        empathic_response=str(data.get("empathic_response", "Estoy contigo para ayudarte a aprender con serenidad.")),
-                        clinical_rationale=str(data.get("clinical_rationale", "Intervención de psicología positiva y TCC.")),
-                        is_crisis=bool(data.get("is_crisis", False))
+                        needs_somatic_intervention=bool(
+                            data.get("needs_somatic_intervention", False)
+                        ),
+                        recommended_intervention=str(
+                            data.get("recommended_intervention", "cognitive_reframe")
+                        ),
+                        empathic_response=str(
+                            data.get(
+                                "empathic_response",
+                                "Estoy contigo para ayudarte a aprender con serenidad.",
+                            )
+                        ),
+                        clinical_rationale=str(
+                            data.get(
+                                "clinical_rationale", "Intervención de psicología positiva y TCC."
+                            )
+                        ),
+                        is_crisis=bool(data.get("is_crisis", False)),
                     )
             except Exception as e:
                 logger.debug(f"Intento de análisis con {model_name} no disponible: {e}")
@@ -438,7 +564,7 @@ class PsychologyNLPService:
 
         return None
 
-    def reframe_negative_thought(self, anxious_thought: str) -> Dict[str, str]:
+    def reframe_negative_thought(self, anxious_thought: str) -> dict[str, str]:
         """
         Reestructura un pensamiento automático negativo o catastrófico del estudiante
         en una perspectiva equilibrada, realista y compasiva según la TCC.
@@ -447,7 +573,7 @@ class PsychologyNLPService:
             return {
                 "original_thought": anxious_thought,
                 "reframe": "Este pensamiento es solo una reacción temporal al esfuerzo. Un error no define tu capacidad de aprender.",
-                "technique": "Descentramiento cognitivo TCC"
+                "technique": "Descentramiento cognitivo TCC",
             }
 
         reframe_prompt = (
@@ -458,14 +584,13 @@ class PsychologyNLPService:
         )
         try:
             res = self.client.models.generate_content(
-                model=GEMINI_FALLBACK_MODELS[0],
-                contents=reframe_prompt
+                model=GEMINI_FALLBACK_MODELS[0], contents=reframe_prompt
             )
             if res and res.text:
                 return {
                     "original_thought": anxious_thought,
-                    "reframe": res.text.strip().replace('"', ''),
-                    "technique": "Reestructuración Cognitiva TCC"
+                    "reframe": res.text.strip().replace('"', ""),
+                    "technique": "Reestructuración Cognitiva TCC",
                 }
         except Exception as e:
             logger.warning(f"Error en reframe con Gemini: {e}")
@@ -473,14 +598,13 @@ class PsychologyNLPService:
         return {
             "original_thought": anxious_thought,
             "reframe": "Equivocarse en un ejercicio es la forma más rápida y efectiva en que tu cerebro consolida nuevos conocimientos.",
-            "technique": "Normalización del error y crecimiento neuronal"
+            "technique": "Normalización del error y crecimiento neuronal",
         }
 
-    def get_protocols(self) -> Dict[str, Any]:
+    def get_protocols(self) -> dict[str, Any]:
         """Devuelve los protocolos clínicos indexados para reducción de estrés."""
         return EVIDENCE_BASED_PROTOCOLS
 
 
 # Instancia singleton del servicio
 psychology_service = PsychologyNLPService()
-

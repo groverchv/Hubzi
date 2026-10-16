@@ -2,9 +2,18 @@ import hashlib
 import logging
 import random
 import secrets
-from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 
 from app.core.database import db_manager
@@ -18,11 +27,11 @@ from app.core.security import (
     utcnow_iso,
 )
 from app.core.session_store import in_memory_study_folders
+from app.routers.arena import _validate_upload
 from app.schemas.schemas import GameBoardResponse, GenerateBoardRequest
 from app.services.ai_service import ai_service
 from app.services.board_service import generate_board
 from app.services.rag_service import rag_service
-from app.routers.arena import _validate_upload
 
 logger = logging.getLogger("hubzy.folders")
 router = APIRouter(prefix="/api/v1/folders", tags=["Folders"])
@@ -31,14 +40,15 @@ router = APIRouter(prefix="/api/v1/folders", tags=["Folders"])
 def _folder_query(folder_id: str) -> dict:
     try:
         from bson import ObjectId
+
         if len(folder_id) == 24:
             return {"_id": ObjectId(folder_id)}
-    except Exception:
-        pass
+    except Exception as oid_err:
+        logger.debug(f"folder_id '{folder_id}' no es ObjectId válido: {oid_err}")
     return {"$or": [{"id": folder_id}, {"_id": folder_id}]}
 
 
-async def _load_folder(folder_id: str) -> Optional[dict]:
+async def _load_folder(folder_id: str) -> dict | None:
     if db_manager.db is not None:
         try:
             return await db_manager.db["study_folders"].find_one(_folder_query(folder_id))
@@ -49,27 +59,36 @@ async def _load_folder(folder_id: str) -> Optional[dict]:
 
 class FolderCreateRequest(BaseModel):
     name: str
-    description: Optional[str] = "Carpeta de estudio"
-    icon: Optional[str] = "folder"
-    color: Optional[str] = "emerald"
-    user_id: Optional[str] = None  # ignorado si hay sesión autenticada
+    description: str | None = "Carpeta de estudio"
+    icon: str | None = "folder"
+    color: str | None = "emerald"
+    user_id: str | None = None  # ignorado si hay sesión autenticada
 
 
 @router.get("")
 async def list_folders(
-    user_id: Optional[str] = Query(None, description="Solo para invitados sin sesión"),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    user_id: str | None = Query(None, description="Solo para invitados sin sesión"),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """Retorna las carpetas del usuario efectivo (del token si hay sesión)."""
     effective_uid = resolve_effective_user_id(current_user, user_id)
     folders = []
     if db_manager.db is not None:
         try:
-            cursor = db_manager.db["study_folders"].find(
-                {"user_id": effective_uid},
-                {"documents.text": 0, "documents.full_text": 0, "documents.extracted_text": 0,
-                 "cached_board": 0, "cached_boards": 0}
-            ).sort("_id", -1)
+            cursor = (
+                db_manager.db["study_folders"]
+                .find(
+                    {"user_id": effective_uid},
+                    {
+                        "documents.text": 0,
+                        "documents.full_text": 0,
+                        "documents.extracted_text": 0,
+                        "cached_board": 0,
+                        "cached_boards": 0,
+                    },
+                )
+                .sort("_id", -1)
+            )
             async for doc in cursor:
                 doc["id"] = str(doc["_id"])
                 del doc["_id"]
@@ -80,7 +99,9 @@ async def list_folders(
     if not folders and in_memory_study_folders:
         for f in in_memory_study_folders.values():
             if f.get("user_id") == effective_uid:
-                folders.append({k: v for k, v in f.items() if k not in ("cached_board", "cached_boards")})
+                folders.append(
+                    {k: v for k, v in f.items() if k not in ("cached_board", "cached_boards")}
+                )
 
     return {"folders": folders, "plan": get_user_plan(current_user)}
 
@@ -88,7 +109,7 @@ async def list_folders(
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_folder(
     payload: FolderCreateRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """Crea una carpeta de estudio vinculada al usuario efectivo."""
     effective_uid = resolve_effective_user_id(current_user, payload.user_id)
@@ -97,11 +118,12 @@ async def create_folder(
     plan = get_user_plan(current_user)
     try:
         if db_manager.db is not None:
-            current_count = await db_manager.db["study_folders"].count_documents({"user_id": effective_uid})
+            current_count = await db_manager.db["study_folders"].count_documents(
+                {"user_id": effective_uid}
+            )
         else:
             current_count = sum(
-                1 for f in in_memory_study_folders.values()
-                if f.get("user_id") == effective_uid
+                1 for f in in_memory_study_folders.values() if f.get("user_id") == effective_uid
             )
         enforce_folder_limit(plan, current_count)
     except HTTPException:
@@ -119,7 +141,7 @@ async def create_folder(
         "user_id": effective_uid,
         "created_at": utcnow_iso(),
         "documents": [],
-        "games": []
+        "games": [],
     }
     if db_manager.db is not None:
         try:
@@ -142,7 +164,7 @@ class AddDocsToFolderRequest(BaseModel):
 async def add_documents_to_folder(
     folder_id: str,
     payload: AddDocsToFolderRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
@@ -150,8 +172,7 @@ async def add_documents_to_folder(
     if db_manager.db is not None:
         try:
             await db_manager.db["study_folders"].update_one(
-                _folder_query(folder_id),
-                {"$push": {"documents": {"$each": payload.documents}}}
+                _folder_query(folder_id), {"$push": {"documents": {"$each": payload.documents}}}
             )
             return {"status": "documents_added", "count": len(payload.documents)}
         except Exception as e:
@@ -171,7 +192,7 @@ class AddGameToFolderRequest(BaseModel):
 async def add_game_to_folder(
     folder_id: str,
     payload: AddGameToFolderRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
@@ -179,8 +200,7 @@ async def add_game_to_folder(
     if db_manager.db is not None:
         try:
             await db_manager.db["study_folders"].update_one(
-                _folder_query(folder_id),
-                {"$push": {"games": payload.game}}
+                _folder_query(folder_id), {"$push": {"games": payload.game}}
             )
             return {"status": "game_added"}
         except Exception as e:
@@ -196,7 +216,7 @@ async def add_game_to_folder(
 async def delete_document_from_folder(
     folder_id: str,
     doc_id: str,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
@@ -208,15 +228,17 @@ async def delete_document_from_folder(
                 _folder_query(folder_id),
                 {
                     "$pull": {"documents": {"$or": [{"id": doc_id}, {"name": doc_id}]}},
-                    "$unset": {"cached_board": "", "cached_boards": "", "cached_content_hash": ""}
-                }
+                    "$unset": {"cached_board": "", "cached_boards": "", "cached_content_hash": ""},
+                },
             )
-            logger.info(f"Documento '{doc_id}' eliminado de carpeta '{folder_id}'. Modificados: {result.modified_count}")
+            logger.info(
+                f"Documento '{doc_id}' eliminado de carpeta '{folder_id}'. Modificados: {result.modified_count}"
+            )
             await rag_service.delete_document_vectors(doc_id)
             return {"status": "document_deleted", "doc_id": doc_id}
         except Exception as e:
             logger.error(f"Error eliminando documento de carpeta en MongoDB: {e}")
-            raise HTTPException(status_code=500, detail=f"Error al eliminar documento: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error al eliminar documento: {e!s}") from e
 
     if folder_id in in_memory_study_folders:
         docs = in_memory_study_folders[folder_id].get("documents", [])
@@ -232,7 +254,7 @@ async def delete_document_from_folder(
 @router.delete("/{folder_id}")
 async def delete_folder(
     folder_id: str,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
@@ -245,7 +267,7 @@ async def delete_folder(
             return {"status": "folder_deleted", "folder_id": folder_id}
         except Exception as e:
             logger.error(f"Error eliminando carpeta de MongoDB: {e}")
-            raise HTTPException(status_code=500, detail="Error al eliminar la carpeta.")
+            raise HTTPException(status_code=500, detail="Error al eliminar la carpeta.") from e
 
     in_memory_study_folders.pop(folder_id, None)
     return {"status": "folder_deleted", "folder_id": folder_id}
@@ -258,7 +280,7 @@ async def upload_document_to_folder(
     folder_id: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """
     Sube un archivo real (PDF, TXT, imagen), extrae su texto completo y lo guarda
@@ -275,18 +297,20 @@ async def upload_document_to_folder(
 
     try:
         extracted_text = ai_service.extract_document_text(file_bytes, filename)
-        logger.info(f"Texto extraído de '{filename}' (Pipeline Híbrido OCR/Nativo): {len(extracted_text)} caracteres")
+        logger.info(
+            f"Texto extraído de '{filename}' (Pipeline Híbrido OCR/Nativo): {len(extracted_text)} caracteres"
+        )
     except Exception as e:
         logger.error(f"Error procesando '{filename}' con OCR/IA: {e}")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No se pudo procesar '{filename}': {str(e)}"
-        )
+            detail=f"No se pudo procesar '{filename}': {e!s}",
+        ) from e
 
     if not extracted_text or len(extracted_text.strip()) < 15:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No se pudo extraer texto legible de '{filename}'. Asegúrate de que el archivo o imagen contenga texto claro."
+            detail=f"No se pudo extraer texto legible de '{filename}'. Asegúrate de que el archivo o imagen contenga texto claro.",
         )
 
     content_hash = hashlib.sha256(file_bytes).hexdigest()
@@ -297,7 +321,9 @@ async def upload_document_to_folder(
             cached = await db_manager.db["cached_analyses"].find_one({"content_hash": content_hash})
             if cached and "ai_data" in cached:
                 existing_analysis = cached["ai_data"]
-                logger.info(f"Archivo '{filename}' coincide con análisis previo ({content_hash[:8]}). Vinculando caché...")
+                logger.info(
+                    f"Archivo '{filename}' coincide con análisis previo ({content_hash[:8]}). Vinculando caché..."
+                )
         except Exception as ex_c:
             logger.warning(f"Error buscando análisis previo para '{filename}': {ex_c}")
 
@@ -306,20 +332,19 @@ async def upload_document_to_folder(
         "id": doc_id,
         "name": filename,
         "size": f"{len(file_bytes) / 1024:.1f} KB",
-        "type": filename.split('.')[-1].lower(),
+        "type": filename.split(".")[-1].lower(),
         "content_hash": content_hash,
         "extracted_text": extracted_text,
         "char_count": len(extracted_text),
         "is_analyzed": existing_analysis is not None,
         "analysis_result": existing_analysis,
-        "uploaded_at": utcnow_iso()
+        "uploaded_at": utcnow_iso(),
     }
 
     if db_manager.db is not None:
         try:
             await db_manager.db["study_folders"].update_one(
-                _folder_query(folder_id),
-                {"$push": {"documents": doc_record}}
+                _folder_query(folder_id), {"$push": {"documents": doc_record}}
             )
         except Exception as e:
             logger.warning(f"Error guardando documento en MongoDB: {e}")
@@ -333,13 +358,16 @@ async def upload_document_to_folder(
                 "user_id": resolve_effective_user_id(current_user, None),
                 "documents": [doc_record],
                 "games": [],
-                "created_at": utcnow_iso()
+                "created_at": utcnow_iso(),
             }
 
     # Indexar en Qdrant para RAG (búsqueda semántica + preguntas fundamentadas)
     background_tasks.add_task(
         rag_service.index_document,
-        folder_id, doc_id, filename, extracted_text,
+        folder_id,
+        doc_id,
+        filename,
+        extracted_text,
         resolve_effective_user_id(current_user, None),
     )
 
@@ -357,16 +385,96 @@ async def upload_document_to_folder(
     }
 
 
-@router.post("/{folder_id}/generate-game", response_model=GameBoardResponse, status_code=status.HTTP_200_OK)
+@router.get("/samples/catalog")
+async def list_sample_documents():
+    """Catálogo de documentos de muestra para probar el juego sin subir un PDF."""
+    from app.data.sample_documents import list_samples
+
+    return {"samples": list_samples()}
+
+
+@router.post("/{folder_id}/add-sample")
+@limiter.limit("15/minute")
+async def add_sample_document_to_folder(
+    request: Request,
+    folder_id: str,
+    payload: dict,
+    current_user: dict | None = Depends(get_optional_user),
+):
+    """
+    Inyecta un documento de muestra curado en la carpeta — permite jugar sin
+    tener un PDF propio. El texto queda como extracted_text, por lo que fluye
+    por el mismo pipeline (dominio → motor → tablero) que un documento subido.
+    """
+    from app.data.sample_documents import get_sample
+
+    sample_id = (payload or {}).get("sample_id", "")
+    sample = get_sample(sample_id)
+    if not sample:
+        raise HTTPException(status_code=404, detail="Muestra no encontrada.")
+
+    folder_doc = await _load_folder(folder_id)
+    if folder_doc:
+        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+
+    doc_record = {
+        "id": f"doc_sample_{sample_id}",
+        "name": sample["name"],
+        "size": f"{len(sample['extracted_text']) / 1024:.1f} KB",
+        "type": "txt",
+        "extracted_text": sample["extracted_text"],
+        "char_count": len(sample["extracted_text"]),
+        "is_sample": True,
+        "uploaded_at": utcnow_iso(),
+    }
+
+    if db_manager.db is not None:
+        try:
+            await db_manager.db["study_folders"].update_one(
+                _folder_query(folder_id), {"$push": {"documents": doc_record}}
+            )
+        except Exception as e:
+            logger.warning(f"Error guardando muestra en MongoDB: {e}")
+    else:
+        if folder_id in in_memory_study_folders:
+            docs = in_memory_study_folders[folder_id].setdefault("documents", [])
+            if not any(d.get("id") == doc_record["id"] for d in docs):
+                docs.append(doc_record)
+        else:
+            in_memory_study_folders[folder_id] = {
+                "id": folder_id,
+                "name": folder_id.replace("folder_", "").replace("_", " ").title(),
+                "user_id": resolve_effective_user_id(current_user, None),
+                "documents": [doc_record],
+                "games": [],
+                "created_at": utcnow_iso(),
+            }
+
+    logger.info(f"Muestra '{sample_id}' añadida a la carpeta '{folder_id}'.")
+    return {
+        "status": "added",
+        "document": {
+            "id": doc_record["id"],
+            "name": doc_record["name"],
+            "size": doc_record["size"],
+            "type": doc_record["type"],
+            "is_sample": True,
+        },
+    }
+
+
+@router.post(
+    "/{folder_id}/generate-game", response_model=GameBoardResponse, status_code=status.HTTP_200_OK
+)
 @limiter.limit("10/minute")
 async def generate_game_from_folder(
     request: Request,
     folder_id: str,
     force: bool = Query(False, description="Forzar regeneración sin usar caché"),
     level: int = Query(1, ge=1, le=5),
-    question_count: Optional[int] = Query(None, ge=1, le=30),
-    difficulty: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    question_count: int | None = Query(None, ge=1, le=30),
+    difficulty: str | None = Query(None),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """
     Genera un tablero usando EXCLUSIVAMENTE el texto de los documentos de la
@@ -376,8 +484,11 @@ async def generate_game_from_folder(
     question_count = enforce_question_limit(plan, question_count)
 
     level_defaults = {
-        1: (3, "facil"), 2: (5, "seminormal"), 3: (8, "normal"),
-        4: (15, "semidificil"), 5: (20, "dificil")
+        1: (3, "facil"),
+        2: (5, "seminormal"),
+        3: (8, "normal"),
+        4: (15, "semidificil"),
+        5: (20, "dificil"),
     }
     def_qc, def_diff = level_defaults.get(level, (3, "facil"))
     final_qc = question_count if question_count is not None else def_qc
@@ -385,7 +496,9 @@ async def generate_game_from_folder(
 
     folder_doc = await _load_folder(folder_id)
     if not folder_doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Carpeta '{folder_id}' no encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Carpeta '{folder_id}' no encontrada."
+        )
     assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
 
     documents = folder_doc.get("documents", [])
@@ -396,7 +509,9 @@ async def generate_game_from_folder(
     for doc in documents:
         extracted = doc.get("extracted_text", "").strip()
         if extracted and len(extracted) > 20:
-            texts_with_source.append(f"--- DOCUMENTO: {doc.get('name', 'Archivo')} ---\n{extracted}")
+            texts_with_source.append(
+                f"--- DOCUMENTO: {doc.get('name', 'Archivo')} ---\n{extracted}"
+            )
 
     if not texts_with_source:
         raise HTTPException(
@@ -405,41 +520,49 @@ async def generate_game_from_folder(
                 f"La carpeta '{folder_name}' no tiene documentos con texto extraído. "
                 "Sube tus archivos PDF desde dentro de la carpeta para que el sistema "
                 "procese su contenido interno antes de generar el juego."
-            )
+            ),
         )
 
     combined_text = (
         f"ASIGNATURA / MATERIA: {folder_name}\n"
-        f"DESCRIPCIÓN: {folder_description}\n\n"
-        + "\n\n".join(texts_with_source)
+        f"DESCRIPCIÓN: {folder_description}\n\n" + "\n\n".join(texts_with_source)
     )[:500000]
 
     user_band = "scholar"
     if current_user:
         from app.core.age_bands import band_for_age
+
         user_band = current_user.get("age_band") or band_for_age(current_user.get("age"))
 
     folder_content_hash = hashlib.sha256(
-        f"{combined_text.strip()}_lvl{level}_qc{final_qc}_{final_diff}_band{user_band}".encode("utf-8")
+        f"{combined_text.strip()}_lvl{level}_qc{final_qc}_{final_diff}_band{user_band}".encode()
     ).hexdigest()
 
     if not force:
         cached_boards_dict = folder_doc.get("cached_boards", {})
         lvl_key = f"level_{level}"
         if lvl_key in cached_boards_dict:
-            logger.info(f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Tablero de '{folder_name}' ({lvl_key}) recuperado de MongoDB.")
+            logger.info(
+                f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Tablero de '{folder_name}' ({lvl_key}) recuperado de MongoDB."
+            )
             return GameBoardResponse(**cached_boards_dict[lvl_key])
 
         existing_board = folder_doc.get("cached_board")
         if existing_board and len(existing_board.get("nodes", [])) == final_qc:
-            logger.info(f"⚡ REUTILIZACIÓN INSTANTÁNEA: Tablero guardado de '{folder_name}' reutilizado.")
+            logger.info(
+                f"⚡ REUTILIZACIÓN INSTANTÁNEA: Tablero guardado de '{folder_name}' reutilizado."
+            )
             return GameBoardResponse(**existing_board)
 
         if db_manager.db is not None:
             try:
-                cached_folder_analysis = await db_manager.db["cached_analyses"].find_one({"content_hash": folder_content_hash})
+                cached_folder_analysis = await db_manager.db["cached_analyses"].find_one(
+                    {"content_hash": folder_content_hash}
+                )
                 if cached_folder_analysis and "board" in cached_folder_analysis:
-                    logger.info(f"⚡ REUTILIZACIÓN INSTANTÁNEA: Análisis global de '{folder_name}' ({folder_content_hash[:8]}) cargado.")
+                    logger.info(
+                        f"⚡ REUTILIZACIÓN INSTANTÁNEA: Análisis global de '{folder_name}' ({folder_content_hash[:8]}) cargado."
+                    )
                     return GameBoardResponse(**cached_folder_analysis["board"])
             except Exception as cache_err:
                 logger.warning(f"Error verificando análisis guardado de carpeta: {cache_err}")
@@ -485,20 +608,26 @@ async def generate_game_from_folder(
             lvl_field = f"cached_boards.level_{level}"
             await db_manager.db["study_folders"].update_one(
                 _folder_query(folder_id),
-                {"$set": {
-                    "cached_board": board_response.model_dump(),
-                    lvl_field: board_response.model_dump(),
-                    "cached_content_hash": folder_content_hash,
-                    "last_analyzed_at": utcnow_iso()
-                }}
+                {
+                    "$set": {
+                        "cached_board": board_response.model_dump(),
+                        lvl_field: board_response.model_dump(),
+                        "cached_content_hash": folder_content_hash,
+                        "last_analyzed_at": utcnow_iso(),
+                    }
+                },
             )
-            logger.info(f"Análisis guardado en la carpeta '{folder_name}' (Nivel {level}) en MongoDB.")
+            logger.info(
+                f"Análisis guardado en la carpeta '{folder_name}' (Nivel {level}) en MongoDB."
+            )
         except Exception as fe:
             logger.warning(f"Error guardando cached_board en la carpeta: {fe}")
 
     if folder_id in in_memory_study_folders:
         in_memory_folder = in_memory_study_folders[folder_id]
-        in_memory_folder.setdefault("cached_boards", {})[f"level_{level}"] = board_response.model_dump()
+        in_memory_folder.setdefault("cached_boards", {})[f"level_{level}"] = (
+            board_response.model_dump()
+        )
         in_memory_folder["cached_board"] = board_response.model_dump()
 
     return board_response
@@ -506,7 +635,7 @@ async def generate_game_from_folder(
 
 class FolderAskRequest(BaseModel):
     question: str
-    top_k: Optional[int] = 5
+    top_k: int | None = 5
 
 
 @router.post("/{folder_id}/ask")
@@ -515,7 +644,7 @@ async def ask_folder_documents(
     request: Request,
     folder_id: str,
     payload: FolderAskRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """
     "Pregúntale a tus apuntes": RAG sobre Qdrant — recupera los chunks más
@@ -531,9 +660,12 @@ async def ask_folder_documents(
         if not rag_service.available:
             raise HTTPException(
                 status_code=503,
-                detail="La búsqueda semántica no está disponible (Qdrant o Gemini no configurados)."
+                detail="La búsqueda semántica no está disponible (Qdrant o Gemini no configurados).",
             )
-        return {"answer": "No encontré información relevante en tus apuntes para esa pregunta.", "sources": []}
+        return {
+            "answer": "No encontré información relevante en tus apuntes para esa pregunta.",
+            "sources": [],
+        }
 
     context = "\n\n".join(f"[{c['doc_name']}] {c['text']}" for c in chunks)
 
@@ -541,16 +673,23 @@ async def ask_folder_documents(
     # Groq primero (rápido y barato)
     try:
         from app.services.ai_service import ai_service as _ai
+
         if getattr(_ai, "groq_client", None):
             comp = _ai.groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
-                    {"role": "system", "content": (
-                        "Eres Capi, tutora de Hubzy. Responde SOLO con base en el contexto de apuntes "
-                        "provisto. Si la respuesta no está en el contexto, dilo honestamente. "
-                        "Sé concisa, cálida y pedagógica (máx. 120 palabras)."
-                    )},
-                    {"role": "user", "content": f"Contexto de apuntes:\n{context}\n\nPregunta del estudiante: {payload.question}"},
+                    {
+                        "role": "system",
+                        "content": (
+                            "Eres Capi, tutora de Hubzy. Responde SOLO con base en el contexto de apuntes "
+                            "provisto. Si la respuesta no está en el contexto, dilo honestamente. "
+                            "Sé concisa, cálida y pedagógica (máx. 120 palabras)."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Contexto de apuntes:\n{context}\n\nPregunta del estudiante: {payload.question}",
+                    },
                 ],
                 temperature=0.3,
                 max_tokens=400,
@@ -564,5 +703,8 @@ async def ask_folder_documents(
 
     return {
         "answer": answer,
-        "sources": [{"doc_name": c["doc_name"], "excerpt": c["text"][:280], "score": round(c["score"], 3)} for c in chunks],
+        "sources": [
+            {"doc_name": c["doc_name"], "excerpt": c["text"][:280], "score": round(c["score"], 3)}
+            for c in chunks
+        ],
     }

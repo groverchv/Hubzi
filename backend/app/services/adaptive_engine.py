@@ -15,8 +15,8 @@ Las habilidades se identifican por (user_id, domain, topic) — p.ej.
 ("user_x", "matematica", "fracciones"). Se persisten en MongoDB con
 fallback en memoria.
 """
+
 import logging
-from typing import Optional, Dict, Any
 
 from app.core.database import db_manager
 from app.core.security import utcnow_iso
@@ -26,18 +26,18 @@ logger = logging.getLogger("hubzy.adaptive")
 # Parámetros BKT por banda de edad — niños: más guess (opciones pocas),
 # menos slip (errores = no sabía, no descuido); scholar: más slip posible.
 BKT_PARAMS = {
-    "sprout":     {"p_init": 0.15, "p_learn": 0.25, "p_guess": 0.30, "p_slip": 0.08},
-    "explorer":   {"p_init": 0.20, "p_learn": 0.22, "p_guess": 0.25, "p_slip": 0.08},
+    "sprout": {"p_init": 0.15, "p_learn": 0.25, "p_guess": 0.30, "p_slip": 0.08},
+    "explorer": {"p_init": 0.20, "p_learn": 0.22, "p_guess": 0.25, "p_slip": 0.08},
     "adventurer": {"p_init": 0.25, "p_learn": 0.20, "p_guess": 0.20, "p_slip": 0.10},
     "challenger": {"p_init": 0.30, "p_learn": 0.18, "p_guess": 0.15, "p_slip": 0.12},
-    "scholar":    {"p_init": 0.30, "p_learn": 0.15, "p_guess": 0.12, "p_slip": 0.12},
-    "pro":        {"p_init": 0.35, "p_learn": 0.15, "p_guess": 0.10, "p_slip": 0.12},
+    "scholar": {"p_init": 0.30, "p_learn": 0.15, "p_guess": 0.12, "p_slip": 0.12},
+    "pro": {"p_init": 0.35, "p_learn": 0.15, "p_guess": 0.10, "p_slip": 0.12},
 }
 
-MASTERY_THRESHOLD = 0.85   # P(dominio) para considerar la habilidad aprendida
-_STRUGGLE_THRESHOLD = 0.40 # por debajo → bajar dificultad
+MASTERY_THRESHOLD = 0.85  # P(dominio) para considerar la habilidad aprendida
+_STRUGGLE_THRESHOLD = 0.40  # por debajo → bajar dificultad
 
-_MEM_MASTERY: Dict[str, dict] = {}  # fallback sin Mongo
+_MEM_MASTERY: dict[str, dict] = {}  # fallback sin Mongo
 
 
 def _key(user_id: str, domain: str, topic: str) -> str:
@@ -53,7 +53,7 @@ def get_mastery(user_id: str, domain: str, topic: str, band_key: str = "scholar"
     return params["p_init"]
 
 
-async def _load_mastery_doc(user_id: str, domain: str, topic: str) -> Optional[dict]:
+async def _load_mastery_doc(user_id: str, domain: str, topic: str) -> dict | None:
     if db_manager.db is not None:
         try:
             return await db_manager.db["skill_mastery"].find_one(
@@ -96,9 +96,14 @@ def bkt_update(p_know: float, correct: bool, params: dict) -> float:
     return posterior + (1 - posterior) * p_learn
 
 
-async def record_attempt(user_id: str, domain: str, topic: str, correct: bool,
-                         band_key: str = "scholar",
-                         response_ms: Optional[int] = None) -> dict:
+async def record_attempt(
+    user_id: str,
+    domain: str,
+    topic: str,
+    correct: bool,
+    band_key: str = "scholar",
+    response_ms: int | None = None,
+) -> dict:
     """
     Registra un intento y devuelve la nueva P(dominio) + recomendación.
     """
@@ -116,18 +121,23 @@ async def record_attempt(user_id: str, domain: str, topic: str, correct: bool,
 
     new_p = bkt_update(p_know, correct, params)
 
-    await _save_mastery_doc(user_id, domain, topic, {
-        "user_id": user_id,
-        "domain": domain,
-        "topic": topic,
-        "p_know": new_p,
-        "attempts": attempts,
-        "successes": successes,
-        "streak": streak,
-        "band_key": band_key,
-        "last_attempt_ms": response_ms,
-        "updated_at": utcnow_iso(),
-    })
+    await _save_mastery_doc(
+        user_id,
+        domain,
+        topic,
+        {
+            "user_id": user_id,
+            "domain": domain,
+            "topic": topic,
+            "p_know": new_p,
+            "attempts": attempts,
+            "successes": successes,
+            "streak": streak,
+            "band_key": band_key,
+            "last_attempt_ms": response_ms,
+            "updated_at": utcnow_iso(),
+        },
+    )
 
     recommendation = recommend_next(new_p, streak)
     return {
@@ -146,16 +156,24 @@ def recommend_next(p_mastery: float, streak: int = 0) -> dict:
       < 0.40    → bajar dificultad + ofrecer repaso/pista
     """
     if p_mastery >= MASTERY_THRESHOLD and streak >= 2:
-        return {"action": "level_up", "difficulty_delta": 1,
-                "reason": "Dominio demostrado — sube de nivel"}
+        return {
+            "action": "level_up",
+            "difficulty_delta": 1,
+            "reason": "Dominio demostrado — sube de nivel",
+        }
     if p_mastery >= MASTERY_THRESHOLD:
-        return {"action": "advance", "difficulty_delta": 0,
-                "reason": "Dominado — sigue con el siguiente reto"}
+        return {
+            "action": "advance",
+            "difficulty_delta": 0,
+            "reason": "Dominado — sigue con el siguiente reto",
+        }
     if p_mastery < _STRUGGLE_THRESHOLD:
-        return {"action": "remediate", "difficulty_delta": -1,
-                "reason": "Necesita apoyo — baja dificultad y repasa"}
-    return {"action": "practice", "difficulty_delta": 0,
-            "reason": "Practicando — mantén el nivel"}
+        return {
+            "action": "remediate",
+            "difficulty_delta": -1,
+            "reason": "Necesita apoyo — baja dificultad y repasa",
+        }
+    return {"action": "practice", "difficulty_delta": 0, "reason": "Practicando — mantén el nivel"}
 
 
 async def get_user_skill_map(user_id: str) -> dict:

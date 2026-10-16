@@ -2,36 +2,51 @@
 Tests del sistema adaptativo: bandas de edad, motor de dominios,
 motor matemático procedural, filtro de seguridad y BKT.
 """
+
 import pytest
-from fractions import Fraction
 
 from app.core.age_bands import (
-    AGE_BANDS, band_for_age, get_band, is_minor, needs_parental_consent,
-    resolve_level_question_count, resolve_trap_count, cheer_word,
+    band_for_age,
+    cheer_word,
+    is_minor,
+    needs_parental_consent,
+    resolve_level_question_count,
+    resolve_trap_count,
 )
+from app.services.adaptive_engine import BKT_PARAMS, bkt_update, recommend_next
 from app.services.domain_engine import classify_domain, detect_math_topics
 from app.services.math_engine import generate_math_problems
 from app.services.physics_engine import generate_physics_problems
 from app.services.safety_filter import (
-    contains_blocked_content, contains_punitive_tone,
-    filter_text_for_band, filter_board_for_band,
+    contains_blocked_content,
+    contains_punitive_tone,
+    filter_board_for_band,
+    filter_text_for_band,
 )
-from app.services.adaptive_engine import bkt_update, recommend_next, BKT_PARAMS
-
 
 # =====================================================================
 # BANDAS DE EDAD
 # =====================================================================
 
+
 class TestAgeBands:
-    @pytest.mark.parametrize("age,expected", [
-        (5, "sprout"), (7, "sprout"),
-        (8, "explorer"), (10, "explorer"),
-        (12, "adventurer"), (14, "adventurer"),
-        (16, "challenger"), (18, "challenger"),
-        (20, "scholar"), (25, "scholar"),
-        (28, "pro"), (35, "pro"),
-    ])
+    @pytest.mark.parametrize(
+        "age,expected",
+        [
+            (5, "sprout"),
+            (7, "sprout"),
+            (8, "explorer"),
+            (10, "explorer"),
+            (12, "adventurer"),
+            (14, "adventurer"),
+            (16, "challenger"),
+            (18, "challenger"),
+            (20, "scholar"),
+            (25, "scholar"),
+            (28, "pro"),
+            (35, "pro"),
+        ],
+    )
     def test_band_for_age(self, age, expected):
         assert band_for_age(age) == expected
 
@@ -72,34 +87,43 @@ class TestAgeBands:
 # CLASIFICADOR DE DOMINIOS
 # =====================================================================
 
+
 class TestDomainEngine:
     def test_math_text_detected(self):
-        text = ("Las fracciones representan partes de un todo. El numerador "
-                "indica las partes que tomamos y el denominador en cuántas "
-                "partes se divide la unidad. Para sumar fracciones con el "
-                "mismo denominador se suman los numeradores.")
+        text = (
+            "Las fracciones representan partes de un todo. El numerador "
+            "indica las partes que tomamos y el denominador en cuántas "
+            "partes se divide la unidad. Para sumar fracciones con el "
+            "mismo denominador se suman los numeradores."
+        )
         result = classify_domain(text)
         assert result["domain"] == "matematica"
         assert result["generator"] == "procedural"
 
     def test_physics_text_detected(self):
-        text = ("La segunda ley de Newton establece que la fuerza es igual "
-                "a la masa por la aceleración. La velocidad se mide en m/s "
-                "y la energía cinética depende de la velocidad al cuadrado.")
+        text = (
+            "La segunda ley de Newton establece que la fuerza es igual "
+            "a la masa por la aceleración. La velocidad se mide en m/s "
+            "y la energía cinética depende de la velocidad al cuadrado."
+        )
         result = classify_domain(text)
         assert result["domain"] == "fisica"
 
     def test_history_text_detected(self):
-        text = ("La revolución francesa de 1789 marcó el fin del Antiguo "
-                "Régimen. La independencia de las colonias americanas "
-                "transformó los imperios europeos durante el siglo XIX.")
+        text = (
+            "La revolución francesa de 1789 marcó el fin del Antiguo "
+            "Régimen. La independencia de las colonias americanas "
+            "transformó los imperios europeos durante el siglo XIX."
+        )
         result = classify_domain(text)
         assert result["domain"] == "historia"
 
     def test_programming_text_detected(self):
-        text = ("Un algoritmo es una secuencia de pasos. En Python se "
-                "define una función con def y se itera con un bucle for. "
-                "La recursión permite que una función se llame a sí misma.")
+        text = (
+            "Un algoritmo es una secuencia de pasos. En Python se "
+            "define una función con def y se itera con un bucle for. "
+            "La recursión permite que una función se llame a sí misma."
+        )
         result = classify_domain(text)
         assert result["domain"] == "programacion"
 
@@ -117,14 +141,18 @@ class TestDomainEngine:
 # MOTOR MATEMÁTICO PROCEDURAL
 # =====================================================================
 
-MATH_DOC = ("Las fracciones son expresiones matemáticas. El numerador y el "
-            "denominador. También las operaciones de suma, resta, "
-            "multiplicación y división son fundamentales en aritmética.")
+MATH_DOC = (
+    "Las fracciones son expresiones matemáticas. El numerador y el "
+    "denominador. También las operaciones de suma, resta, "
+    "multiplicación y división son fundamentales en aritmética."
+)
 
 
 class TestMathEngine:
     def test_generates_requested_count(self):
-        problems = generate_math_problems(["fracciones", "operaciones"], "adventurer", 3, 5, seed=42)
+        problems = generate_math_problems(
+            ["fracciones", "operaciones"], "adventurer", 3, 5, seed=42
+        )
         assert len(problems) == 5
 
     def test_problems_have_required_fields(self):
@@ -139,7 +167,9 @@ class TestMathEngine:
     def test_distractors_differ_from_correct(self):
         problems = generate_math_problems(["operaciones"], "scholar", 3, 8, seed=11)
         for p in problems:
-            assert p["correct"] not in p["distractors"], f"Distractor igual a la respuesta en {p['question']}"
+            assert p["correct"] not in p["distractors"], (
+                f"Distractor igual a la respuesta en {p['question']}"
+            )
 
     def test_sprout_numbers_stay_small(self):
         problems = generate_math_problems(["operaciones"], "sprout", 1, 5, seed=5)
@@ -169,6 +199,7 @@ class TestMathEngine:
 # =====================================================================
 # MOTOR DE FÍSICA PROCEDURAL
 # =====================================================================
+
 
 class TestPhysicsEngine:
     def test_generates_requested_count(self):
@@ -206,6 +237,7 @@ class TestPhysicsEngine:
 # FILTRO DE SEGURIDAD PARA MENORES
 # =====================================================================
 
+
 class TestSafetyFilter:
     def test_blocked_content_detected(self):
         assert contains_blocked_content("La tortura fue un método usado")
@@ -235,7 +267,7 @@ class TestSafetyFilter:
 # CAPA ML OPCIONAL (graceful degradation sin transformers instalado)
 # =====================================================================
 
-from app.services.ml_safety import ml_detect_unsafe, ml_detect_crisis_emotion
+from app.services.ml_safety import ml_detect_crisis_emotion, ml_detect_unsafe  # noqa: E402 -- import tardío intencional en tests
 
 
 class TestMLSafety:
@@ -263,6 +295,7 @@ class TestMLSafety:
 # =====================================================================
 # MOTOR ADAPTATIVO BKT
 # =====================================================================
+
 
 class TestBKT:
     params = BKT_PARAMS["scholar"]

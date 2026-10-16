@@ -1,6 +1,4 @@
-import hashlib
 import logging
-from typing import Optional, List
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
@@ -23,18 +21,18 @@ def _validate_upload(file_bytes: bytes, filename: str):
     if len(file_bytes) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"El archivo '{filename}' supera el tamaño máximo permitido de 25 MB."
+            detail=f"El archivo '{filename}' supera el tamaño máximo permitido de 25 MB.",
         )
     lower_f = filename.lower()
     if lower_f.endswith(".pdf") and not file_bytes.startswith(b"%PDF-"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo PDF no tiene una cabecera binaria válida o está corrupto."
+            detail="El archivo PDF no tiene una cabecera binaria válida o está corrupto.",
         )
     if lower_f.endswith(".docx") and not file_bytes.startswith(b"PK\x03\x04"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo Word (.docx) no tiene una estructura de compresión válida."
+            detail="El archivo Word (.docx) no tiene una estructura de compresión válida.",
         )
 
 
@@ -45,28 +43,38 @@ async def generate_arena_board(
     payload: GenerateBoardRequest,
     force_refresh: bool = False,
     variation_seed: int = 0,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """
     Recibe un texto denso de estudio, invoca a Gemini para extraer conceptos clave
     calibrados al nivel y cantidad requerida, y ensambla el GameBoardResponse.
     """
     plan = get_user_plan(current_user)
-    payload.question_count = enforce_question_limit(plan, payload.question_count) or payload.question_count
+    payload.question_count = (
+        enforce_question_limit(plan, payload.question_count) or payload.question_count
+    )
     uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
     if current_user:
-        payload.age_band = payload.age_band or current_user.get("age_band") or band_for_age(current_user.get("age"))
+        payload.age_band = (
+            payload.age_band
+            or current_user.get("age_band")
+            or band_for_age(current_user.get("age"))
+        )
         payload.gender = payload.gender or current_user.get("gender")
-    return await generate_board(payload, force_refresh=force_refresh, variation_seed=variation_seed, user_id=uid)
+    return await generate_board(
+        payload, force_refresh=force_refresh, variation_seed=variation_seed, user_id=uid
+    )
 
 
-@router.post("/upload-and-generate", response_model=GameBoardResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/upload-and-generate", response_model=GameBoardResponse, status_code=status.HTTP_200_OK
+)
 @limiter.limit("10/minute")
 async def upload_and_generate_arena_board(
     request: Request,
-    file: Optional[UploadFile] = File(None),
-    raw_text: Optional[str] = Form(None),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    file: UploadFile | None = File(None),
+    raw_text: str | None = Form(None),
+    current_user: dict | None = Depends(get_optional_user),
 ):
     """
     Recibe un documento real (PDF, TXT, imagen), extrae su texto con pipeline
@@ -80,21 +88,25 @@ async def upload_and_generate_arena_board(
         _validate_upload(file_bytes, filename)
         try:
             extracted_text = ai_service.extract_document_text(file_bytes, filename)
-            logger.info(f"Texto extraído del archivo '{filename}': {len(extracted_text)} caracteres")
+            logger.info(
+                f"Texto extraído del archivo '{filename}': {len(extracted_text)} caracteres"
+            )
         except Exception as e:
             logger.warning(f"Error extrayendo texto u OCR de '{filename}': {e}")
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Error al procesar el archivo: {str(e)}"
-            )
+                detail=f"Error al procesar el archivo: {e!s}",
+            ) from e
 
     if raw_text and raw_text.strip():
-        extracted_text = f"{extracted_text}\n\n{raw_text.strip()}" if extracted_text else raw_text.strip()
+        extracted_text = (
+            f"{extracted_text}\n\n{raw_text.strip()}" if extracted_text else raw_text.strip()
+        )
 
     if not extracted_text or len(extracted_text.strip()) < 15:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El archivo o texto provisto no contiene suficiente contenido legible para extraer preguntas."
+            detail="El archivo o texto provisto no contiene suficiente contenido legible para extraer preguntas.",
         )
 
     uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
@@ -105,7 +117,7 @@ class CapySpeechRequest(BaseModel):
     situation: str = "correct"
     level: int = 1
     theme: str = ""
-    history: List[str] = Field(default_factory=list)
+    history: list[str] = Field(default_factory=list)
 
 
 @router.post("/capy-speech", tags=["Arena"])
@@ -115,17 +127,17 @@ async def get_capy_speech(payload: CapySpeechRequest):
         situation=payload.situation,
         level=payload.level,
         theme=payload.theme,
-        history=payload.history
+        history=payload.history,
     )
     return {"speech": speech, "level": payload.level, "situation": payload.situation}
 
 
 class CapyAskRequest(BaseModel):
     message: str
-    nodes: Optional[list] = []
-    hand: Optional[list] = []
-    theme: Optional[str] = ""
-    user_profile: Optional[dict] = None
+    nodes: list | None = []
+    hand: list | None = []
+    theme: str | None = ""
+    user_profile: dict | None = None
 
 
 @router.post("/capy-ask", tags=["Arena"])
@@ -141,5 +153,5 @@ async def ask_capybara(payload: CapyAskRequest):
         nodes_context=payload.nodes or [],
         hand_context=payload.hand or [],
         theme=payload.theme or "",
-        user_profile=payload.user_profile or {}
+        user_profile=payload.user_profile or {},
     )

@@ -1,13 +1,12 @@
 import json
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.services.psychology_service import psychology_service, PsychologyAnalysisResult
+from app.services.psychology_service import PsychologyAnalysisResult, psychology_service
 
 logger = logging.getLogger("hubzy.psychology")
 router = APIRouter(prefix="/api/v1/psychology", tags=["Psychology"])
@@ -15,7 +14,7 @@ router = APIRouter(prefix="/api/v1/psychology", tags=["Psychology"])
 
 class PsychologyAnalyzeRequest(BaseModel):
     text: str
-    context: Optional[dict] = None
+    context: dict | None = None
 
 
 @router.post("/analyze", response_model=PsychologyAnalysisResult)

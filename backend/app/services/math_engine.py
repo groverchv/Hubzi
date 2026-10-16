@@ -12,12 +12,14 @@ Los distractores no son aleatorios: son ERRORES TÍPICOS (misconcepciones)
 documentados de estudiantes. Cuando el jugador cae en una trampa, Capi puede
 explicar exactamente por qué ese error es común.
 """
-import math
+
+import logging
 import random
 from fractions import Fraction
-from typing import Optional
 
 from app.core.age_bands import get_band
+
+logger = logging.getLogger("hubzy.math_engine")
 
 # Emoji para aritmética pictórica (sprout: 5-7 años, pre-lectores de números grandes)
 _PICTO = ["🍎", "🎈", "⭐", "🐤", "🍪", "🐠", "🌸", "🚗", "⚽", "🍓"]
@@ -36,15 +38,23 @@ def _fmt_num(v) -> str:
     return str(v)
 
 
-def _problem(question, correct, distractors, concept,
-             latex=None, hint=None, explanation=None, misconception_tags=None):
+def _problem(
+    question,
+    correct,
+    distractors,
+    concept,
+    latex=None,
+    hint=None,
+    explanation=None,
+    misconception_tags=None,
+):
     """Estructura estándar de problema matemático."""
     return {
         "archetype": "solve",
         "question": question,
         "question_latex": latex,
         "correct": correct,
-        "distractors": distractors,          # lista de strings de respuesta
+        "distractors": distractors,  # lista de strings de respuesta
         "misconception_tags": misconception_tags or {},
         "concept": concept,
         "hint": hint,
@@ -55,6 +65,7 @@ def _problem(question, correct, distractors, concept,
 # =====================================================================
 # Generadores por subtema — cada uno recibe band y devuelve un problema
 # =====================================================================
+
 
 def _gen_operaciones(band, level):
     """Aritmética básica: +,-,×,÷ escalando con la edad."""
@@ -77,7 +88,9 @@ def _gen_operaciones(band, level):
         correct = _fmt_num(val)
         distract = {_fmt_num(val + d) for d in (1, -1, 2) if val + d >= 0} - {correct}
         return _problem(
-            f"{q}\n\n{words}", correct, list(distract)[:3],
+            f"{q}\n\n{words}",
+            correct,
+            list(distract)[:3],
             concept=f"{op} hasta {nmax}",
             hint="Cuenta los dibujos despacio.",
             explanation=f"{a} {op} {b} = {val}.",
@@ -92,17 +105,17 @@ def _gen_operaciones(band, level):
     a, b = random.randint(2, span), random.randint(2, max(3, span // 2))
     if op == "+":
         val = a + b
-        err1, err2 = val + 1, val - 1                      # error de conteo
+        err1, err2 = val + 1, val - 1  # error de conteo
         latex = f"{a} + {b}"
     elif op == "-":
         a, b = max(a, b), min(a, b)
         val = a - b
-        err1, err2 = a + b, val + 1                      # suma en vez de resta
+        err1, err2 = a + b, val + 1  # suma en vez de resta
         latex = f"{a} - {b}"
     elif op == "×":
         a, b = random.randint(2, 12), random.randint(2, 12)
         val = a * b
-        err1, err2 = a * (b + 1), (a + 1) * b            # tabla confundida
+        err1, err2 = a * (b + 1), (a + 1) * b  # tabla confundida
         latex = f"{a} \\times {b}"
     else:  # ÷ exacta
         b = random.randint(2, 12)
@@ -112,11 +125,13 @@ def _gen_operaciones(band, level):
         latex = f"{a} \\div {b}"
 
     correct = _fmt_num(val)
-    distract = [_fmt_num(x) for x in {err1, err2, val + 10, val - 10}
-                if _fmt_num(x) != correct][:3]
+    distract = [_fmt_num(x) for x in {err1, err2, val + 10, val - 10} if _fmt_num(x) != correct][:3]
     return _problem(
-        f"Resuelve:  {a} {op} {b}  =  ?", correct, distract,
-        concept=f"operación {op}", latex=latex + " = \\;?",
+        f"Resuelve:  {a} {op} {b}  =  ?",
+        correct,
+        distract,
+        concept=f"operación {op}",
+        latex=latex + " = \\;?",
         hint="Hazlo por partes: primero las unidades.",
         explanation=f"{a} {op} {b} = {correct}.",
     )
@@ -135,7 +150,8 @@ def _gen_fracciones(band, level):
         distract = [f"{den - num}/{den}", f"{num}/{den + 1}", f"{num + 1}/{den}"]
         return _problem(
             f"{icon} La barra se divide en {den} partes y {num} están pintadas:\n{bar}\n\n¿Qué fracción está pintada?",
-            correct, distract,
+            correct,
+            distract,
             concept="identificar fracciones",
             latex=f"\\frac{{{num}}}{{{den}}} = \\;?",
             hint="Cuenta cuántas partes verdes hay sobre el total.",
@@ -155,7 +171,8 @@ def _gen_fracciones(band, level):
         distract = [_fmt_num(b), _fmt_num(Fraction(max(1, a.numerator - 1), a.denominator))]
         return _problem(
             f"¿Cuál fracción es MAYOR?   {_fmt_num(f1)}   o   {_fmt_num(f2)}",
-            correct, distract,
+            correct,
+            distract,
             concept="comparar fracciones",
             latex=f"\\frac{{{f1.numerator}}}{{{f1.denominator}}} \\;\\text{{ó}}\\; \\frac{{{f2.numerator}}}{{{f2.denominator}}}",
             hint="Piensa en pedazos del mismo tamaño de pizza.",
@@ -170,10 +187,12 @@ def _gen_fracciones(band, level):
         n1, n2 = random.randint(1, den - 1), random.randint(1, den - 1)
         f = Fraction(n1 + n2, den)
         correct = _fmt_num(f)
-        wrong_den_sum = _fmt_num(Fraction(n1 + n2, den * 2))   # suma denominadores
-        distract = [wrong_den_sum,
-                    _fmt_num(Fraction(max(1, n1 + n2 - 1), den)),
-                    _fmt_num(Fraction(n1 + n2 + 1, den))]
+        wrong_den_sum = _fmt_num(Fraction(n1 + n2, den * 2))  # suma denominadores
+        distract = [
+            wrong_den_sum,
+            _fmt_num(Fraction(max(1, n1 + n2 - 1), den)),
+            _fmt_num(Fraction(n1 + n2 + 1, den)),
+        ]
         latex = f"\\frac{{{n1}}}{{{den}}} + \\frac{{{n2}}}{{{den}}}"
         q = f"Resuelve:   {n1}/{den} + {n2}/{den}  =  ?"
         hint = "Mismo denominador: solo suma los de arriba."
@@ -182,15 +201,15 @@ def _gen_fracciones(band, level):
         n1, n2 = random.randint(1, d1 - 1), random.randint(1, d2 - 1)
         f = Fraction(n1, d1) + Fraction(n2, d2)
         correct = _fmt_num(f)
-        wrong_naive = _fmt_num(Fraction(n1 + n2, d1 + d2))      # LA misconcepción clásica
-        distract = [wrong_naive,
-                    _fmt_num(Fraction(n1 + n2, max(d1, d2))),
-                    _fmt_num(f * 2)]
+        wrong_naive = _fmt_num(Fraction(n1 + n2, d1 + d2))  # LA misconcepción clásica
+        distract = [wrong_naive, _fmt_num(Fraction(n1 + n2, max(d1, d2))), _fmt_num(f * 2)]
         latex = f"\\frac{{{n1}}}{{{d1}}} + \\frac{{{n2}}}{{{d2}}}"
         q = f"Resuelve:   {n1}/{d1} + {n2}/{d2}  =  ?"
         hint = "Primero busca un denominador común."
     return _problem(
-        q, correct, distract,
+        q,
+        correct,
+        distract,
         concept="sumar fracciones" + (" mismo denominador" if same_den else ""),
         latex=latex + " = \\;?",
         hint=hint,
@@ -208,7 +227,8 @@ def _gen_porcentajes(band, level):
     distract = [_fmt_num(base - pct), _fmt_num(pct), _fmt_num(base + pct)]
     return _problem(
         f"Calcula: el {pct}% de {base}  =  ?",
-        correct, distract,
+        correct,
+        distract,
         concept="porcentajes",
         latex=f"{pct}\\% \\;\\text{{de}}\\; {base} = \\;?",
         hint=f"{pct}% es lo mismo que {pct}/100.",
@@ -237,7 +257,9 @@ def _gen_algebra(band, level):
             tag = {_fmt_num(b - a): "restó en vez de dividir para despejar"}
         return _problem(
             f"Encuentra x:   {latex.replace('x', 'x')}   →   x = ?",
-            correct, distract, concept="ecuación de un paso",
+            correct,
+            distract,
+            concept="ecuación de un paso",
             latex=latex.replace("x", "x") + "\\;\\Rightarrow\\; x = \\;?",
             hint="Pasa todo lo que no es x al otro lado.",
             explanation=f"x = {correct}.",
@@ -252,10 +274,12 @@ def _gen_algebra(band, level):
     distract = [_fmt_num(c - b), _fmt_num(x + 1), _fmt_num(x - 1)]
     return _problem(
         f"Encuentra x:   {a}x + {b} = {c}   →   x = ?",
-        correct, distract, concept="ecuación de dos pasos",
+        correct,
+        distract,
+        concept="ecuación de dos pasos",
         latex=f"{a}x + {b} = {c} \\;\\Rightarrow\\; x = \\;?",
         hint="Primero resta, luego divide.",
-        explanation=f"{a}x = {c-b} → x = {x}.",
+        explanation=f"{a}x = {c - b} → x = {x}.",
         misconception_tags={_fmt_num(c - b): "olvidó dividir por el coeficiente de x"},
     )
 
@@ -268,7 +292,8 @@ def _gen_geometria(band, level):
         name, sides, icon = random.choice(shapes)
         return _problem(
             f"{icon} ¿Cuántos lados tiene un {name}?",
-            str(sides), [str(sides - 1), str(sides + 1), str(4 if sides != 4 else 6)],
+            str(sides),
+            [str(sides - 1), str(sides + 1), str(4 if sides != 4 else 6)],
             concept="figuras geométricas",
             hint="Cuenta cada línea del borde.",
             explanation=f"Un {name} tiene {sides} lados.",
@@ -276,16 +301,27 @@ def _gen_geometria(band, level):
     w, h = random.randint(3, 15), random.randint(3, 12)
     if random.random() < 0.5:
         val = w * h
-        q, concept, formula = f"Un rectángulo mide {w} por {h}. ¿Cuál es su ÁREA?", "área de rectángulo", f"{w} \\times {h}"
+        q, concept, formula = (
+            f"Un rectángulo mide {w} por {h}. ¿Cuál es su ÁREA?",
+            "área de rectángulo",
+            f"{w} \\times {h}",
+        )
         distract = [_fmt_num(2 * (w + h)), _fmt_num(w + h), _fmt_num(val + w)]
         tag = {_fmt_num(2 * (w + h)): "calculó el perímetro en vez del área"}
     else:
         val = 2 * (w + h)
-        q, concept, formula = f"Un rectángulo mide {w} por {h}. ¿Cuál es su PERÍMETRO?", "perímetro", f"2({w} + {h})"
+        q, concept, formula = (
+            f"Un rectángulo mide {w} por {h}. ¿Cuál es su PERÍMETRO?",
+            "perímetro",
+            f"2({w} + {h})",
+        )
         distract = [_fmt_num(w * h), _fmt_num(w + h), _fmt_num(val + 2)]
         tag = {_fmt_num(w * h): "calculó el área en vez del perímetro"}
     return _problem(
-        q, _fmt_num(val), distract, concept=concept,
+        q,
+        _fmt_num(val),
+        distract,
+        concept=concept,
         latex=formula + " = \\;?",
         hint="Área = base×altura. Perímetro = suma de los 4 lados.",
         explanation=f"El resultado es {val}.",
@@ -299,7 +335,6 @@ def _gen_estadistica(band, level):
     data = sorted(random.sample(range(1, 20), k=5))
     if kind == "media":
         # ajusta para que la media sea entera si es posible
-        extra = random.randint(1, 10)
         while sum(data) % len(data) != 0:
             data[random.randrange(len(data))] = random.randint(1, 20)
         val = sum(data) // len(data)
@@ -311,13 +346,15 @@ def _gen_estadistica(band, level):
         hint = "Ordena los números y agarra el del medio."
     else:
         repeated = random.choice(data)
-        data = data + [repeated, repeated]
+        data = [*data, repeated, repeated]
         val = repeated
         distract = [_fmt_num(data[0]), _fmt_num(data[-1]), _fmt_num(round(sum(data) / len(data)))]
         hint = "La moda es el número que más se repite."
     return _problem(
         f"Datos: {', '.join(map(str, sorted(data)))}\n\n¿Cuál es la {kind.upper()}?",
-        _fmt_num(val), distract, concept=f"estadística: {kind}",
+        _fmt_num(val),
+        distract,
+        concept=f"estadística: {kind}",
         hint=hint,
         explanation=f"La {kind} es {val}.",
     )
@@ -333,17 +370,19 @@ def _gen_sucesiones(band, level):
         distract = [str(val + 1), str(val - 1), str(val + step)]
     elif kind == "doble":
         start = random.randint(1, 5)
-        seq = [start * (2 ** i) for i in range(4)]
+        seq = [start * (2**i) for i in range(4)]
         val = seq[-1] * 2
         distract = [str(val // 2), str(val + 2), str(seq[-1] + start)]
     else:
         base = random.randint(2, 5)
-        seq = [base ** i for i in range(1, 4)]
+        seq = [base**i for i in range(1, 4)]
         val = seq[-1] * base
-        distract = [str(seq[-1] + base), str(base ** 4 + 1), str(val - base)]
+        distract = [str(seq[-1] + base), str(base**4 + 1), str(val - base)]
     return _problem(
         f"¿Qué número sigue?\n\n{', '.join(map(str, seq))},  ?",
-        _fmt_num(val), distract, concept="patrones y sucesiones",
+        _fmt_num(val),
+        distract,
+        concept="patrones y sucesiones",
         hint="Mira cómo cambia de un número al siguiente.",
         explanation=f"El patrón da {val}.",
     )
@@ -370,7 +409,7 @@ def _gen_potencias(band, level):
     """Potencias exactas y raíces simples."""
     if random.random() < 0.5 or level <= 4:
         base, exp = random.randint(2, 9), random.choice([2, 3])
-        val = base ** exp
+        val = base**exp
         sym = "²" if exp == 2 else "³"
         return _problem(
             f"Calcula:   {base}{sym}  =  ?",
@@ -398,16 +437,27 @@ def _gen_potencias(band, level):
 def _gen_trigonometria(band, level):
     """Razones trigonométricas de ángulos notables (challenger/scholar)."""
     table = [
-        ("sen(30°)", "1/2"), ("cos(60°)", "1/2"), ("sen(90°)", "1"),
-        ("cos(0°)", "1"), ("tan(45°)", "1"), ("sen(0°)", "0"), ("cos(90°)", "0"),
+        ("sen(30°)", "1/2"),
+        ("cos(60°)", "1/2"),
+        ("sen(90°)", "1"),
+        ("cos(0°)", "1"),
+        ("tan(45°)", "1"),
+        ("sen(0°)", "0"),
+        ("cos(90°)", "0"),
     ]
     q, correct = random.choice(table)
     all_vals = [v for _, v in table if v != correct]
     distract = random.sample(all_vals, k=min(3, len(all_vals)))
     return _problem(
         f"¿Cuál es el valor de  {q}?",
-        correct, distract, concept="trigonometría: ángulos notables",
-        latex=q.replace("sen", "\\sin").replace("cos", "\\cos").replace("tan", "\\tan").replace("°", "^{\\circ}") + " = \\;?",
+        correct,
+        distract,
+        concept="trigonometría: ángulos notables",
+        latex=q.replace("sen", "\\sin")
+        .replace("cos", "\\cos")
+        .replace("tan", "\\tan")
+        .replace("°", "^{\\circ}")
+        + " = \\;?",
         hint="Recuerda el triángulo unitario.",
         explanation=f"{q} = {correct}.",
     )
@@ -441,8 +491,9 @@ _TOPIC_MIN_NUMBERS = {
 }
 
 
-def generate_math_problems(topics: list, band_key: str, level: int,
-                           count: int, seed: Optional[int] = None) -> list:
+def generate_math_problems(
+    topics: list, band_key: str, level: int, count: int, seed: int | None = None
+) -> list:
     """
     Genera `count` problemas mezclando los subtemas detectados del documento,
     filtrados a los que la banda de edad puede abordar.
@@ -450,8 +501,11 @@ def generate_math_problems(topics: list, band_key: str, level: int,
     if seed is not None:
         random.seed(seed)
     band = get_band(band_key)
-    allowed = [t for t in topics
-               if t in _GENERATORS and band["numbers_max"] >= _TOPIC_MIN_NUMBERS.get(t, 0)]
+    allowed = [
+        t
+        for t in topics
+        if t in _GENERATORS and band["numbers_max"] >= _TOPIC_MIN_NUMBERS.get(t, 0)
+    ]
     if not allowed:
         allowed = ["operaciones"]
 
@@ -462,7 +516,8 @@ def generate_math_problems(topics: list, band_key: str, level: int,
         topic = random.choice(allowed)
         try:
             p = _GENERATORS[topic](band, level)
-        except Exception:
+        except Exception as gen_err:
+            logger.debug(f"Generador de tópico '{topic}' falló, reintentando: {gen_err}")
             continue
         sig = p["question"] + str(p["correct"])
         if sig in seen_qs:

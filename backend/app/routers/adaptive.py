@@ -1,13 +1,15 @@
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.age_bands import band_for_age, get_band
 from app.core.security import get_current_user
 from app.services.adaptive_engine import (
-    record_attempt, get_user_skill_map, get_mastery, recommend_next,
+    get_mastery,
+    get_user_skill_map,
+    recommend_next,
+    record_attempt,
 )
 
 logger = logging.getLogger("hubzy.adaptive")
@@ -18,7 +20,7 @@ class AttemptRequest(BaseModel):
     domain: str = Field(..., description="Dominio pedagógico (matematica, fisica, ...)")
     topic: str = Field(..., description="Subtema/habilidad (fracciones, algebra, ...)")
     correct: bool = Field(..., description="Si el intento fue correcto")
-    response_ms: Optional[int] = Field(default=None, description="Tiempo de respuesta en ms")
+    response_ms: int | None = Field(default=None, description="Tiempo de respuesta en ms")
 
 
 class NextRequest(BaseModel):
@@ -29,8 +31,7 @@ class NextRequest(BaseModel):
 
 
 @router.post("/attempt")
-async def log_attempt(payload: AttemptRequest,
-                      current_user: dict = Depends(get_current_user)):
+async def log_attempt(payload: AttemptRequest, current_user: dict = Depends(get_current_user)):
     """
     Registra un intento del jugador en una habilidad y devuelve la nueva
     P(dominio) estimada por BKT + recomendación de acción.
@@ -38,14 +39,17 @@ async def log_attempt(payload: AttemptRequest,
     uid = str(current_user.get("id") or current_user.get("_id"))
     band = current_user.get("age_band") or band_for_age(current_user.get("age"))
     return await record_attempt(
-        uid, payload.domain, payload.topic, payload.correct,
-        band_key=band, response_ms=payload.response_ms,
+        uid,
+        payload.domain,
+        payload.topic,
+        payload.correct,
+        band_key=band,
+        response_ms=payload.response_ms,
     )
 
 
 @router.post("/next")
-async def suggest_next(payload: NextRequest,
-                       current_user: dict = Depends(get_current_user)):
+async def suggest_next(payload: NextRequest, current_user: dict = Depends(get_current_user)):
     """
     Sugiere qué hacer a continuación: subir, mantener o bajar nivel,
     basado en la P(dominio) actual de la habilidad.

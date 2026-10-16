@@ -6,15 +6,17 @@ de Gemini (text-embedding-004, 768 dims) para:
   - Contexto recuperado para "pregúntale a tus apuntes" (/folders/{id}/ask).
   - Mejor fundamentación de las preguntas generadas (menos alucinación).
 """
-import logging
+
 import hashlib
-from typing import List, Dict, Any, Optional
+import logging
+from typing import Any
 
 from app.core.config import settings
 from app.core.database import db_manager
 
 try:
     from google import genai
+
     GENAI_AVAILABLE = True
 except ImportError:
     genai = None
@@ -32,7 +34,7 @@ CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
 
 
-def _chunk_text(text: str) -> List[str]:
+def _chunk_text(text: str) -> list[str]:
     """Divide texto en chunks solapados respetando límites de párrafo cuando es posible."""
     text = text.strip()
     if len(text) <= CHUNK_SIZE:
@@ -68,14 +70,16 @@ class RagService:
     def available(self) -> bool:
         return self._genai_client is not None and db_manager.qdrant_client is not None
 
-    def _embed(self, texts: List[str]) -> List[List[float]]:
+    def _embed(self, texts: list[str]) -> list[list[float]]:
         result = self._genai_client.models.embed_content(
             model=EMBEDDING_MODEL,
             contents=texts,
         )
         return [e.values for e in result.embeddings]
 
-    async def index_document(self, folder_id: str, doc_id: str, doc_name: str, text: str, user_id: Optional[str] = None) -> int:
+    async def index_document(
+        self, folder_id: str, doc_id: str, doc_name: str, text: str, user_id: str | None = None
+    ) -> int:
         """Vectoriza un documento y lo indexa en Qdrant. Retorna # de chunks indexados."""
         if not self.available:
             return 0
@@ -84,12 +88,12 @@ class RagService:
             return 0
         try:
             # Embeddings en lotes de 50 para no saturar la API
-            embeddings: List[List[float]] = []
+            embeddings: list[list[float]] = []
             for i in range(0, len(chunks), 50):
-                embeddings.extend(self._embed(chunks[i:i + 50]))
+                embeddings.extend(self._embed(chunks[i : i + 50]))
 
             points = []
-            for idx, (chunk, vector) in enumerate(zip(chunks, embeddings)):
+            for idx, (chunk, vector) in enumerate(zip(chunks, embeddings, strict=False)):
                 point_id = hashlib.md5(f"{folder_id}:{doc_id}:{idx}".encode()).hexdigest()
                 points.append(
                     qdrant_models.PointStruct(
@@ -109,7 +113,9 @@ class RagService:
                 collection_name=db_manager.qdrant_collection,
                 points=points,
             )
-            logger.info(f"📚 RAG: {len(points)} chunks de '{doc_name}' indexados en Qdrant (carpeta {folder_id}).")
+            logger.info(
+                f"📚 RAG: {len(points)} chunks de '{doc_name}' indexados en Qdrant (carpeta {folder_id})."
+            )
             return len(points)
         except Exception as e:
             logger.warning(f"Error indexando documento en Qdrant: {e}")
@@ -123,17 +129,19 @@ class RagService:
                 collection_name=db_manager.qdrant_collection,
                 points_selector=qdrant_models.FilterSelector(
                     filter=qdrant_models.Filter(
-                        must=[qdrant_models.FieldCondition(
-                            key="doc_id",
-                            match=qdrant_models.MatchValue(value=doc_id),
-                        )]
+                        must=[
+                            qdrant_models.FieldCondition(
+                                key="doc_id",
+                                match=qdrant_models.MatchValue(value=doc_id),
+                            )
+                        ]
                     )
                 ),
             )
         except Exception as e:
             logger.warning(f"Error eliminando vectores de {doc_id}: {e}")
 
-    async def search(self, folder_id: str, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    async def search(self, folder_id: str, query: str, top_k: int = 5) -> list[dict[str, Any]]:
         """Búsqueda semántica limitada a una carpeta (aislamiento por usuario vía folder_id)."""
         if not self.available or not query.strip():
             return []
@@ -143,10 +151,12 @@ class RagService:
                 collection_name=db_manager.qdrant_collection,
                 query=query_vector,
                 query_filter=qdrant_models.Filter(
-                    must=[qdrant_models.FieldCondition(
-                        key="folder_id",
-                        match=qdrant_models.MatchValue(value=folder_id),
-                    )]
+                    must=[
+                        qdrant_models.FieldCondition(
+                            key="folder_id",
+                            match=qdrant_models.MatchValue(value=folder_id),
+                        )
+                    ]
                 ),
                 limit=top_k,
                 with_payload=True,
