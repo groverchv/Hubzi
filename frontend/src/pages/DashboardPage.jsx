@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Folder, FolderPlus, Play, Wind, Crown, BookOpen, RefreshCw, LogOut,
+  Folder, FolderPlus, Play, Wind, Crown, BookOpen, RefreshCw, LogOut, Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { apiFetch } from "../lib/api";
@@ -23,6 +23,25 @@ export default function DashboardPage() {
   const [zenStats, setZenStats] = useState(null);
   const [error, setError] = useState(null);
   const [plan, setPlan] = useState("free");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await apiFetch("/api/v1/users/me", { method: "DELETE" });
+    } catch (e) {
+      setError(e.message);
+      setDeleting(false);
+      setConfirmDelete(false);
+      return;
+    }
+    logout();
+  };
 
   const load = async () => {
     setError(null);
@@ -186,6 +205,45 @@ export default function DashboardPage() {
                   </div>
                 </Link>
               ))
+            )}
+          </div>
+        </section>
+
+        {/* Zona de peligro — derecho de supresión de datos */}
+        <section className="mt-14 rounded-3xl border-2 border-rose-200 bg-rose-50/80 p-6">
+          <h2 className="text-sm font-black uppercase tracking-wide text-rose-700">
+            {t("dashboard.danger_zone", "Zona de peligro")}
+          </h2>
+          <p className="mt-1 text-xs font-semibold text-rose-600">
+            {t(
+              "dashboard.delete_account_desc",
+              "Eliminar tu cuenta borra permanentemente tu perfil, carpetas, documentos y datos de progreso. Esta acción no se puede deshacer.",
+            )}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleting}
+              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black uppercase text-white transition-all ${
+                confirmDelete
+                  ? "bg-rose-600 hover:bg-rose-500 border-b-4 border-rose-800"
+                  : "bg-slate-600 hover:bg-slate-500 border-b-4 border-slate-800"
+              } disabled:opacity-50`}
+            >
+              <Trash2 className="w-4 h-4" />
+              {deleting
+                ? t("common.deleting", "Eliminando…")
+                : confirmDelete
+                  ? t("dashboard.confirm_delete", "Confirmar: borrar todo")
+                  : t("dashboard.delete_account", "Eliminar mi cuenta")}
+            </button>
+            {confirmDelete && !deleting && (
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-2xl bg-white px-4 py-2.5 text-xs font-black uppercase text-slate-600 border-b-4 border-slate-300 hover:bg-slate-50"
+              >
+                {t("common.cancel", "Cancelar")}
+              </button>
             )}
           </div>
         </section>

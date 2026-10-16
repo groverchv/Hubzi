@@ -31,7 +31,11 @@
     "zen_sessions": "Sesiones zen",
     "plan_free": "Plan Gratuito",
     "plan_pro": "Plan Pro",
-    "upgrade": "Mejorar a Pro"
+    "upgrade": "Mejorar a Pro",
+    "danger_zone": "Zona de peligro",
+    "delete_account": "Eliminar mi cuenta",
+    "delete_account_desc": "Eliminar tu cuenta borra permanentemente tu perfil, carpetas, documentos y datos de progreso. Esta acción no se puede deshacer.",
+    "confirm_delete": "Confirmar: borrar todo"
   },
   "zen": {
     "title": "Modo Zen",
@@ -58,6 +62,7 @@
     "cancel": "Cancelar",
     "save": "Guardar",
     "delete": "Eliminar",
+    "deleting": "Eliminando…",
     "back": "Volver"
   }
 }

@@ -47,6 +47,7 @@ app = FastAPI(
 
 # Rate limiting
 app.state.limiter = limiter
+limiter.enabled = settings.RATE_LIMIT_ENABLED
 if settings.RATE_LIMIT_ENABLED:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

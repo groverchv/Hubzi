@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.database import db_manager
 from app.core.security import get_current_user, utcnow_iso
+from app.core.session_store import in_memory_auth_users, in_memory_study_folders
 from app.models.user import UserRegisterRequest, UserProfileResponse
 from app.routers.auth import assign_voice_gender
+from app.services.rag_service import rag_service
 
 logger = logging.getLogger("hubzy.users")
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
@@ -104,3 +106,72 @@ async def get_user_profile(user_id: str, current_user: dict = Depends(get_curren
     if user_id != uid:
         raise HTTPException(status_code=403, detail="Solo puedes consultar tu propio perfil.")
     return await get_my_profile(current_user)
+
+
+@router.delete("/me")
+async def delete_my_account(current_user: dict = Depends(get_current_user)):
+    """
+    Elimina la cuenta del usuario autenticado y todos sus datos asociados
+    (carpetas, documentos y vectores RAG). Requisito de privacidad para datos
+    sensibles: el usuario siempre puede ejercer su derecho de supresión.
+    """
+    uid = str(current_user.get("id") or current_user.get("_id"))
+    email = (current_user.get("email") or "").strip().lower()
+    deleted = {"folders": 0, "vectors": 0, "user": False}
+
+    # 1. Vectores RAG de los documentos del usuario (mejor esfuerzo)
+    folder_ids = []
+    if db_manager.db is not None:
+        try:
+            async for f in db_manager.db["study_folders"].find({"user_id": uid}, {"documents.id": 1}):
+                folder_ids.append(str(f["_id"]))
+                for doc in f.get("documents", []):
+                    if doc.get("id"):
+                        await rag_service.delete_document_vectors(doc["id"])
+                        deleted["vectors"] += 1
+        except Exception as e:
+            logger.warning(f"Error limpiando vectores RAG del usuario {uid}: {e}")
+
+    for f in in_memory_study_folders.values():
+        if f.get("user_id") == uid:
+            for doc in f.get("documents", []):
+                if doc.get("id"):
+                    await rag_service.delete_document_vectors(doc["id"])
+                    deleted["vectors"] += 1
+
+    # 2. Carpetas del usuario
+    if db_manager.db is not None:
+        try:
+            res = await db_manager.db["study_folders"].delete_many({"user_id": uid})
+            deleted["folders"] += res.deleted_count
+        except Exception as e:
+            logger.error(f"Error eliminando carpetas del usuario {uid}: {e}")
+
+    mem_folder_ids = [
+        fid for fid, f in in_memory_study_folders.items() if f.get("user_id") == uid
+    ]
+    for fid in mem_folder_ids:
+        del in_memory_study_folders[fid]
+        deleted["folders"] += 1
+
+    # 3. El usuario
+    if db_manager.db is not None:
+        try:
+            from bson import ObjectId
+            query = {"_id": ObjectId(uid)} if len(uid) == 24 else {"id": uid}
+            res = await db_manager.db["users"].delete_one(query)
+            deleted["user"] = deleted["user"] or res.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Error eliminando usuario {uid} de MongoDB: {e}")
+
+    if email and email in in_memory_auth_users:
+        del in_memory_auth_users[email]
+        deleted["user"] = True
+    else:
+        for key, u in list(in_memory_auth_users.items()):
+            if u.get("id") == uid:
+                del in_memory_auth_users[key]
+                deleted["user"] = True
+
+    logger.info(f"Cuenta eliminada: user={uid} folders={deleted['folders']} vectors={deleted['vectors']}")
+    return {"status": "account_deleted", "deleted": deleted}

@@ -93,15 +93,21 @@ async def create_folder(
     """Crea una carpeta de estudio vinculada al usuario efectivo."""
     effective_uid = resolve_effective_user_id(current_user, payload.user_id)
 
-    # Límite freemium
-    if db_manager.db is not None:
-        try:
+    # Límite freemium (aplica con Mongo o con el almacén en memoria)
+    plan = get_user_plan(current_user)
+    try:
+        if db_manager.db is not None:
             current_count = await db_manager.db["study_folders"].count_documents({"user_id": effective_uid})
-            enforce_folder_limit(get_user_plan(current_user), current_count)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.warning(f"No se pudo verificar límite de carpetas: {e}")
+        else:
+            current_count = sum(
+                1 for f in in_memory_study_folders.values()
+                if f.get("user_id") == effective_uid
+            )
+        enforce_folder_limit(plan, current_count)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"No se pudo verificar límite de carpetas: {e}")
 
     folder_id = f"folder_{payload.name.lower().replace(' ', '_')}_{secrets.token_hex(4)}"
     new_folder = {

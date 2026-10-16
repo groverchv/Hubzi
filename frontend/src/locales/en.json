@@ -31,7 +31,11 @@
     "zen_sessions": "Zen sessions",
     "plan_free": "Free Plan",
     "plan_pro": "Pro Plan",
-    "upgrade": "Upgrade to Pro"
+    "upgrade": "Upgrade to Pro",
+    "danger_zone": "Danger zone",
+    "delete_account": "Delete my account",
+    "delete_account_desc": "Deleting your account permanently removes your profile, folders, documents and progress data. This action cannot be undone.",
+    "confirm_delete": "Confirm: delete everything"
   },
   "zen": {
     "title": "Zen Mode",
@@ -58,6 +62,7 @@
     "cancel": "Cancel",
     "save": "Save",
     "delete": "Delete",
+    "deleting": "Deleting…",
     "back": "Back"
   }
 }
