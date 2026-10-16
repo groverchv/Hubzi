@@ -13,7 +13,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
 
 export default function VictoryModal({ 
   isOpen, 

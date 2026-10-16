@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   Swords,
 } from "lucide-react";
-import capybara3dImg from "../assets/capybara_3d.jpg";
+import capybara3dImg from "../assets/capybara_3d.webp";
 
 /**
  * AdventureMap - Mapa de Aventura de 20 Niveles

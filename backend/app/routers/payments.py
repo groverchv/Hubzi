@@ -1,0 +1,216 @@
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+
+from app.core.config import settings
+from app.core.database import db_manager
+from app.core.rate_limit import limiter
+from app.core.security import get_current_user, utcnow_iso
+
+logger = logging.getLogger("hubzy.payments")
+router = APIRouter(prefix="/api/v1/payments", tags=["Monetization"])
+
+
+def _stripe():
+    import stripe
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    if not stripe.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="La clave secreta de Stripe no está configurada."
+        )
+    return stripe
+
+
+async def _upgrade_user_to_pro(user_id: str, customer_id: Optional[str] = None, subscription_id: Optional[str] = None):
+    if db_manager.db is None:
+        return
+    try:
+        from bson import ObjectId
+        query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
+        await db_manager.db["users"].update_one(
+            query,
+            {"$set": {
+                "plan": "pro",
+                "pro_since": utcnow_iso(),
+                "stripe_customer": customer_id,
+                "stripe_subscription": subscription_id,
+            }}
+        )
+        logger.info(f"Usuario {user_id} actualizado al Plan PRO.")
+    except Exception as dbe:
+        logger.warning(f"Error actualizando usuario PRO en BD: {dbe}")
+
+
+async def _downgrade_user(customer_id: str):
+    if db_manager.db is None:
+        return
+    try:
+        await db_manager.db["users"].update_one(
+            {"stripe_customer": customer_id},
+            {"$set": {"plan": "free"}, "$unset": {"stripe_subscription": ""}}
+        )
+        logger.info(f"Suscripción cancelada para customer {customer_id}; usuario vuelve a plan free.")
+    except Exception as dbe:
+        logger.warning(f"Error degradando plan de usuario: {dbe}")
+
+
+class CreateCheckoutSessionRequest(BaseModel):
+    user_id: Optional[str] = None  # ignorado: el user real viene del JWT
+    email: Optional[str] = None
+    plan_id: str = "pro_monthly"
+    success_url: Optional[str] = None
+    cancel_url: Optional[str] = None
+
+
+@router.post("/create-checkout-session")
+@limiter.limit("5/minute")
+async def create_checkout_session(
+    request: Request,
+    payload: CreateCheckoutSessionRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Crea una sesión de Stripe Checkout para la SUSCRIPCIÓN Hubzy Pro.
+    Requiere sesión autenticada — el usuario del pago es el del token.
+    """
+    stripe = _stripe()
+
+    user_id = str(current_user.get("id") or current_user.get("_id"))
+    email = current_user.get("email") or (payload.email if payload.email and "@" in payload.email else None)
+    frontend = settings.FRONTEND_URL.rstrip("/")
+    success_url = payload.success_url or f"{frontend}/?payment=success"
+    cancel_url = payload.cancel_url or f"{frontend}/?payment=cancelled"
+
+    try:
+        if settings.STRIPE_PRICE_ID:
+            # Suscripción mensual real
+            session = stripe.checkout.Session.create(
+                line_items=[{"price": settings.STRIPE_PRICE_ID, "quantity": 1}],
+                mode="subscription",
+                customer_email=email,
+                client_reference_id=user_id,
+                success_url=f"{success_url}&session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=cancel_url,
+                metadata={"user_id": user_id, "plan_id": payload.plan_id},
+            )
+        else:
+            # Fallback legacy (pago único) para entornos sin price_id configurado
+            session = stripe.checkout.Session.create(
+                line_items=[{
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": "Hubzy Pro (Estudiante Zen)",
+                            "description": "Carpetas ilimitadas, batallas 1v1 y 'pregúntale a tus apuntes' con Capi IA.",
+                        },
+                        "unit_amount": 299,
+                    },
+                    "quantity": 1,
+                }],
+                mode="payment",
+                customer_email=email,
+                client_reference_id=user_id,
+                success_url=f"{success_url}&session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=cancel_url,
+                metadata={"user_id": user_id, "plan_id": payload.plan_id},
+            )
+
+        return {
+            "checkout_url": session.url,
+            "session_id": session.id,
+            "publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
+            "mode": session.mode,
+        }
+    except Exception as e:
+        logger.error(f"Error creando sesión de Stripe Checkout: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error en Stripe: {str(e)}"
+        )
+
+
+@router.get("/verify-session/{session_id}")
+async def verify_payment_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Verifica que una sesión de checkout fue pagada y mejora el plan del usuario autenticado."""
+    stripe = _stripe()
+
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        is_paid = session.payment_status == "paid" or session.status == "complete"
+        session_user = session.client_reference_id or (session.metadata or {}).get("user_id")
+        uid = str(current_user.get("id") or current_user.get("_id"))
+
+        # El pago solo puede acreditar al dueño de la sesión de checkout
+        if is_paid and session_user and session_user != uid:
+            raise HTTPException(status_code=403, detail="Esta sesión de pago no pertenece a tu cuenta.")
+
+        if is_paid and session_user:
+            await _upgrade_user_to_pro(
+                session_user,
+                customer_id=session.customer,
+                subscription_id=getattr(session, "subscription", None),
+            )
+
+        return {
+            "status": "success" if is_paid else "pending",
+            "is_paid": is_paid,
+            "user_id": session_user,
+            "amount_total": session.amount_total,
+            "currency": session.currency,
+            "mode": session.mode,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verificando sesión Stripe: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al verificar pago: {str(e)}"
+        )
+
+
+@router.post("/webhook", include_in_schema=False)
+async def stripe_webhook(request: Request):
+    """
+    Webhook oficial de Stripe con verificación de firma.
+    Maneja: checkout.session.completed, customer.subscription.deleted/updated.
+    """
+    stripe = _stripe()
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        logger.error("STRIPE_WEBHOOK_SECRET no configurado; webhook rechazado.")
+        raise HTTPException(status_code=500, detail="Webhook no configurado.")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
+    except Exception as e:
+        logger.warning(f"Firma de webhook Stripe inválida: {e}")
+        raise HTTPException(status_code=400, detail="Firma inválida.")
+
+    etype = event["type"]
+    data = event["data"]["object"]
+
+    if etype == "checkout.session.completed":
+        user_id = data.get("client_reference_id") or (data.get("metadata") or {}).get("user_id")
+        if user_id:
+            await _upgrade_user_to_pro(
+                user_id,
+                customer_id=data.get("customer"),
+                subscription_id=data.get("subscription"),
+            )
+    elif etype in ("customer.subscription.deleted", "customer.subscription.canceled"):
+        customer_id = data.get("customer")
+        if customer_id:
+            await _downgrade_user(customer_id)
+    elif etype == "invoice.payment_failed":
+        logger.warning(f"Pago de suscripción fallido para customer {data.get('customer')}")
+
+    return {"received": True}

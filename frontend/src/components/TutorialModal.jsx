@@ -10,7 +10,7 @@ import {
   HelpCircle,
   X
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
 
 const TUTORIAL_STEPS = [
   {

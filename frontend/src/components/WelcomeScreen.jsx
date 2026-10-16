@@ -14,7 +14,7 @@ import {
   ArrowRight,
   Play
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
 
 export default function WelcomeScreen({
   onContinue,

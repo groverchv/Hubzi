@@ -43,9 +43,24 @@ class DatabaseManager:
 
                 # Crear índices de alto rendimiento si no existen
                 try:
-                    await self.db["cached_analyses"].create_index("content_hash", unique=True)
+                    try:
+                        await self.db["cached_analyses"].create_index("content_hash", unique=True)
+                    except Exception as dup_err:
+                        # Datos legacy con content_hash duplicados: índice no-único para no bloquear el arranque
+                        logger.warning(
+                            "No se pudo crear índice único en cached_analyses (datos duplicados legacy). "
+                            "Usando índice no-único. Ejecuta una deduplicación para restaurar la unicidad. "
+                            f"Detalle: {dup_err}"
+                        )
+                        try:
+                            await self.db["cached_analyses"].drop_index("content_hash_1")
+                        except Exception:
+                            pass
+                        await self.db["cached_analyses"].create_index("content_hash")
                     await self.db["study_folders"].create_index([("user_id", 1), ("_id", -1)])
                     await self.db["ai_training_dataset"].create_index("created_at")
+                    await self.db["users"].create_index("email", unique=True, sparse=True)
+                    await self.db["zen_logs"].create_index([("user_id", 1), ("created_at", -1)])
                     logger.info("Índices de MongoDB optimizados y verificados.")
                 except Exception as ie:
                     logger.warning(f"Aviso al verificar índices de MongoDB: {ie}")

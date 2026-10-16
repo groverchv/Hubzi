@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { fetchWithAuth } from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FolderPlus, 
@@ -119,7 +120,7 @@ export default function StudyFolderManagerModal({
     }
 
     const userIdParam = currentUser?.id ? `?user_id=${currentUser.id}` : '';
-    fetch(`/api/v1/folders${userIdParam}`)
+    fetchWithAuth(`/api/v1/folders${userIdParam}`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data && data.folders) {
@@ -156,7 +157,7 @@ export default function StudyFolderManagerModal({
     };
 
     try {
-      const res = await fetch('/api/v1/folders', {
+      const res = await fetchWithAuth('/api/v1/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,7 +192,7 @@ export default function StudyFolderManagerModal({
       setActiveFolderView(null);
     }
     try {
-      await fetch(`/api/v1/folders/${folderId}`, { method: 'DELETE' });
+      await fetchWithAuth(`/api/v1/folders/${folderId}`, { method: 'DELETE' });
     } catch {}
   };
 
@@ -256,7 +257,7 @@ export default function StudyFolderManagerModal({
         const formData = new FormData();
         formData.append('file', file);
 
-        const res = await fetch(`/api/v1/folders/${activeFolderView.id}/upload-document`, {
+        const res = await fetchWithAuth(`/api/v1/folders/${activeFolderView.id}/upload-document`, {
           method: 'POST',
           body: formData
         });
@@ -264,7 +265,7 @@ export default function StudyFolderManagerModal({
         if (res.ok) {
           const savedDoc = await res.json();
           // Refrescar lista completa de carpetas desde el backend
-          const refreshRes = await fetch('/api/v1/folders').catch(() => null);
+          const refreshRes = await fetchWithAuth('/api/v1/folders').catch(() => null);
           if (refreshRes && refreshRes.ok) {
             const data = await refreshRes.json();
             if (data && data.folders) {
@@ -323,12 +324,12 @@ export default function StudyFolderManagerModal({
 
     // 2. Eliminar del backend MongoDB y limpiar la caché de juego de la carpeta
     try {
-      await fetch(`/api/v1/folders/${activeFolderView.id}/documents/${encodeURIComponent(docIdentifier)}`, {
+      await fetchWithAuth(`/api/v1/folders/${activeFolderView.id}/documents/${encodeURIComponent(docIdentifier)}`, {
         method: 'DELETE'
       });
 
       // 3. Re-sincronizar con el backend
-      const res = await fetch('/api/v1/folders');
+      const res = await fetchWithAuth('/api/v1/folders');
       if (res.ok) {
         const data = await res.json();
         if (data && data.folders) {
@@ -565,7 +566,7 @@ export default function StudyFolderManagerModal({
                         key={folder.id}
                         onClick={() => {
                           setActiveFolderView(folder);
-                          fetch('/api/v1/folders')
+                          fetchWithAuth('/api/v1/folders')
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                               if (data?.folders) {

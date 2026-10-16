@@ -19,6 +19,11 @@ const CLOUDS_CONFIG = [
 ];
 
 export default function AnimatedCloudsBackground() {
+  // Accesibilidad: respeta prefers-reduced-motion (usuarios con ansiedad/sensibilidad vestibular)
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
       {CLOUDS_CONFIG.map((cloud) => (
@@ -27,13 +32,17 @@ export default function AnimatedCloudsBackground() {
           className={`absolute flex items-center ${cloud.size}`}
           style={{ top: cloud.top, opacity: cloud.opacity }}
           initial={{ x: '-25vw' }}
-          animate={{ x: '125vw' }}
-          transition={{
-            duration: cloud.duration,
-            repeat: Infinity,
-            ease: 'linear',
-            delay: -cloud.delay
-          }}
+          animate={prefersReducedMotion ? { x: '40vw' } : { x: '125vw' }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0 }
+              : {
+                  duration: cloud.duration,
+                  repeat: Infinity,
+                  ease: 'linear',
+                  delay: -cloud.delay
+                }
+          }
         >
           {/* Forma física de Nube Esponjosa (múltiples círculos fusionados con sombra suave 3D) */}
           <div className="relative filter drop-shadow-[0_12px_16px_rgba(18,36,67,0.12)]">

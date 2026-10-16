@@ -12,6 +12,8 @@
  *    lenguaje de pertenencia y halagos ultra-personalizados que reducen la ansiedad y el estrés.
  */
 
+import { fetchWithAuth } from '../lib/api';
+
 class CapyVoiceEngine {
   constructor() {
     this.currentAudio = null;
@@ -134,7 +136,7 @@ class CapyVoiceEngine {
     }, 4000);
 
     try {
-      const response = await fetch('/api/v1/voice/speak', {
+      const response = await fetchWithAuth('/api/v1/voice/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: this.abortController.signal,
@@ -298,7 +300,7 @@ class CapyVoiceEngine {
     const speechAbort = new AbortController();
     const timeoutId = setTimeout(() => { try { speechAbort.abort(); } catch (_) {} }, 1500);
     try {
-      const res = await fetch('/api/v1/arena/capy-speech', {
+      const res = await fetchWithAuth('/api/v1/arena/capy-speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: speechAbort.signal,

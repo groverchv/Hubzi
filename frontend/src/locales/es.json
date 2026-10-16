@@ -1,0 +1,63 @@
+{
+  "app": { "name": "Hubzy", "tagline": "Estudia jugando, respira aprendiendo" },
+  "nav": {
+    "dashboard": "Inicio",
+    "folders": "Carpetas",
+    "arena": "Arena",
+    "zen": "Zen",
+    "profile": "Perfil",
+    "logout": "Salir"
+  },
+  "landing": {
+    "hero_title": "Tus apuntes se convierten en un juego",
+    "hero_subtitle": "Hubzy transforma tus documentos en arenas de aprendizaje con Capi, tu compañera capibara que también cuida tu calma antes de los exámenes.",
+    "cta_start": "Empezar gratis",
+    "cta_demo": "Ver cómo funciona",
+    "feature_1_title": "Sube tus apuntes",
+    "feature_1_desc": "PDF, Word o fotos de tus resúmenes. La IA extrae lo importante.",
+    "feature_2_title": "Juega para memorizar",
+    "feature_2_desc": "Circuitos de 20 niveles, cartas trampa y batallas que convierten estudiar en un reto.",
+    "feature_3_title": "Capi cuida tu calma",
+    "feature_3_desc": "Técnicas de respiración y apoyo emocional con base en TCC cuando la ansiedad aprieta.",
+    "disclaimer": "Hubzy no es un servicio de salud mental. Si estás en crisis, busca ayuda profesional."
+  },
+  "dashboard": {
+    "welcome": "Hola, {{name}}",
+    "subtitle": "¿Qué estudiamos hoy?",
+    "my_folders": "Mis carpetas",
+    "empty_folders": "Aún no tienes carpetas. Crea una y sube tus apuntes para generar tu primer juego.",
+    "continue": "Continuar jugando",
+    "new_folder": "Nueva carpeta",
+    "zen_sessions": "Sesiones zen",
+    "plan_free": "Plan Gratuito",
+    "plan_pro": "Plan Pro",
+    "upgrade": "Mejorar a Pro"
+  },
+  "zen": {
+    "title": "Modo Zen",
+    "subtitle": "Técnicas de regulación emocional con evidencia científica",
+    "breathing": "Respiración",
+    "grounding": "Enraizamiento",
+    "checkin": "¿Cómo te sientes ahora?"
+  },
+  "crisis": {
+    "title": "No estás solo/a",
+    "body": "Detectamos que podrías estar pasando un momento muy difícil. Tu bienestar es lo más importante. Por favor considera hablar con alguien ahora.",
+    "continue": "Entendido, quiero continuar con calma",
+    "resources_title": "Ayuda disponible"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta",
+    "guest": "Continuar como invitado"
+  },
+  "common": {
+    "loading": "Cargando…",
+    "error": "Algo salió mal",
+    "retry": "Reintentar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "back": "Volver"
+  }
+}

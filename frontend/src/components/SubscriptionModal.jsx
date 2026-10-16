@@ -13,7 +13,8 @@ import {
   BookOpen,
   Users
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
+import { fetchWithAuth } from '../lib/api';
 
 export default function SubscriptionModal({
   isOpen,
@@ -33,7 +34,7 @@ export default function SubscriptionModal({
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/v1/payments/create-checkout-session', {
+      const res = await fetchWithAuth('/api/v1/payments/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

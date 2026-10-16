@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Sparkles, Volume2, ShieldCheck, Heart, GraduationCap, Compass } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
 import { capyVoice } from '../utils/capyVoice';
+import { fetchWithAuth } from '../lib/api';
 
 export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
   const [username, setUsername] = useState(currentUser?.username || '');
@@ -63,7 +64,7 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/v1/users/register', {
+      const res = await fetchWithAuth('/api/v1/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

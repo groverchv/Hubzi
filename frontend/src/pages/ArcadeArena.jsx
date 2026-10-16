@@ -56,13 +56,16 @@ import WelcomeScreen from "../components/WelcomeScreen";
 import AdventureMap from "../components/AdventureMap";
 import LegalModal from "../components/LegalModal";
 import CookieConsentBanner from "../components/CookieConsentBanner";
-import capybara3dImg from "../assets/capybara_3d.png";
+import capybara3dImg from "../assets/capybara_3d.webp";
 import { capyAudio } from "../utils/capyAudio";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
 import { detectDomainCategory, resolveDynamicIcon } from "../utils/domainIcons";
 import { getMascotByDomain } from "../utils/mascotCatalog";
 import { STATIC_ADMIN_GAME } from "../utils/staticAdminGame";
+import { fetchWithAuth } from "../lib/api";
+import { useAuthStore } from "../store/authStore";
+import { useCrisis, checkCrisisFlag } from "../lib/crisis.jsx";
 
 // 20 NIVELES DE PROGRESIÓN PEDAGÓGICA (Nivel K = K preguntas)
 // Nivel 20 = Batalla Final contra Capi Boss
@@ -105,6 +108,8 @@ export const GAME_LEVELS = Array.from({ length: 20 }, (_, i) => {
 });
 
 export default function ArcadeArena() {
+  const { reportCrisis } = useCrisis();
+  const setAuthSession = useAuthStore((s) => s.setSession);
   // Estados de Niveles del Juego (1 a 5) y Mapa de Aventura
   const [currentLevel, setCurrentLevel] = useState(1);
   const [unlockedLevel, setUnlockedLevel] = useState(1);
@@ -173,6 +178,7 @@ export default function ArcadeArena() {
   const handleLogout = () => {
     localStorage.removeItem("hubzy_current_user");
     localStorage.removeItem("hubzy_auth_token");
+    useAuthStore.getState().logout();
     setCurrentUser(null);
     setIsAuthModalOpen(true);
   };
@@ -196,7 +202,7 @@ export default function ArcadeArena() {
     const sessionId = params.get("session_id");
 
     if (payment === "success" && sessionId) {
-      fetch(`/api/v1/payments/verify-session/${sessionId}`)
+      fetchWithAuth(`/api/v1/payments/verify-session/${sessionId}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.is_paid) {
@@ -227,6 +233,12 @@ export default function ArcadeArena() {
       setSuccessNotif("Pago cancelado en Stripe.");
       window.history.replaceState({}, document.title, window.location.pathname);
       setTimeout(() => setSuccessNotif(null), 4000);
+    }
+
+    // Deep-link desde el Dashboard: /arena?upgrade=1 abre el modal Pro
+    if (params.get("upgrade") === "1") {
+      setIsSubscriptionModalOpen(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [currentUser]);
 
@@ -645,7 +657,7 @@ export default function ArcadeArena() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const res = await fetch("/api/v1/arena/capy-ask", {
+      const res = await fetchWithAuth("/api/v1/arena/capy-ask", {
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
@@ -673,6 +685,7 @@ export default function ArcadeArena() {
         const reply =
           data.reply || "¡Revisa los conceptos clave de tus cartas!";
         const psych = data.psychology;
+        checkCrisisFlag(data, reportCrisis);
         setIsThinkingHint(false);
 
         if (
@@ -1236,7 +1249,7 @@ export default function ArcadeArena() {
     }
 
     try {
-      const res = await fetch(
+      const res = await fetchWithAuth(
         `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${force ? "&force=true" : ""}`,
         { method: "POST" },
       );
@@ -1582,12 +1595,12 @@ export default function ArcadeArena() {
         const formData = new FormData();
         formData.append("file", data.rawFiles[0]);
         formData.append("raw_text", data.text || "");
-        res = await fetch("/api/v1/arena/upload-and-generate", {
+        res = await fetchWithAuth("/api/v1/arena/upload-and-generate", {
           method: "POST",
           body: formData,
         });
       } else {
-        res = await fetch("/api/v1/arena/generate", {
+        res = await fetchWithAuth("/api/v1/arena/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1728,7 +1741,7 @@ export default function ArcadeArena() {
             };
 
             // 1. Persistir en MongoDB
-            fetch(`/api/v1/folders/${activeFolder.id}/games`, {
+            fetchWithAuth(`/api/v1/folders/${activeFolder.id}/games`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ game: newGameRecord }),
@@ -1868,7 +1881,7 @@ export default function ArcadeArena() {
           questions_count: Object.keys(customNodes).length,
           created_at: new Date().toLocaleDateString("es-ES"),
         };
-        fetch(`/api/v1/folders/${activeFolder.id}/games`, {
+        fetchWithAuth(`/api/v1/folders/${activeFolder.id}/games`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ game: newGameRecord }),
@@ -2140,7 +2153,7 @@ export default function ArcadeArena() {
                       folder.cached_boards[`level_${lvl}`]
                     )
                       continue;
-                    const res = await fetch(
+                    const res = await fetchWithAuth(
                       `/api/v1/folders/${folder.id}/generate-game?level=${lvl}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}`,
                       { method: "POST" },
                     );

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wind, Play, Volume2, VolumeX, Sparkles, ChevronRight } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
 import { capyVoice } from '../utils/capyVoice';
+import { fetchWithAuth } from '../lib/api';
 
 /**
  * Técnica de Respiración Terapéutica 4-7-8 (Respaldada psicológicamente para reducir cortisol y ansiedad):
@@ -142,7 +143,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
         setHasStarted(false);
         speakVoice(ZEN_PHRASES.finish);
         try {
-          fetch('/api/v1/zen/log', {
+          fetchWithAuth('/api/v1/zen/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

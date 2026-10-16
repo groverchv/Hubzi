@@ -159,12 +159,6 @@ Estructura JSON requerida (responde ÚNICAMENTE con JSON válido):
     }}
   ]
 }}
-"""ímil 1",
-      "content": "Concepto no aplicable a estos reactivos.",
-      "points_multiplier": "1x"
-    }}
-  ]
-}}
 """
 
 SYSTEM_INSTRUCTION = build_system_instruction(question_count=5, difficulty="normal", level=2)

@@ -16,7 +16,9 @@ import {
   Volume2,
   X
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.jpg';
+import capybara3dImg from '../assets/capybara_3d.webp';
+import { fetchWithAuth } from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
@@ -89,7 +91,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             voice_preference: 'auto'
           };
 
-      const res = await fetch(endpoint, {
+      const res = await fetchWithAuth(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData)
@@ -100,7 +102,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       if (res.ok && data.user) {
         setSuccessMsg(mode === 'login' ? '¡Bienvenido de vuelta!' : '¡Cuenta creada con éxito!');
         
-        // Guardar token y usuario
+        // Guardar token y usuario (store global + claves legadas)
+        useAuthStore.getState().setSession({ user: data.user, token: data.token });
         if (data.token) {
           localStorage.setItem('hubzy_auth_token', data.token);
         }
@@ -127,6 +130,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         created_at: 'now'
       };
       localStorage.setItem('hubzy_current_user', JSON.stringify(fallbackUser));
+      useAuthStore.getState().setUser(fallbackUser);
       setSuccessMsg('Acceso local concedido.');
       setTimeout(() => {
         onAuthSuccess(fallbackUser);

@@ -1,0 +1,63 @@
+{
+  "app": { "name": "Hubzy", "tagline": "Study by playing, breathe while learning" },
+  "nav": {
+    "dashboard": "Home",
+    "folders": "Folders",
+    "arena": "Arena",
+    "zen": "Zen",
+    "profile": "Profile",
+    "logout": "Log out"
+  },
+  "landing": {
+    "hero_title": "Your notes become a game",
+    "hero_subtitle": "Hubzy turns your documents into learning arenas with Capi, your capybara companion who also keeps you calm before exams.",
+    "cta_start": "Start for free",
+    "cta_demo": "See how it works",
+    "feature_1_title": "Upload your notes",
+    "feature_1_desc": "PDF, Word or photos of your summaries. AI extracts what matters.",
+    "feature_2_title": "Play to memorize",
+    "feature_2_desc": "20-level circuits, trap cards and battles that turn studying into a challenge.",
+    "feature_3_title": "Capi keeps you calm",
+    "feature_3_desc": "Breathing techniques and CBT-based emotional support when anxiety kicks in.",
+    "disclaimer": "Hubzy is not a mental health service. If you're in crisis, please seek professional help."
+  },
+  "dashboard": {
+    "welcome": "Hi, {{name}}",
+    "subtitle": "What are we studying today?",
+    "my_folders": "My folders",
+    "empty_folders": "You don't have folders yet. Create one and upload your notes to generate your first game.",
+    "continue": "Keep playing",
+    "new_folder": "New folder",
+    "zen_sessions": "Zen sessions",
+    "plan_free": "Free Plan",
+    "plan_pro": "Pro Plan",
+    "upgrade": "Upgrade to Pro"
+  },
+  "zen": {
+    "title": "Zen Mode",
+    "subtitle": "Evidence-based emotional regulation techniques",
+    "breathing": "Breathing",
+    "grounding": "Grounding",
+    "checkin": "How do you feel right now?"
+  },
+  "crisis": {
+    "title": "You are not alone",
+    "body": "We detected you might be going through a very difficult moment. Your wellbeing matters most. Please consider talking to someone right now.",
+    "continue": "Understood, I want to continue calmly",
+    "resources_title": "Available help"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Create account",
+    "guest": "Continue as guest"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "back": "Back"
+  }
+}
