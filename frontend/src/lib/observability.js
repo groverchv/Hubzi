@@ -40,13 +40,32 @@ export function trackEvent(name, props = {}) {
   } catch { /* noop */ }
 }
 
+const MINOR_BANDS = new Set(["sprout", "explorer", "adventurer", "challenger"]);
+
+function _anonId(rawId) {
+  let h = 0;
+  for (let i = 0; i < rawId.length; i++) {
+    h = (Math.imul(31, h) + rawId.charCodeAt(i)) | 0;
+  }
+  return `anon_${(h >>> 0).toString(36)}`;
+}
+
 export function identifyUser(user) {
   try {
     if (posthogInstance && user?.id) {
-      posthogInstance.identify(user.id, {
-        username: user.username,
-        plan: user.plan || "free",
-      });
+      // Minimización para menores: identificador anonimizado, sin username
+      const isMinor = MINOR_BANDS.has(user?.age_band);
+      if (isMinor) {
+        posthogInstance.identify(_anonId(String(user.id)), {
+          plan: user.plan || "free",
+          age_band: user.age_band,
+        });
+      } else {
+        posthogInstance.identify(user.id, {
+          username: user.username,
+          plan: user.plan || "free",
+        });
+      }
     }
   } catch { /* noop */ }
 }

@@ -8,11 +8,15 @@ from typing import Optional, Dict, Any
 
 from fastapi import HTTPException, status
 
+from app.core.age_bands import get_band, resolve_level_question_count
 from app.core.config import settings
 from app.core.database import db_manager
 from app.core.security import utcnow_iso
-from app.schemas.schemas import GameBoardResponse, GenerateBoardRequest
+from app.schemas.schemas import AnswerSpec, GameBoardResponse, GenerateBoardRequest
 from app.services.ai_service import ai_service
+from app.services.domain_engine import classify_domain, detect_math_topics
+from app.services.math_engine import generate_math_problems
+from app.services.safety_filter import filter_board_for_band
 from app.builders.builder import GameBoardBuilder
 
 logger = logging.getLogger("hubzy.board_service")
@@ -36,6 +40,75 @@ def save_to_l1_cache(signature_hash: str, board: GameBoardResponse):
     L1_RAM_CACHE[signature_hash] = board
 
 
+def _build_math_board(payload: GenerateBoardRequest, band_key: str,
+                      level: int, question_count: int,
+                      variation_seed: int = 0) -> GameBoardResponse:
+    """
+    Construye un tablero de arquetipo 'solve' con el motor matemático procedural.
+    Sin llamadas a IA: problemas generados por plantillas con distractores
+    basados en misconcepciones reales. La carta = la respuesta; el nodo = el problema.
+    """
+    topics = detect_math_topics(payload.text)
+    seed = payload.level * 7919 + len(payload.text) + variation_seed * 104729
+    problems = generate_math_problems(topics, band_key, level, question_count, seed=seed)
+    if not problems:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se pudieron generar problemas de matemática para este material."
+        )
+
+    band = get_band(band_key)
+    builder = GameBoardBuilder(title="Circuito de Matemática")
+    builder.set_meta(domain="matematica", age_band=band_key)
+
+    distractor_pool = []
+    for idx, p in enumerate(problems, start=1):
+        card_id, node_id = f"card_{idx}", f"node_{idx}"
+        builder.add_card(
+            card_id=card_id,
+            concept_name=p["correct"],
+            content=p.get("explanation") or f"Respuesta de {p['concept']}",
+            points_multiplier="2x" if p.get("topic") in ("algebra", "trigonometria") else "1x",
+        )
+        builder.add_node(
+            node_id=node_id,
+            correct_card_id=card_id,
+            description=p.get("hint") or f"Resuelve el problema de {p['concept']}",
+            question=p["question"],
+            question_latex=p.get("question_latex"),
+            answer_spec=AnswerSpec(
+                type="solve",
+                value=p["correct"],
+                latex=p.get("question_latex"),
+                topic=p.get("topic"),
+                misconceptions=p.get("misconception_tags"),
+                hint=p.get("hint"),
+                explanation=p.get("explanation"),
+            ),
+        )
+        distractor_pool.extend(p.get("distractors", []))
+
+    # Distractores como cartas trampa — limitados por la banda de edad
+    trap_budget = band.get("trap_count")
+    n_traps = trap_budget if trap_budget is not None else max(1, round(len(problems) * 0.3))
+    seen_answers = {p["correct"] for p in problems}
+    used = set()
+    d_idx = 0
+    for val in distractor_pool:
+        if d_idx >= n_traps or val in seen_answers or val in used:
+            continue
+        used.add(val)
+        d_idx += 1
+        builder.add_card(
+            card_id=f"card_distractor_{d_idx}",
+            concept_name=str(val),
+            content="Respuesta distractora — cuidado, es un error muy común.",
+            points_multiplier="1x",
+        )
+
+    return builder.build()
+
+
 async def generate_board(
     payload: GenerateBoardRequest,
     force_refresh: bool = False,
@@ -43,16 +116,35 @@ async def generate_board(
     user_id: Optional[str] = None,
 ) -> GameBoardResponse:
     """
-    Pipeline completo: hash del contenido → caché L1/L2 → Gemini → Builder →
-    persistencia (game_boards, cached_analyses, ai_training_dataset).
+    Pipeline completo: hash del contenido → caché L1/L2 → motor por dominio →
+    Builder → persistencia (game_boards, cached_analyses, ai_training_dataset).
+
+    Dominio 'matematica' → motor procedural (0 tokens, verificación exacta).
+    Otros dominios → Gemini/Groq con contexto de edad inyectado en el prompt.
     """
     level = getattr(payload, 'level', 1) or 1
-    question_count = getattr(payload, 'question_count', 3) or 3
     difficulty = getattr(payload, 'difficulty', 'facil') or 'facil'
     excluded_concepts = getattr(payload, 'excluded_concepts', []) or []
+    band_key = getattr(payload, 'age_band', None) or "scholar"
+
+    # La banda de edad gobierna cuántas preguntas caben por nivel
+    band = get_band(band_key)
+    band_qc = band.get("questions_per_level")
+    question_count = getattr(payload, 'question_count', 0) or 0
+    if band_qc is not None:
+        question_count = band_qc
+    if question_count <= 0:
+        question_count = level
+
+    # Clasificación de dominio (heurística local, sin costo de IA)
+    domain_info = classify_domain(payload.text)
+    domain = getattr(payload, 'domain', None) or domain_info["domain"]
 
     excl_signature = ",".join(sorted(excluded_concepts)) if excluded_concepts else "none"
-    cache_signature = f"{payload.text.strip()}_lvl{level}_qc{question_count}_{difficulty}_excl_{excl_signature}"
+    cache_signature = (
+        f"{payload.text.strip()}_lvl{level}_qc{question_count}_{difficulty}"
+        f"_excl_{excl_signature}_band_{band_key}_dom_{domain}_v2"
+    )
     content_hash = hashlib.sha256(cache_signature.encode("utf-8")).hexdigest()
 
     if not force_refresh:
@@ -72,6 +164,52 @@ async def generate_board(
         except Exception as ce:
             logger.warning(f"Error consultando caché de análisis: {ce}")
 
+    # =====================================================================
+    # DOMINIO MATEMÁTICA → motor procedural (0 tokens, respuestas exactas,
+    # distractors = misconcepciones reales de estudiantes)
+    # =====================================================================
+    if domain == "matematica":
+        try:
+            board_result = _build_math_board(
+                payload, band_key, level, question_count,
+                variation_seed=variation_seed,
+            )
+        except HTTPException:
+            raise
+        except Exception as me:
+            logger.error(f"Motor matemático falló, cayendo a LLM: {me}")
+        else:
+            board_result = filter_board_for_band(board_result, band_key)
+            if db_manager.db is not None:
+                try:
+                    board_dict = {
+                        "id_tablero": board_result.id_tablero,
+                        "title": board_result.title,
+                        "domain": board_result.domain,
+                        "age_band": board_result.age_band,
+                        "nodes": [n.model_dump() for n in board_result.nodes],
+                        "cards": [c.model_dump() for c in board_result.cards],
+                        "created_at": utcnow_iso()
+                    }
+                    await db_manager.db["game_boards"].insert_one(board_dict)
+                    await db_manager.db["cached_analyses"].update_one(
+                        {"content_hash": content_hash},
+                        {"$set": {
+                            "content_hash": content_hash,
+                            "title": board_result.title,
+                            "board": board_dict,
+                            "generator": "math_engine",
+                            "updated_at": utcnow_iso()
+                        }},
+                        upsert=True
+                    )
+                    save_to_l1_cache(content_hash, board_result)
+                except Exception as dbe:
+                    logger.warning(f"Error guardando tablero matemático en MongoDB: {dbe}")
+            else:
+                save_to_l1_cache(content_hash, board_result)
+            return board_result
+
     try:
         ai_data = ai_service.extract_concepts_from_text(
             payload.text,
@@ -79,7 +217,9 @@ async def generate_board(
             question_count=question_count,
             difficulty=difficulty,
             level=level,
-            excluded_concepts=excluded_concepts
+            excluded_concepts=excluded_concepts,
+            age_band=band_key,
+            gender=getattr(payload, 'gender', None),
         )
 
         concepts = ai_data.get("concepts", [])
@@ -143,6 +283,12 @@ async def generate_board(
             )
 
         board_result = builder.build()
+        board_result = board_result.model_copy(update={
+            "domain": domain,
+            "age_band": band_key,
+            "board_version": 2,
+        })
+        board_result = filter_board_for_band(board_result, band_key)
 
         if db_manager.db is not None:
             try:

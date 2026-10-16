@@ -1,6 +1,6 @@
 import uuid
 from typing import List, Optional
-from app.schemas.schemas import CardSchema, NodeSchema, GameBoardResponse
+from app.schemas.schemas import CardSchema, NodeSchema, GameBoardResponse, AnswerSpec
 
 class GameBoardBuilder:
     """
@@ -12,17 +12,28 @@ class GameBoardBuilder:
         self._title: str = title
         self._cards: List[CardSchema] = []
         self._nodes: List[NodeSchema] = []
+        self._domain: Optional[str] = None
+        self._age_band: Optional[str] = None
+        self._board_version: int = 1
 
     def set_title(self, title: str) -> "GameBoardBuilder":
         if title and title.strip():
             self._title = title.strip()
         return self
 
+    def set_meta(self, domain: Optional[str] = None,
+                 age_band: Optional[str] = None,
+                 board_version: int = 2) -> "GameBoardBuilder":
+        self._domain = domain
+        self._age_band = age_band
+        self._board_version = board_version
+        return self
+
     def add_card(
-        self, 
-        card_id: str, 
-        concept_name: str, 
-        content: str, 
+        self,
+        card_id: str,
+        concept_name: str,
+        content: str,
         points_multiplier: str = "1x"
     ) -> "GameBoardBuilder":
         card = CardSchema(
@@ -35,17 +46,21 @@ class GameBoardBuilder:
         return self
 
     def add_node(
-        self, 
-        node_id: str, 
-        correct_card_id: str, 
+        self,
+        node_id: str,
+        correct_card_id: str,
         description: str,
-        question: Optional[str] = None
+        question: Optional[str] = None,
+        question_latex: Optional[str] = None,
+        answer_spec: Optional[AnswerSpec] = None
     ) -> "GameBoardBuilder":
         node = NodeSchema(
             id=node_id,
             correct_card_id=correct_card_id,
             description=description,
-            question=question
+            question=question,
+            question_latex=question_latex,
+            answer_spec=answer_spec
         )
         self._nodes.append(node)
         return self
@@ -56,5 +71,8 @@ class GameBoardBuilder:
             id_tablero=self._board_id,
             title=self._title,
             nodes=self._nodes,
-            cards=self._cards
+            cards=self._cards,
+            domain=self._domain,
+            age_band=self._age_band,
+            board_version=self._board_version,
         )

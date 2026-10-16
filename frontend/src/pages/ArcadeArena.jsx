@@ -46,6 +46,7 @@ import { GAME_LEVELS } from "../utils/gameConfig";
 import { analyzeIntentLocally } from "../utils/localNlp";
 import { getDynamicLayout } from "../utils/boardLayout";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { bandForAge, getBand } from "../utils/ageConfig";
 
 export default function ArcadeArena() {
   const { reportCrisis } = useCrisis();
@@ -102,6 +103,25 @@ export default function ArcadeArena() {
       return null;
     }
   });
+
+  // Banda de edad del jugador — gobierna densidad, celebración y presión
+  const userAgeBand = currentUser?.age_band || bandForAge(currentUser?.age);
+  const userBandConfig = getBand(userAgeBand);
+  const kidMode = !userBandConfig.pressure;
+
+  // Registro adaptativo BKT (fire-and-forget — nunca bloquea el juego)
+  const recordAdaptiveAttempt = (node, correct) => {
+    const topic = node?.answerSpec?.topic || node?.domain || "general";
+    fetchWithAuth("/api/v1/adaptive/attempt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        domain: node?.domain === "trampa" ? "general" : (node?.domain || "general"),
+        topic,
+        correct,
+      }),
+    }).catch(() => {});
+  };
 
   // Pantalla Inicial de Bienvenida (Estilo Card Clash)
   const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(true);
@@ -686,6 +706,8 @@ export default function ArcadeArena() {
         theme: activeTheme,
         label: conceptLabel,
         question: questionText,
+        questionLatex: n.question_latex || null,
+        answerSpec: n.answer_spec || null,
         hint: hintText,
         nodeIndex: idx,
         pos: dynamicPositions[idx % dynamicPositions.length],
@@ -1045,12 +1067,13 @@ export default function ArcadeArena() {
       );
 
     if (!isCorrectCard) {
-      // CARTA TRAMPA O DISTRACTOR: Hubzi penaliza y ofrece feedback pedagógico
+      // CARTA TRAMPA O DISTRACTOR: Hubzi penaliza (solo bandas con presión)
       setWrongCardShake(card.id);
       triggerCapyVoice("wrong");
+      recordAdaptiveAttempt(targetNode, false);
 
       const isTrap = Boolean(card.isTrap || isDistractor);
-      if (isTrap) {
+      if (isTrap && userBandConfig.pressure) {
         // Penalización por carta trampa: Resta 1 de energía si el nivel tiene trampas
         setEnergy((prev) => Math.max(0, prev - 1));
       }
@@ -1060,16 +1083,20 @@ export default function ArcadeArena() {
         `Revisa con atención: esta casilla evalúa el principio "${targetNode.label}".`;
       setCapyMood(isTrap ? "surprised" : "encouraging");
       setCapySpeech({
-        text: isTrap
-          ? `¡Cuidado, es una CARTA TRAMPA! ⚡ Pierdes 1 de energía. Pista: ${pedagogicalHint}`
-          : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
+        text: kidMode
+          ? `¡Casi! "${card.name}" no era esa. ${pedagogicalHint}`
+          : isTrap
+            ? `¡Cuidado, es una CARTA TRAMPA! ⚡ Pierdes 1 de energía. Pista: ${pedagogicalHint}`
+            : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
         isVisible: true,
         mood: isTrap ? "surprised" : "encouraging",
       });
       setSuccessNotif(
-        isTrap
-          ? `⚠️ ¡CARTA TRAMPA DETONADA! -1 Energía. Pista: ${pedagogicalHint}`
-          : `"${card.name}" no corresponde a "${targetNode.label}". Pista: ${pedagogicalHint}`,
+        kidMode
+          ? `"${card.name}" no era. Pista: ${pedagogicalHint}`
+          : isTrap
+            ? `⚠️ ¡CARTA TRAMPA DETONADA! -1 Energía. Pista: ${pedagogicalHint}`
+            : `"${card.name}" no corresponde a "${targetNode.label}". Pista: ${pedagogicalHint}`,
       );
 
       setTimeout(() => {
@@ -1081,6 +1108,7 @@ export default function ArcadeArena() {
 
     // CARTA CORRECTA: Colocar en el nodo y voz de celebración entusiasta
     triggerCapyVoice("correct");
+    recordAdaptiveAttempt(targetNode, true);
     setSelectedCardForDetail(null);
     setSelectedCardInHand(null);
     const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
@@ -1249,6 +1277,8 @@ export default function ArcadeArena() {
                 n.question ||
                 n.description ||
                 "¿A qué concepto corresponde este principio?",
+              questionLatex: n.question_latex || null,
+              answerSpec: n.answer_spec || null,
               hint:
                 n.description ||
                 "Revisa las cartas en tu mano y arrastra la respuesta adecuada.",
@@ -1853,6 +1883,7 @@ export default function ArcadeArena() {
       <QuestionModal
         isOpen={!!selectedNodeForQuestion}
         node={selectedNodeForQuestion}
+        ageBand={userAgeBand}
         onClose={() => {
           const targetNode = selectedNodeForQuestion;
           setSelectedNodeForQuestion(null);

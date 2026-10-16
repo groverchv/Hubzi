@@ -414,8 +414,13 @@ async def generate_game_from_folder(
         + "\n\n".join(texts_with_source)
     )[:500000]
 
+    user_band = "scholar"
+    if current_user:
+        from app.core.age_bands import band_for_age
+        user_band = current_user.get("age_band") or band_for_age(current_user.get("age"))
+
     folder_content_hash = hashlib.sha256(
-        f"{combined_text.strip()}_lvl{level}_qc{final_qc}_{final_diff}".encode("utf-8")
+        f"{combined_text.strip()}_lvl{level}_qc{final_qc}_{final_diff}_band{user_band}".encode("utf-8")
     ).hexdigest()
 
     if not force:
@@ -458,13 +463,17 @@ async def generate_game_from_folder(
 
     seed = random.randint(1, 99999) if force else 0
     uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
+    age_band = user_band if current_user else None
+    gender = current_user.get("gender") if current_user else None
     board_response = await generate_board(
         GenerateBoardRequest(
             text=combined_text,
             level=level,
             question_count=final_qc,
             difficulty=final_diff,
-            excluded_concepts=previously_evaluated_concepts
+            excluded_concepts=previously_evaluated_concepts,
+            age_band=age_band,
+            gender=gender,
         ),
         force_refresh=force,
         variation_seed=seed,

@@ -11,6 +11,7 @@ from app.core.database import db_manager
 from app.core.rate_limit import limiter
 from app.routers import (
     auth, users, arena, folders, zen, voice, psychology, payments, ai, ws,
+    adaptive,
 )
 
 logger = logging.getLogger("hubzy.main")
@@ -91,3 +92,4 @@ app.include_router(psychology.router)
 app.include_router(payments.router)
 app.include_router(ai.router)
 app.include_router(ws.router)
+app.include_router(adaptive.router)

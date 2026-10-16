@@ -2,10 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, HelpCircle, Sparkles } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
+import KaTeXText from './KaTeXText';
 
-export default function ArcadeNode({ 
-  id, 
-  icon = null, 
+export default function ArcadeNode({
+  id,
+  icon = null,
   color = "blue",
   shape = "card",
   active = true,
@@ -15,6 +16,7 @@ export default function ArcadeNode({
   domain = "",
   theme = "",
   question = "",
+  questionLatex = null,
   hint = "",
   index = 0,
   style = {},
@@ -105,6 +107,11 @@ export default function ArcadeNode({
             <span>{label ? `Casilla: ${label}` : 'Reactivo:'}</span>
           </p>
           <p className="leading-snug text-slate-200 font-semibold text-[10.5px] max-h-24 overflow-y-auto">{question}</p>
+          {questionLatex && (
+            <div className="mt-1.5 text-cyan-100 text-[11px] overflow-x-auto">
+              <KaTeXText tex={questionLatex} displayMode />
+            </div>
+          )}
           <div className="mt-1.5 flex items-center justify-between border-t border-slate-700/60 pt-1 text-[8px] font-mono text-cyan-300">
             <span>Toca o arrastra aquí</span>
             <span className="text-amber-400 font-bold">Clic para expandir</span>

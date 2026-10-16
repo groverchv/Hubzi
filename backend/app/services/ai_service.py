@@ -83,17 +83,65 @@ LEVEL_DESCRIPTIONS = {
 }
 
 
+# Directivas de audiencia por banda de edad — se inyectan en el prompt
+_AUDIENCE_DIRECTIVES = {
+    "sprout": (
+        "\n\n👶 AUDIENCIA: NIÑO/A DE 5-7 AÑOS. OBLIGATORIO:\n"
+        "- Enunciados de MÁXIMO 8 palabras, vocabulario de 1º de primaria, una sola idea por frase.\n"
+        "- Usa ejemplos con juguetes, animales, dibujos y comida. Nada abstracto.\n"
+        "- Las cartas deben ser respuestas de 1-2 palabras o un número.\n"
+        "- Las pistas deben leerse en voz alta de forma natural y cariñosa.\n"
+        "- PROHIBIDO contenido que asuste, avergüence o mencione evaluación/examen."
+    ),
+    "explorer": (
+        "\n\n🧒 AUDIENCIA: NIÑO/A DE 8-10 AÑOS. OBLIGATORIO:\n"
+        "- Frases de máximo 15 palabras, vocabulario de primaria.\n"
+        "- Ejemplos concretos del mundo del niño (escuela, juegos, mascotas, deportes).\n"
+        "- Nada de jerga técnica sin explicación inmediata entre paréntesis.\n"
+        "- Tono alegre y de aventura, nunca de examen ni de evaluación."
+    ),
+    "adventurer": (
+        "\n\n🧑 AUDIENCIA: ADOLESCENTE DE 11-14 AÑOS.\n"
+        "- Lenguaje claro de secundaria, frases de máximo 30 palabras.\n"
+        "- Ejemplos cercanos a su mundo (redes, videojuegos, música, deportes) sin forzar.\n"
+        "- Explica tecnicismos la primera vez que aparecen."
+    ),
+    "challenger": (
+        "\n\n🧑‍🎓 AUDIENCIA: ESTUDIANTE DE 15-18 AÑOS (secundaria).\n"
+        "- Lenguaje académico estándar, rigor de examen de ingreso a la universidad."
+    ),
+    "pro": (
+        "\n\n💼 AUDIENCIA: PROFESIONAL/AUTODIDACTA ADULTO.\n"
+        "- Lenguaje técnico preciso, sin simplificaciones ni motivación extra."
+    ),
+}
+
+# Directivas de lenguaje inclusivo por género declarado
+_GENDER_DIRECTIVES = {
+    "masculino": "- Dirígete al estudiante en masculino ('campeón', 'genio').",
+    "femenino": "- Dirígete a la estudiante en femenino ('campeona', 'genia').",
+    "otro": "- Usa lenguaje neutro e inclusivo ('crack', 'genio/a', 'figura'); evita marcas de género.",
+}
+
+
 def build_system_instruction(
-    question_count: int = 5, 
-    difficulty: str = "normal", 
+    question_count: int = 5,
+    difficulty: str = "normal",
     level: int = 1,
-    excluded_concepts: Optional[List[str]] = None
+    excluded_concepts: Optional[List[str]] = None,
+    age_band: Optional[str] = None,
+    gender: Optional[str] = None,
 ) -> str:
     """Construye las instrucciones dinámicas de Gemini/Groq con exclusión estricta de conceptos previos y cobertura sectorizada."""
     distractor_count = max(1, round(question_count * 0.30))
     lvl_info = LEVEL_DESCRIPTIONS.get(level, LEVEL_DESCRIPTIONS[1])
     guideline = lvl_info["guideline"]
     doc_sector = lvl_info.get("doc_sector", "Todo el documento")
+
+    audience_directive = _AUDIENCE_DIRECTIVES.get(age_band or "", "")
+    gender_directive = _GENDER_DIRECTIVES.get((gender or "").strip().lower(), "")
+    if gender_directive:
+        gender_directive = "\n\n🗣️ LENGUAJE INCLUSIVO:\n" + gender_directive + "\n- Usa ejemplos balanceados (mujeres científicas, hombres enfermeros) sin estereotipos."
 
     exclusion_clause = ""
     if excluded_concepts and len(excluded_concepts) > 0:
@@ -115,6 +163,7 @@ Tu objetivo es que el estudiante domine y asimile el 100% DEL DOCUMENTO ACADÉMI
 {doc_sector}
 
 {guideline}
+{audience_directive}{gender_directive}
 {exclusion_clause}
 
 ⚠️ REGLAS OBLIGATORIAS:
@@ -207,13 +256,15 @@ class AIService:
 
 
     def extract_concepts_from_text(
-        self, 
-        study_text: str, 
+        self,
+        study_text: str,
         variation_seed: int = 0,
         question_count: int = 3,
         difficulty: str = "facil",
         level: int = 1,
-        excluded_concepts: Optional[List[str]] = None
+        excluded_concepts: Optional[List[str]] = None,
+        age_band: Optional[str] = None,
+        gender: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Envía el texto REAL del documento a Gemini con prompt estructurado
@@ -234,7 +285,9 @@ class AIService:
             question_count=question_count,
             difficulty=difficulty,
             level=level,
-            excluded_concepts=excluded_concepts
+            excluded_concepts=excluded_concepts,
+            age_band=age_band,
+            gender=gender,
         )
 
         variation_directive = ""

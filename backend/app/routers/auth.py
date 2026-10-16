@@ -3,6 +3,7 @@ import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from app.core.age_bands import band_for_age, needs_parental_consent
 from app.core.config import settings
 from app.core.database import db_manager
 from app.core.rate_limit import limiter
@@ -35,12 +36,14 @@ def assign_voice_gender(gender: str, voice_preference: str = None) -> str:
 
 
 def _to_profile(user_id: str, doc: dict) -> UserProfileResponse:
+    age = doc.get("age", 20)
     return UserProfileResponse(
         id=user_id,
         email=doc.get("email"),
         username=doc.get("username", "Estudiante"),
         gender=doc.get("gender", "masculino"),
-        age=doc.get("age", 20),
+        age=age,
+        age_band=doc.get("age_band") or band_for_age(age),
         avatar=doc.get("avatar", "capy_fan"),
         voice_preference=doc.get("voice_preference", "auto"),
         assigned_voice_gender=doc.get("assigned_voice_gender", "female"),
@@ -62,6 +65,13 @@ async def auth_register(request: Request, payload: UserAuthRegisterRequest):
     if not clean_email or "@" not in clean_email:
         raise HTTPException(status_code=400, detail="Por favor ingresa un correo electrónico válido.")
 
+    age_band = band_for_age(payload.age)
+    if needs_parental_consent(age_band) and not payload.parental_consent:
+        raise HTTPException(
+            status_code=400,
+            detail="Las cuentas de menores de 11 años requieren el consentimiento de un padre, madre o tutor."
+        )
+
     assigned_voice = assign_voice_gender(norm_gender, payload.voice_preference)
     pwd_hash = hash_password(payload.password)
 
@@ -71,6 +81,9 @@ async def auth_register(request: Request, payload: UserAuthRegisterRequest):
         "username": clean_username,
         "gender": norm_gender,
         "age": payload.age,
+        "age_band": age_band,
+        "parental_consent": bool(payload.parental_consent) if needs_parental_consent(age_band) else None,
+        "consented_at": utcnow_iso() if payload.parental_consent else None,
         "avatar": payload.avatar or "capy_fan",
         "voice_preference": payload.voice_preference or "auto",
         "assigned_voice_gender": assigned_voice,

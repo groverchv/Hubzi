@@ -213,6 +213,7 @@ export default function BoardConsole({
                     index={node.nodeIndex ?? 0}
                     label={node.label}
                     question={node.question}
+                    questionLatex={node.questionLatex}
                     hint={node.hint}
                     placedCard={node.placedCard}
                     onClick={onNodeClick}

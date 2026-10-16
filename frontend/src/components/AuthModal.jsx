@@ -29,6 +29,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [username, setUsername] = useState('');
   const [gender, setGender] = useState('masculino');
   const [age, setAge] = useState('14');
+  const [parentalConsent, setParentalConsent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   // Estados de UI
@@ -69,8 +70,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         return;
       }
       const numAge = parseInt(age, 10);
-      if (isNaN(numAge) || numAge < 5 || numAge > 20) {
-        setErrorMsg('Ingresa una edad válida (entre 5 y 20 años).');
+      if (isNaN(numAge) || numAge < 5 || numAge > 30) {
+        setErrorMsg('Ingresa una edad válida (entre 5 y 30 años).');
+        return;
+      }
+      if (numAge <= 10 && !parentalConsent) {
+        setErrorMsg('Para menores de 11 años, un padre/madre/tutor debe marcar su consentimiento.');
         return;
       }
     }
@@ -88,7 +93,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             gender,
             age: parseInt(age, 10),
             avatar: 'capy_fan',
-            voice_preference: 'auto'
+            voice_preference: 'auto',
+            parental_consent: parseInt(age, 10) <= 10 ? parentalConsent : undefined
           };
 
       const res = await fetchWithAuth(endpoint, {
@@ -141,9 +147,12 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   };
 
   const getAgeCategory = (numAge) => {
-    if (numAge <= 11) return 'Primaria / Infantil (5-11)';
-    if (numAge <= 16) return 'Secundaria (12-16)';
-    return 'Preparatoria / Joven (17-20)';
+    if (numAge <= 7) return 'Semillita (5-7) — aprende escuchando y jugando';
+    if (numAge <= 10) return 'Explorador (8-10) — aventura guiada';
+    if (numAge <= 14) return 'Aventurero (11-14) — retos por niveles';
+    if (numAge <= 18) return 'Retador (15-18) — modo examen';
+    if (numAge <= 25) return 'Académico (19-25) — universitario';
+    return 'Profesional (26+) — enfoque directo';
   };
 
   return (
@@ -353,21 +362,21 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 </div>
               </div>
 
-              {/* Selector de Edad (Rango de 5 a 20 años) */}
+              {/* Selector de Edad (Rango de 5 a 30 años — bandas adaptativas) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1">
                     <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Edad: <strong className="text-amber-300 font-extrabold">{age} años</strong></span>
                   </label>
-                  <span className="text-[10px] text-slate-400 font-medium">
+                  <span className="text-[10px] text-slate-400 font-medium text-right">
                     {getAgeCategory(parseInt(age, 10))}
                   </span>
                 </div>
                 <input
                   type="range"
                   min="5"
-                  max="20"
+                  max="30"
                   step="1"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
@@ -375,10 +384,26 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 />
                 <div className="flex justify-between text-[9px] text-slate-500 font-bold px-0.5 mt-0.5">
                   <span>5 años</span>
-                  <span>12 años</span>
-                  <span>20 años</span>
+                  <span>17 años</span>
+                  <span>30 años</span>
                 </div>
               </div>
+
+              {/* Consentimiento parental — obligatorio para menores de 11 */}
+              {parseInt(age, 10) <= 10 && (
+                <label className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-400/40 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={parentalConsent}
+                    onChange={(e) => setParentalConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-amber-400 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-amber-200 leading-snug">
+                    Soy el padre, madre o tutor legal de este menor y doy mi
+                    consentimiento para que use Hubzi de forma supervisada.
+                  </span>
+                </label>
+              )}
 
               {/* Indicador de voz complementaria asignada */}
               <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center gap-2">

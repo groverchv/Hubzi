@@ -5,6 +5,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 
+from app.core.age_bands import band_for_age
 from app.core.plans import enforce_question_limit
 from app.core.rate_limit import limiter
 from app.core.security import get_optional_user, get_user_plan
@@ -53,6 +54,9 @@ async def generate_arena_board(
     plan = get_user_plan(current_user)
     payload.question_count = enforce_question_limit(plan, payload.question_count) or payload.question_count
     uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
+    if current_user:
+        payload.age_band = payload.age_band or current_user.get("age_band") or band_for_age(current_user.get("age"))
+        payload.gender = payload.gender or current_user.get("gender")
     return await generate_board(payload, force_refresh=force_refresh, variation_seed=variation_seed, user_id=uid)
 
 

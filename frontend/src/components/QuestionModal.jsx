@@ -1,9 +1,16 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, X, Sparkles, ArrowRight, ShieldAlert, CheckCircle2, Lightbulb } from 'lucide-react';
+import { HelpCircle, X, Sparkles, ArrowRight, CheckCircle2, Lightbulb } from 'lucide-react';
+import KaTeXText from './KaTeXText';
+import { isMinor } from '../utils/ageConfig';
 
-export default function QuestionModal({ isOpen, node, onClose }) {
+export default function QuestionModal({ isOpen, node, onClose, ageBand = null }) {
   if (!isOpen || !node) return null;
+
+  const kidMode = isMinor(ageBand);
+  const badge = kidMode ? "Desafío de Aprendizaje" : "Simulacro de Examen";
+  const heading = kidMode ? "Tu reto de hoy" : "Pregunta de Evaluación";
+  const hintText = node.answerSpec?.hint || node.hint;
 
   return (
     <AnimatePresence>
@@ -23,10 +30,10 @@ export default function QuestionModal({ isOpen, node, onClose }) {
               </div>
               <div>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
-                  Simulacro de Examen
+                  {badge}
                 </span>
                 <h3 className="text-sm font-bold text-white mt-0.5">
-                  Pregunta de Evaluación
+                  {heading}
                 </h3>
               </div>
             </div>
@@ -43,11 +50,22 @@ export default function QuestionModal({ isOpen, node, onClose }) {
           <div className="my-5 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-inner">
             <p className="text-xs font-mono uppercase text-amber-400 font-bold tracking-wider mb-1.5 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              REACTIVO DE EVALUACIÓN:
+              {kidMode ? "TU MISIÓN:" : "REACTIVO DE EVALUACIÓN:"}
             </p>
-            <p className="text-sm sm:text-base font-medium text-slate-100 leading-relaxed">
+            <p className="text-sm sm:text-base font-medium text-slate-100 leading-relaxed whitespace-pre-line">
               "{node.question || 'Identifica el concepto o principio que responde al planteamiento analítico.'}"
             </p>
+            {node.questionLatex && (
+              <div className="mt-3 text-cyan-100 text-base overflow-x-auto">
+                <KaTeXText tex={node.questionLatex} displayMode />
+              </div>
+            )}
+            {hintText && (
+              <p className="mt-3 text-[11px] text-slate-400 flex items-start gap-1.5 border-t border-slate-800 pt-2.5">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <span>{hintText}</span>
+              </p>
+            )}
           </div>
 
           {/* Estado de la Carta si ya fue colocada */}
@@ -68,7 +86,7 @@ export default function QuestionModal({ isOpen, node, onClose }) {
               }}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-950 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>Entendido, Buscaré la Carta</span>
+              <span>{kidMode ? "¡Listo! A buscar la respuesta" : "Entendido, Buscaré la Carta"}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

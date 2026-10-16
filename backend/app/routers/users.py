@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.core.age_bands import band_for_age, needs_parental_consent
 from app.core.database import db_manager
 from app.core.security import get_current_user, utcnow_iso
 from app.core.session_store import in_memory_auth_users, in_memory_study_folders
@@ -22,11 +23,19 @@ async def register_or_login_user(payload: UserRegisterRequest):
     clean_username = payload.username.strip()
     norm_gender = payload.gender.strip().lower()
     assigned_voice = assign_voice_gender(norm_gender, payload.voice_preference)
+    age_band = band_for_age(payload.age)
+
+    if needs_parental_consent(age_band) and not payload.parental_consent:
+        raise HTTPException(
+            status_code=400,
+            detail="Las cuentas de menores de 11 años requieren el consentimiento de un padre, madre o tutor."
+        )
 
     user_doc = {
         "username": clean_username,
         "gender": norm_gender,
         "age": payload.age,
+        "age_band": age_band,
         "avatar": payload.avatar or "capy_fan",
         "voice_preference": payload.voice_preference or "auto",
         "assigned_voice_gender": assigned_voice,
@@ -55,6 +64,7 @@ async def register_or_login_user(payload: UserRegisterRequest):
                     username=existing["username"],
                     gender=norm_gender,
                     age=payload.age,
+                    age_band=age_band,
                     avatar=payload.avatar or existing.get("avatar", "capy_fan"),
                     voice_preference=payload.voice_preference or existing.get("voice_preference", "auto"),
                     assigned_voice_gender=assigned_voice,
@@ -86,12 +96,14 @@ async def register_or_login_user(payload: UserRegisterRequest):
 async def get_my_profile(current_user: dict = Depends(get_current_user)):
     """Perfil del usuario autenticado (desde JWT)."""
     user_id = str(current_user.get("id") or current_user.get("_id"))
+    age = current_user.get("age", 20)
     return UserProfileResponse(
         id=user_id,
         email=current_user.get("email"),
         username=current_user.get("username", "Estudiante"),
         gender=current_user.get("gender", "masculino"),
-        age=current_user.get("age", 20),
+        age=age,
+        age_band=current_user.get("age_band") or band_for_age(age),
         avatar=current_user.get("avatar", "capy_fan"),
         voice_preference=current_user.get("voice_preference", "auto"),
         assigned_voice_gender=current_user.get("assigned_voice_gender", "female"),
