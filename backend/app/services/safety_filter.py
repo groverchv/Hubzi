@@ -55,7 +55,19 @@ def contains_blocked_content(text: str) -> bool:
     """True si el texto contiene algún patrón bloqueado para menores."""
     if not text:
         return False
-    return any(p.search(text) for p in _BLOCKED_RE)
+    if any(p.search(text) for p in _BLOCKED_RE):
+        return True
+    # Capa ML opcional (solo si SAFETY_MODEL_ENABLED): cubre paráfrasis
+    # que la lista literal no atrapa. La heurística siempre corre primero.
+    try:
+        from app.services.ml_safety import ml_detect_unsafe
+        ml = ml_detect_unsafe(text)
+        if ml.get("available") and ml.get("unsafe"):
+            logger.warning(f"ML safety flag: {ml['label']} ({ml['score']}) en: {text[:80]}...")
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def contains_punitive_tone(text: str) -> bool:

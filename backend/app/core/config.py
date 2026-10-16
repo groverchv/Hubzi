@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     # IMPORTANTE: verificar números locales reales antes de producción (ver docs/exploracion-ansiedad-uagrm.md)
     CRISIS_RESOURCES_JSON: Optional[str] = None
 
+    # Modelos pretrained locales (opcional — requiere `pip install transformers torch`)
+    # Desactivados por defecto; las heurísticas cubren el caso común. Activar
+    # solo donde el peso del modelo justifica el recall extra.
+    SAFETY_MODEL_ENABLED: bool = False
+    SAFETY_MODEL_NAME: str = "unitary/toxic-bert"  # multilingüe limitado; configurable
+    CRISIS_MODEL_ENABLED: bool = False
+    CRISIS_MODEL_NAME: str = "finiteautomata/beto-emotion-analysis"  # emociones en español
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

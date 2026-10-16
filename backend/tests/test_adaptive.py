@@ -232,6 +232,35 @@ class TestSafetyFilter:
 
 
 # =====================================================================
+# CAPA ML OPCIONAL (graceful degradation sin transformers instalado)
+# =====================================================================
+
+from app.services.ml_safety import ml_detect_unsafe, ml_detect_crisis_emotion
+
+
+class TestMLSafety:
+    def test_disabled_by_default(self):
+        # Sin flag ni transformers, los modelos reportan available=False
+        r = ml_detect_unsafe("texto cualquiera")
+        assert r["available"] is False
+        assert r["unsafe"] is False
+
+    def test_crisis_disabled_by_default(self):
+        r = ml_detect_crisis_emotion("me siento triste")
+        assert r["available"] is False
+        assert r["is_crisis_signal"] is False
+
+    def test_empty_text_never_crashes(self):
+        assert not ml_detect_unsafe("")["available"]
+        assert not ml_detect_crisis_emotion(None)["available"]
+
+    def test_safety_filter_still_works_without_ml(self):
+        # La heurística es la capa base — funciona sin modelos
+        assert contains_blocked_content("La tortura era común")
+        assert not contains_blocked_content("Las fracciones son útiles")
+
+
+# =====================================================================
 # MOTOR ADAPTATIVO BKT
 # =====================================================================
 

@@ -236,6 +236,57 @@ class PsychologyNLPService:
                     is_crisis=True
                 )
 
+        # 1.5. CAPA ML OPCIONAL — clasificador pretrained de emociones (español)
+        # Cubre ideación/riesgo expresado de forma indirecta que los keywords
+        # literales no atrapan ("ya no quiero seguir", "todo da igual").
+        # Solo se ejecuta si CRISIS_MODEL_ENABLED=true. Nunca reemplaza la
+        # heurística — solo eleva el nivel si detecta sadness/fear extremo.
+        try:
+            from app.services.ml_safety import ml_detect_crisis_emotion
+            ml = ml_detect_crisis_emotion(clean_text)
+            if ml.get("available"):
+                if ml.get("is_crisis_signal"):
+                    logger.warning(
+                        f"🚨 ALERTA ML: emoción '{ml['emotion']}' score={ml['score']} — "
+                        f"posible señal indirecta de crisis en texto."
+                    )
+                    return PsychologyAnalysisResult(
+                        stress_level=1.0,
+                        stress_category="crisis",
+                        emotion_detected=f"{ml['emotion']} (detectado por modelo ML)",
+                        cognitive_distortion="Desesperanza / Riesgo indirecto",
+                        needs_somatic_intervention=True,
+                        recommended_intervention="grounding_54321",
+                        empathic_response="Percibo que algo muy pesado te está pasando. Tu bienestar es lo más importante — detén la pantalla un momento y respira conmigo. No estás solo, hay líneas de ayuda gratuita.",
+                        clinical_rationale="Señal ML de alta confianza en emoción de riesgo (sadness/fear extremo) — se activa protocolo de crisis preventivo.",
+                        is_crisis=True,
+                    )
+                if ml.get("risk_level", 0) >= 0.55:
+                    # Eleva el análisis heurístico si el modelo detecta malestar
+                    ml_elevation = ml["risk_level"]
+                    logger.info(f"ML elevó riesgo a {ml_elevation} (emoción: {ml['emotion']})")
+                    heur = self._heuristic_analysis(clean_text)
+                    if heur.stress_level < ml_elevation:
+                        heur = heur.model_copy(update={
+                            "stress_level": max(heur.stress_level, ml_elevation),
+                            "stress_category": "high_stress" if ml_elevation >= 0.75 else "moderate_anxiety",
+                            "needs_somatic_intervention": True,
+                            "emotion_detected": f"{heur.emotion_detected} + {ml['emotion']}",
+                            "clinical_rationale": f"{heur.clinical_rationale} [ML risk={ml_elevation}]",
+                        })
+                    base_result = heur
+                    # Continuar con Gemini si está disponible para profundizar
+                    if self.client:
+                        try:
+                            ai_result = self._gemini_clinical_evaluation(text, context)
+                            if ai_result:
+                                return ai_result
+                        except Exception as e:
+                            logger.warning(f"Error en evaluación clínica Gemini: {e}")
+                    return base_result
+        except Exception as e:
+            logger.warning(f"Capa ML de crisis no disponible: {e}")
+
         # 2. EVALUACIÓN HEURÍSTICA BASE
         base_result = self._heuristic_analysis(clean_text)
 
