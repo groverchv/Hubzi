@@ -6,8 +6,6 @@ export default function GameOverModal({
   open,
   theme,
   playerScore,
-  opponentScore,
-  showOpponentScore,
   onRestart,
   onTerminate,
 }) {
@@ -45,19 +43,6 @@ export default function GameOverModal({
                   {playerScore}
                 </p>
               </div>
-              {showOpponentScore && (
-                <>
-                  <div className="h-8 w-[1px] bg-slate-700" />
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold">
-                      Puntaje Rival
-                    </p>
-                    <p className="text-2xl font-black text-cyan-400 font-mono">
-                      {opponentScore}
-                    </p>
-                  </div>
-                </>
-              )}
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-3">

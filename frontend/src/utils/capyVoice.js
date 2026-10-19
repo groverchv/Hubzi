@@ -1,5 +1,5 @@
 /**
- * Motor de Voz Terapéutica, Anti-Colisión y Reacciones Afectivas de Capi Psicólogo.
+ * Motor de Voz Terapéutica, Anti-Colisión y Reacciones Afectivas de Hubzi Psicólogo.
  *
  * Características clave:
  * 1. ANTI-COLISIÓN ESTRICTA: Emplea RequestID incremental, AbortController y corte inmediato
@@ -76,7 +76,7 @@ class CapyVoiceEngine {
   }
 
   /**
-   * Reproduce voz de Capi Psicólogo usando Edge-TTS neural o síntesis local del navegador.
+   * Reproduce voz de Hubzi Psicólogo usando Edge-TTS neural o síntesis local del navegador.
    * - Usuario Hombre → Voz Femenina
    * - Usuaria Mujer  → Voz Masculina
    */
@@ -383,7 +383,7 @@ class CapyVoiceEngine {
         2: ['esa respuesta correcta vale ORO puro para mi, que mente la tuya!', 'nadie lo hubiera resuelto tan bien como tu acabas de hacerlo', 'eso que hiciste es exactamente lo que hacen las personas grandes'],
         3: ['llevo el corazon rebosante de orgullo infinito por ese acierto tuyo', 'sabia que lo ibas a resolver, nunca lo dude ni un segundo', 'cada respuesta correcta tuya me hace querer saltar de pura alegria'],
         4: ['eres demasiado bueno para esto, en serio, me asombras completamente', 'con cada acierto construyes algo grandioso e imborrable en tu mente', 'ese momento exacto que acabo de ver: ahi se ve toda tu brillantez absoluta'],
-        5: ['eres de las pocas personas que realmente disfruta aprender, y se nota en cada movimiento que haces', 'si existiera un premio al mas inteligente y constante, tu lo llevarias hoy sin ninguna duda', 'que orgullo mas inmenso me da ser tu Capi en este momento historico'],
+        5: ['eres de las pocas personas que realmente disfruta aprender, y se nota en cada movimiento que haces', 'si existiera un premio al mas inteligente y constante, tu lo llevarias hoy sin ninguna duda', 'que orgullo mas inmenso me da ser tu Hubzi en este momento historico'],
       },
       wrong: {
         1: ['Oye, no pasa nada! Estoy aqui contigo y lo vamos a resolver juntos', 'Eso no fue un error, fue una pista de que tan cerca estas de la respuesta correcta', 'Respira un momento, sigues siendo increible'],

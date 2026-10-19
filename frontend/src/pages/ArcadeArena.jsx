@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers,
@@ -11,14 +11,18 @@ import {
   Folder as FolderIcon,
   User as UserIcon,
   Home,
-  Crown,
   Compass,
+  CheckCircle2,
+  AlertCircle,
+  Flame,
+  School,
 } from "lucide-react";
+
 import QuestionModal from "../components/QuestionModal";
 import CardDetailModal from "../components/CardDetailModal";
-import GameModeModal from "../components/GameModeModal";
 import ZenRelaxModal from "../components/ZenRelaxModal";
 import StudyFolderManagerModal from "../components/StudyFolderManagerModal";
+import InstitutionModal from "../components/InstitutionModal";
 import UserAuthModal from "../components/UserAuthModal";
 import AuthModal from "../components/AuthModal";
 import SubscriptionModal from "../components/SubscriptionModal";
@@ -29,8 +33,6 @@ import GenerationOverlay from "../components/GenerationOverlay";
 import AdventureMap from "../components/AdventureMap";
 import LegalModal from "../components/LegalModal";
 import CookieConsentBanner from "../components/CookieConsentBanner";
-import GameOverModal from "../components/GameOverModal";
-import LevelUpModal from "../components/LevelUpModal";
 import CapyCompanion from "../components/CapyCompanion";
 import RestartOptionsModal from "../components/RestartOptionsModal";
 import HandTray from "../components/HandTray";
@@ -38,6 +40,7 @@ import BoardConsole from "../components/BoardConsole";
 import { capyAudio } from "../utils/capyAudio";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
+import { sfx } from "../utils/sfx";
 import { detectDomainCategory } from "../utils/domainIcons";
 import { STATIC_ADMIN_GAME } from "../utils/staticAdminGame";
 import { fetchWithAuth } from "../lib/api";
@@ -51,14 +54,11 @@ import { bandForAge, getBand } from "../utils/ageConfig";
 
 export default function ArcadeArena() {
   const { reportCrisis } = useCrisis();
-  const setAuthSession = useAuthStore((s) => s.setSession);
   // Estados de Niveles del Juego (1 a 5) y Mapa de Aventura
   const [currentLevel, setCurrentLevel] = useState(1);
   const [unlockedLevel, setUnlockedLevel] = useState(1);
   const [levelStars, setLevelStars] = useState({ 1: 0 });
   const [isMapVisible, setIsMapVisible] = useState(false);
-  const [isLevelUpModalOpen, setIsLevelUpModalOpen] = useState(false);
-  const [levelUpData, setLevelUpData] = useState(null);
   const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
   const [isRestartOptionsModalOpen, setIsRestartOptionsModalOpen] =
     useState(false);
@@ -68,16 +68,12 @@ export default function ArcadeArena() {
   const [nodes, setNodes] = useState({});
   const [hand, setHand] = useState([]);
   const [handPage, setHandPage] = useState(0); // Paginación inteligente del mazo (8 cartas por vista)
-  const [opponentHand, setOpponentHand] = useState([]);
   const [flyingCard, setFlyingCard] = useState(null); // { card, targetPos, isOpponent }
-  const [energy, setEnergy] = useState(0);
-  const [maxEnergy, setMaxEnergy] = useState(4);
-  const [turn, setTurn] = useState(1);
-  const [isAiThinking, setIsAiThinking] = useState(false);
-  const [isSoloPlayerTurn, setIsSoloPlayerTurn] = useState(true);
+  // Racha de aciertos consecutivos (feedback positivo — nunca castiga)
+  const [streak, setStreak] = useState(0);
   const [successNotif, setSuccessNotif] = useState(null);
+  const [errorNotif, setErrorNotif] = useState(null);
   const [isCapySad, setIsCapySad] = useState(false); // Capibara llora cuando la carta es incorrecta
-  const [wrongCardShake, setWrongCardShake] = useState(null); // id de carta que se puso en lugar incorrecto
 
   // Reacciones Emocionales y Voz Tierna de Capibara (ElevenLabs)
   const [capyMood, setCapyMood] = useState("idle"); // 'idle' | 'happy' | 'encouraging' | 'hint' | 'surprised' | 'welcome'
@@ -110,18 +106,21 @@ export default function ArcadeArena() {
   const userBandConfig = getBand(userAgeBand);
   const kidMode = !userBandConfig.pressure;
 
-  // Registro adaptativo BKT (fire-and-forget — nunca bloquea el juego)
+  // Registro adaptativo BKT — la respuesta alimenta la maestría por tema
+  // (p_mastery) que luego sugiere repasos en la pantalla de victoria.
   const recordAdaptiveAttempt = (node, correct) => {
-    const topic = node?.answerSpec?.topic || node?.domain || "general";
+    const domain =
+      node?.domain === "trampa" ? "general" : node?.domain || "general";
+    const topic = node?.answerSpec?.topic || domain;
     fetchWithAuth("/api/v1/adaptive/attempt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        domain: node?.domain === "trampa" ? "general" : (node?.domain || "general"),
-        topic,
-        correct,
-      }),
-    }).catch(() => {});
+      body: JSON.stringify({ domain, topic, correct }),
+    })
+      .then(async (res) => {
+        if (res.ok) masteryRef.current[topic] = await res.json();
+      })
+      .catch(() => {});
   };
 
   // Pantalla Inicial de Bienvenida (Estilo Card Clash)
@@ -137,6 +136,7 @@ export default function ArcadeArena() {
   const handleLogout = () => {
     localStorage.removeItem("hubzy_current_user");
     localStorage.removeItem("hubzy_auth_token");
+    chatHistoryRef.current = []; // la memoria de Hubzi es privada por sesión
     useAuthStore.getState().logout();
     setCurrentUser(null);
     setIsAuthModalOpen(true);
@@ -203,6 +203,7 @@ export default function ArcadeArena() {
 
   // Modales (Flujo: 1. Autenticación -> 2. Carpetas/Material -> 3. Zen Relax -> 4. Juego en Vivo)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isInstitutionModalOpen, setIsInstitutionModalOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
   const [victoryStats, setVictoryStats] = useState({
@@ -210,6 +211,7 @@ export default function ArcadeArena() {
     totalQuestions: 5,
   });
   const [activeFolder, setActiveFolder] = useState(null);
+  const [activeIsland, setActiveIsland] = useState(null); // isla temática activa (null = campaña general)
   const [isRelaxModalOpen, setIsRelaxModalOpen] = useState(false);
   const [zenOffer, setZenOffer] = useState({
     show: false,
@@ -217,12 +219,17 @@ export default function ArcadeArena() {
     distortion: "",
     emotion: "",
   });
-  const [isModeModalOpen, setIsModeModalOpen] = useState(false);
   const [isGeneratingArena, setIsGeneratingArena] = useState(false);
+  const [genStage, setGenStage] = useState(null); // Etapa real reportada por el job async
+  const genAbortRef = useRef(null); // AbortController de la generación en curso
+  const victoryConsumedRef = useRef(false); // true mientras el tablero completado siga en pantalla (anti victoria fantasma)
+  const failedNodesRef = useRef(new Set()); // nodos con ≥1 intento fallido → precisión real
+  const failStreakRef = useRef(0); // fallos consecutivos → trigger de apoyo Zen
+  const masteryRef = useRef({}); // topic → {p_mastery, mastered, recommendation} (BKT)
+  const chatHistoryRef = useRef([]); // memoria conversacional de Hubzi [{role, text}]
   const [selectedNodeForQuestion, setSelectedNodeForQuestion] = useState(null);
   const [selectedCardForDetail, setSelectedCardForDetail] = useState(null);
   const [selectedCardInHand, setSelectedCardInHand] = useState(null);
-  const [isGameOverModalOpen, setIsGameOverModalOpen] = useState(false);
 
   // Accesibilidad (A11y): Cerrar cualquier modal activo al presionar la tecla Escape
   useEffect(() => {
@@ -296,7 +303,7 @@ export default function ArcadeArena() {
               setHintCardId(matchingCard.id);
               setHintNodeId(emptyNode.id);
               setSuccessNotif(
-                `💡 Pista de Capi: ¡Esta carta pertenece a la casilla "${emptyNode.label || "en espera"}"!`,
+                `💡 Pista de Hubzi: ¡Esta carta pertenece a la casilla "${emptyNode.label || "en espera"}"!`,
               );
               setTimeout(() => setSuccessNotif(null), 6000);
             }
@@ -308,24 +315,7 @@ export default function ArcadeArena() {
     return () => clearInterval(checkInterval);
   }, [hand, nodes, hintCardId, isVictoryModalOpen]);
 
-  // Configuración de Sala (Modo Solitario por defecto)
-  const [gameConfig, setGameConfig] = useState({
-    mode: "solo",
-    roomId: "sala-solo",
-    isHost: true,
-  });
-
   const [playerScore, setPlayerScore] = useState(0);
-  const [opponentScore, setOpponentScore] = useState(0);
-
-  const clientId = useMemo(() => {
-    let saved = sessionStorage.getItem("hubzy_client_id");
-    if (!saved) {
-      saved = `player_${Math.random().toString(36).substring(2, 7)}`;
-      sessionStorage.setItem("hubzy_client_id", saved);
-    }
-    return saved;
-  }, []);
 
   // Modo Solitario Zen sin contrincante: El estudiante juega a su propio ritmo sin presiones
   const isActualTurn = true;
@@ -348,13 +338,205 @@ export default function ArcadeArena() {
     const unsubscribeAmbient = hubziAmbient.subscribe((state) => {
       setIsAmbientPlaying(state.isPlaying);
     });
+    // La música arranca activada: el navegador exige un gesto del usuario,
+    // así que arranca en la primera interacción (o ya si está permitido).
+    const disarmAmbientAutostart = hubziAmbient.autoStart();
     return () => {
       unsubscribe();
       unsubscribeAmbient();
+      disarmAmbientAutostart();
       if (capySpeechTimeoutRef.current)
         clearTimeout(capySpeechTimeoutRef.current);
     };
   }, []);
+
+  // -------------------------------------------------------------------
+  // Progreso de campaña persistente (estrellas, nivel desbloqueado y actual)
+  // -------------------------------------------------------------------
+
+  // Claves por isla: cada tema tiene su propia campaña y su propio caché.
+  const campaignKey = (folderId, islandId) =>
+    `hubzy_campaign_progress_${folderId}${islandId ? `_${islandId}` : ""}`;
+  const lvlCacheKey = (lvl, island) =>
+    island ? `${island.id}__level_${lvl}` : `level_${lvl}`;
+  const islandQuery = (island) => (island ? `&island_id=${island.id}` : "");
+  // Niveles de la campaña activa: los de la isla o los 20 de la carpeta
+  const maxLevel = activeIsland?.total_levels || 20;
+  const activeLevels =
+    maxLevel < GAME_LEVELS.length ? GAME_LEVELS.slice(0, maxLevel) : GAME_LEVELS;
+
+  // Hidratar progreso al cambiar de carpeta/isla: primero del objeto
+  // (GET /folders incluye campaign_progress e islands[].campaign_progress)
+  // y si no hay, del espejo local.
+  useEffect(() => {
+    if (!activeFolder?.id) return;
+    const cap = activeIsland?.total_levels || 20;
+    let stars = { 1: 0 };
+    let unlocked = 1;
+    let current = 1;
+    const p = activeIsland
+      ? activeIsland.campaign_progress
+      : activeFolder.campaign_progress;
+    if (p && (p.level_stars || p.unlocked_level > 1)) {
+      stars =
+        p.level_stars && Object.keys(p.level_stars).length
+          ? p.level_stars
+          : { 1: 0 };
+      unlocked = Math.min(cap, Math.max(1, p.unlocked_level || 1));
+      current = Math.min(cap, Math.max(1, p.current_level || unlocked));
+    } else {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem(
+            campaignKey(activeFolder.id, activeIsland?.id),
+          ) || "null",
+        );
+        if (saved) {
+          if (saved.level_stars && Object.keys(saved.level_stars).length)
+            stars = saved.level_stars;
+          if (saved.unlocked_level)
+            unlocked = Math.min(cap, Math.max(1, saved.unlocked_level));
+          if (saved.current_level)
+            current = Math.min(cap, Math.max(1, saved.current_level));
+        }
+      } catch {}
+    }
+    setLevelStars(stars);
+    setUnlockedLevel(unlocked);
+    setCurrentLevel(current);
+
+    // Repaso espaciado suave: si lleva ≥2 días sin jugar esta carpeta,
+    // Hubzi lo celebra al volver (retención sin culpa — jamás un regaño).
+    const lastPlayed = p?.last_played_at;
+    if (lastPlayed && unlocked > 1) {
+      const days = Math.floor(
+        (Date.now() - new Date(lastPlayed).getTime()) / 86400000,
+      );
+      if (days >= 2) {
+        setCapyMood("encouraging");
+        setCapySpeech({
+          text: `¡Qué gusto verte! Pasaron ${days} días — un repaso rápido ahora afianza todo lo que ya dominaste.`,
+          isVisible: true,
+          mood: "encouraging",
+        });
+      }
+    }
+    // Solo hidratar al cambiar de carpeta/isla: persistCampaignProgress
+    // actualiza el progreso y no debe pisar el estado local más fresco.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFolder?.id, activeIsland?.id]);
+
+  // Nivel desde el que continuar: del progreso del servidor o del espejo local
+  const getResumeLevel = (folder, island = null) => {
+    const cap = island?.total_levels || 20;
+    const p = island ? island.campaign_progress : folder?.campaign_progress;
+    let lvl = p?.current_level || p?.unlocked_level || 1;
+    if (lvl <= 1) {
+      try {
+        const s = JSON.parse(
+          localStorage.getItem(campaignKey(folder.id, island?.id)) || "null",
+        );
+        if (s?.current_level) lvl = s.current_level;
+        else if (s?.unlocked_level) lvl = s.unlocked_level;
+      } catch {}
+    }
+    return Math.min(cap, Math.max(1, lvl));
+  };
+
+  // Guardar progreso: espejo localStorage (invitados/offline) + servidor.
+  const persistCampaignProgress = (progress) => {
+    if (!activeFolder?.id) return;
+    try {
+      localStorage.setItem(
+        campaignKey(activeFolder.id, activeIsland?.id),
+        JSON.stringify(progress),
+      );
+    } catch {}
+    setActiveFolder((prev) => {
+      if (!prev) return prev;
+      if (activeIsland) {
+        return {
+          ...prev,
+          islands: (prev.islands || []).map((i) =>
+            i.id === activeIsland.id
+              ? { ...i, campaign_progress: progress }
+              : i,
+          ),
+        };
+      }
+      return { ...prev, campaign_progress: progress };
+    });
+    fetchWithAuth(`/api/v1/folders/${activeFolder.id}/campaign-progress`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...progress,
+        island_id: activeIsland?.id,
+        total_levels: activeIsland?.total_levels,
+      }),
+    }).catch((e) => console.warn("No se pudo guardar el progreso:", e));
+  };
+
+  // Snapshot del progreso para guardar al ocultar/salir de la pestaña.
+  const progressSnapshotRef = useRef(null);
+  useEffect(() => {
+    progressSnapshotRef.current = {
+      level_stars: levelStars,
+      unlocked_level: unlockedLevel,
+      current_level: currentLevel,
+    };
+  }, [levelStars, unlockedLevel, currentLevel]);
+
+  useEffect(() => {
+    const onHide = () => {
+      if (
+        document.visibilityState === "hidden" &&
+        progressSnapshotRef.current?.unlocked_level > 1
+      ) {
+        persistCampaignProgress(progressSnapshotRef.current);
+      }
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFolder?.id, activeIsland?.id]);
+
+  // Reiniciar campaña completa (estrellas y desbloqueo vuelven al nivel 1).
+  const handleResetCampaign = async () => {
+    if (!activeFolder?.id) return;
+    if (
+      !window.confirm(
+        "¿Reiniciar la campaña? Se borrarán tus estrellas y volverás al Nivel 1.",
+      )
+    )
+      return;
+    setLevelStars({ 1: 0 });
+    setUnlockedLevel(1);
+    setCurrentLevel(1);
+    try {
+      localStorage.removeItem(
+        campaignKey(activeFolder.id, activeIsland?.id),
+      );
+    } catch {}
+    setActiveFolder((prev) => {
+      if (!prev) return prev;
+      if (activeIsland) {
+        return {
+          ...prev,
+          islands: (prev.islands || []).map((i) =>
+            i.id === activeIsland.id ? { ...i, campaign_progress: null } : i,
+          ),
+        };
+      }
+      return { ...prev, campaign_progress: null };
+    });
+    await fetchWithAuth(
+      `/api/v1/folders/${activeFolder.id}/campaign-progress${activeIsland ? `?island_id=${activeIsland.id}` : ""}`,
+      { method: "DELETE" },
+    ).catch((e) => console.warn("No se pudo reiniciar el progreso:", e));
+    setSuccessNotif("Campaña reiniciada. ¡De nuevo al Nivel 1!");
+    setTimeout(() => setSuccessNotif(null), 4000);
+  };
 
   // Función principal para activar la voz tierna y reacciones de Capibara
   // Control estricto anti-colisión + nuevos moods expresivos
@@ -474,10 +656,15 @@ export default function ArcadeArena() {
       mood: "thinking",
     });
 
-    // Intentar NLP del backend con timeout de 3s
+    // Registrar el mensaje del usuario en la memoria conversacional (máx 12)
+    chatHistoryRef.current.push({ role: "user", text: transcript });
+    if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
+    const historyPayload = chatHistoryRef.current.slice(0, -1); // sin el actual
+
+    // Intentar NLP del backend con timeout de 8s (Gemini necesita más que 3s)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const res = await fetchWithAuth("/api/v1/arena/capy-ask", {
         method: "POST",
@@ -485,6 +672,7 @@ export default function ArcadeArena() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: transcript,
+          history: historyPayload,
           nodes: Object.values(nodes).map((n) => ({
             label: n.label,
             question: n.question,
@@ -509,6 +697,10 @@ export default function ArcadeArena() {
         const psych = data.psychology;
         checkCrisisFlag(data, reportCrisis);
         setIsThinkingHint(false);
+
+        // Guardar la respuesta de Hubzi en la memoria
+        chatHistoryRef.current.push({ role: "capi", text: reply });
+        if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
 
         if (
           psych?.needs_somatic_intervention ||
@@ -556,6 +748,8 @@ export default function ArcadeArena() {
 
     setCapyMood(local.mood);
     setCapySpeech({ text: local.reply, isVisible: true, mood: local.mood });
+    chatHistoryRef.current.push({ role: "capi", text: local.reply });
+    if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
     capyVoice.speak(local.reply, {
       mood: local.mood,
       level: currentLevel,
@@ -580,55 +774,56 @@ export default function ArcadeArena() {
     if (nodeValues.length > 0) {
       // El circuito concluye cuando el estudiante ha completado todos los conceptos
       const allNodesCompleted = nodeValues.every((n) => Boolean(n.placedCard));
-      if (allNodesCompleted && !isLevelTransitioning && !isVictoryModalOpen) {
+      if (
+        allNodesCompleted &&
+        !victoryConsumedRef.current &&
+        !isLevelTransitioning &&
+        !isVictoryModalOpen
+      ) {
+        victoryConsumedRef.current = true; // se resetea al cargar un tablero NUEVO
         setIsLevelTransitioning(true);
 
-        // Calcular precisión basada en energía restante o aciertos directos
+        // Precisión real: % de nodos resueltos al primer intento (honestidad pedagógica)
         const totalQ = nodeValues.length;
-        const accuracyCalc = energy >= maxEnergy ? 100 : Math.max(50, Math.round((energy / maxEnergy) * 100));
+        const failedNodes = nodeValues.filter((n) =>
+          failedNodesRef.current.has(n.id),
+        );
+        const accuracyCalc = Math.round(
+          ((totalQ - failedNodes.length) / totalQ) * 100,
+        );
+
+        // Repaso inteligente: temas que fallaron O donde el motor BKT
+        // aún estima maestría baja (incluye sesiones previas)
+        const weakTopics = new Set(
+          failedNodes
+            .map((n) => n.answerSpec?.topic || n.label)
+            .filter(Boolean),
+        );
+        Object.entries(masteryRef.current).forEach(([topic, m]) => {
+          if (
+            m?.recommendation?.action === "remediate" ||
+            (typeof m?.p_mastery === "number" && m.p_mastery < 0.4)
+          ) {
+            weakTopics.add(topic);
+          }
+        });
 
         setVictoryStats({
           accuracy: accuracyCalc,
-          totalQuestions: totalQ
+          totalQuestions: totalQ,
+          weakNodes: [...weakTopics],
         });
 
+        sfx.victory();
         triggerCapyVoice("victory", { level: currentLevel });
         setIsVictoryModalOpen(true);
       }
     }
-  }, [nodes, currentLevel, isLevelTransitioning, isVictoryModalOpen, energy, maxEnergy]);
+    // triggerCapyVoice cambia cada render; incluirla re-dispararía la detección de victoria.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, currentLevel, isLevelTransitioning, isVictoryModalOpen]);
 
-  const handleSelectGameMode = ({ mode, roomId, isHost, needsUpload }) => {
-    setGameConfig({ mode, roomId, isHost });
-    setIsModeModalOpen(false);
 
-    if (needsUpload) {
-      setIsFolderModalOpen(true);
-    } else {
-      setSuccessNotif(
-        mode === "1v1"
-          ? `Conectado a la sala ${roomId}. Sincronizando con el rival...`
-          : `Partida contra la Máquina lista. ¡Comienza el juego!`,
-      );
-      setTimeout(() => setSuccessNotif(null), 3500);
-    }
-  };
-
-  // 1. TERMINAR PARTIDA (Limpia tablero y abre baúl de carpetas)
-  const handleTerminateGame = () => {
-    setIsGameOverModalOpen(false);
-    setIsModeModalOpen(false);
-    setPlayerScore(0);
-    setOpponentScore(0);
-    setTurn(1);
-    setNodes({});
-    setHand([]);
-    setOpponentHand([]);
-    setBoardInfo(null);
-    setFlyingCard(null);
-    setSelectedCardInHand(null);
-    setIsFolderModalOpen(true);
-  };
 
   // GENERADOR DINÁMICO DE POSICIONES Y TOPOLOGÍA PARA CUALQUIER NÚMERO DE PREGUNTAS (1 A 20)
   // HELPER: Configurar tablero y cartas con enlace 1-a-1 y posiciones dinámicas
@@ -652,15 +847,6 @@ export default function ArcadeArena() {
     });
 
     const dynamicPositions = getDynamicLayout(activeNodes.length);
-    // Paleta exacta de la imagen de referencia (Concepto A, B, C, D, E, F)
-    const availableColors = [
-      "orange",
-      "purple",
-      "blue",
-      "dark",
-      "salmon",
-      "white",
-    ];
     const availableShapes = [
       "hexagon",
       "circle",
@@ -780,20 +966,19 @@ export default function ArcadeArena() {
     });
 
     // Resetear todo el estado de la partida para el nivel
+    victoryConsumedRef.current = false; // tablero nuevo → victoria habilitada otra vez
+    failedNodesRef.current = new Set(); // precisión del nivel se mide desde cero
+    failStreakRef.current = 0;
     setNodes(newNodes);
     setHand(shuffledHand);
     setHandPage(0);
-    setOpponentHand(
-      processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })),
-    );
-    setEnergy(maxEnergy);
-    setTurn(1);
+    setStreak(0);
+    setPlayerScore(0);
     setIsCapySad(false);
     setSelectedNodeForQuestion(null);
     setSelectedCardForDetail(null);
     setSelectedCardInHand(null);
     setFlyingCard(null);
-    setIsGameOverModalOpen(false);
 
     setTimeout(() => {
       triggerCapyVoice("welcome", { level });
@@ -802,11 +987,43 @@ export default function ArcadeArena() {
   };
 
   // CARGAR NIVEL ESPECÍFICO (1 A 5) DESDE EL BACKEND
+  // Cancela la espera de generación. El job del backend termina igual y su
+  // resultado queda en caché, así que cancelar no desperdicia el trabajo.
+  const handleCancelGeneration = () => {
+    genAbortRef.current?.abort();
+    genAbortRef.current = null;
+    setIsGeneratingArena(false);
+    setGenStage(null);
+  };
+
+  // Sondeo del job async del backend → tablero final o error con status_code.
+  const pollGenerationJob = async (jobId, signal) => {
+    while (true) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      const jr = await fetchWithAuth(`/api/v1/jobs/${jobId}`, { signal });
+      if (!jr.ok)
+        throw new Error(`No se pudo consultar el progreso (${jr.status}).`);
+      const job = await jr.json();
+      setGenStage(job.stage);
+      if (job.status === "done") return job.result;
+      if (job.status === "error") {
+        const e = new Error(
+          job.error || "No se pudieron generar los reactivos del nivel con IA.",
+        );
+        e.status = job.status_code || 500;
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  };
+
   const loadGameForLevel = async (
     targetLevel,
     targetFolder = activeFolder,
     force = false,
+    targetIsland = activeIsland,
   ) => {
+    if (isGeneratingArena) return false; // guard anti doble-submit
     if (!targetFolder) {
       setSuccessNotif("Selecciona una carpeta de estudio para comenzar.");
       setIsFolderModalOpen(true);
@@ -815,15 +1032,19 @@ export default function ArcadeArena() {
 
     const lvlInfo =
       GAME_LEVELS.find((l) => l.level === targetLevel) || GAME_LEVELS[0];
+    const topicLabel = targetIsland ? ` · ${targetIsland.name}` : "";
     setIsGeneratingArena(true);
+    setGenStage("queued");
+    const controller = new AbortController();
+    genAbortRef.current = controller;
     setSuccessNotif(
-      `Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}]...`,
+      `Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}${topicLabel}]...`,
     );
 
     // 0. VERIFICACIÓN INSTANTÁNEA EN MEMORIA / CACHÉ LOCAL (0 ms, 0 tokens)
     if (!force) {
       const cachedBoards = targetFolder.cached_boards || {};
-      const lvlKey = `level_${targetLevel}`;
+      const lvlKey = lvlCacheKey(targetLevel, targetIsland);
       // Solo reutilizar caché si pertenece exactamente a este nivel o si tiene la cantidad de preguntas esperada
       const localCachedBoard =
         cachedBoards[lvlKey] ||
@@ -845,6 +1066,7 @@ export default function ArcadeArena() {
         if (success) {
           setCurrentLevel(targetLevel);
           setIsGeneratingArena(false);
+          setGenStage(null);
           setSuccessNotif(
             `⚡ Nivel ${targetLevel} listo al instante (análisis previo en memoria).`,
           );
@@ -869,6 +1091,7 @@ export default function ArcadeArena() {
       if (success) {
         setCurrentLevel(targetLevel);
         setIsGeneratingArena(false);
+        setGenStage(null);
         setSuccessNotif(
           `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) [administracion.pdf demo] listo.`,
         );
@@ -879,16 +1102,31 @@ export default function ArcadeArena() {
 
     try {
       const res = await fetchWithAuth(
-        `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${force ? "&force=true" : ""}`,
-        { method: "POST" },
+        `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}&async=true${islandQuery(targetIsland)}${force ? "&force=true" : ""}`,
+        { method: "POST", signal: controller.signal },
       );
 
-      if (res.ok) {
-        const boardData = await res.json();
+      let boardData = null;
+      if (res.status === 202) {
+        // Pipeline async: sondear el job para progreso real por etapas.
+        const { job_id } = await res.json();
+        boardData = await pollGenerationJob(job_id, controller.signal);
+      } else if (res.ok) {
+        boardData = await res.json();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setErrorNotif(
+          err.detail || "No se pudieron generar los reactivos del nivel con IA.",
+        );
+        setTimeout(() => setErrorNotif(null), 5000);
+        return false;
+      }
 
+      if (boardData && boardData.cards) {
         // Guardar en la carpeta en memoria y localStorage para futuras cargas a 0 ms
         if (!targetFolder.cached_boards) targetFolder.cached_boards = {};
-        targetFolder.cached_boards[`level_${targetLevel}`] = boardData;
+        targetFolder.cached_boards[lvlCacheKey(targetLevel, targetIsland)] =
+          boardData;
         targetFolder.cached_board = boardData;
 
         try {
@@ -904,7 +1142,7 @@ export default function ArcadeArena() {
             savedFolders[idx].cached_board = boardData;
             localStorage.setItem(userStorageKey, JSON.stringify(savedFolders));
           }
-        } catch (_) {}
+        } catch {}
 
         const success = applyBoardData(
           boardData,
@@ -919,39 +1157,24 @@ export default function ArcadeArena() {
           setTimeout(() => setSuccessNotif(null), 4000);
           return true;
         }
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setSuccessNotif(
-          `${err.detail || "No se pudieron generar los reactivos del nivel con IA."}`,
-        );
-        setTimeout(() => setSuccessNotif(null), 5000);
       }
+      setErrorNotif("El análisis no devolvió reactivos válidos.");
+      setTimeout(() => setErrorNotif(null), 5000);
     } catch (e) {
+      if (e.name === "AbortError") return false; // cancelado por el usuario
       console.warn("Error cargando nivel desde el backend:", e);
-      setSuccessNotif("Error al conectarse con el servidor de análisis.");
-      setTimeout(() => setSuccessNotif(null), 5000);
+      setErrorNotif(
+        e.status === 402
+          ? e.message
+          : "Error al conectarse con el servidor de análisis.",
+      );
+      setTimeout(() => setErrorNotif(null), 5000);
     } finally {
+      if (genAbortRef.current === controller) genAbortRef.current = null;
       setIsGeneratingArena(false);
+      setGenStage(null);
     }
     return false;
-  };
-
-  // AVANZAR AL SIGUIENTE NIVEL DESDE EL MODAL CELEBRATORIO
-  const handleProceedToNextLevel = async () => {
-    setIsLevelUpModalOpen(false);
-    if (levelUpData?.nextLevel) {
-      const targetLvl = levelUpData.nextLevel;
-      await loadGameForLevel(targetLvl, activeFolder, false);
-      setIsLevelTransitioning(false);
-    }
-  };
-
-  // SALTAR / SELECCIONAR NIVEL DIRECTAMENTE
-  const handleJumpToLevel = async (lvl) => {
-    if (lvl === currentLevel && Object.keys(nodes).length > 0) return;
-    setIsLevelTransitioning(false);
-    setIsLevelUpModalOpen(false);
-    await loadGameForLevel(lvl, activeFolder, false);
   };
 
   // 2A. REINTENTAR PARTIDA (OPCIÓN A: RESET TABLERO INSTANTÁNEO 0 MS)
@@ -959,7 +1182,6 @@ export default function ArcadeArena() {
   const handleResetCurrentBoard = () => {
     setIsRestartOptionsModalOpen(false);
     setIsVictoryModalOpen(false);
-    setIsGameOverModalOpen(false);
 
     // Recolectar todas las cartas colocadas en los nodos más las que queden en mano
     const allCardsInPlay = [...hand];
@@ -969,7 +1191,11 @@ export default function ArcadeArena() {
       }
     });
 
-    // Desocupar todos los nodos
+    // Desocupar todos los nodos — el examen se juega de nuevo, así que
+    // la victoria vuelve a estar habilitada para este mismo tablero.
+    victoryConsumedRef.current = false;
+    failedNodesRef.current = new Set(); // reintento honesto: la precisión se vuelve a medir
+    failStreakRef.current = 0;
     setNodes((prev) => {
       const reset = {};
       Object.entries(prev).forEach(([id, node]) => {
@@ -991,8 +1217,8 @@ export default function ArcadeArena() {
 
     setHand(shuffledHand);
     setHandPage(0);
-    setEnergy(maxEnergy);
-    setTurn(1);
+    setStreak(0);
+    setPlayerScore(0);
     setIsCapySad(false);
     setSelectedNodeForQuestion(null);
     setSelectedCardForDetail(null);
@@ -1008,7 +1234,6 @@ export default function ArcadeArena() {
   const handleRegenerateWithNewQuestions = async () => {
     setIsRestartOptionsModalOpen(false);
     setIsVictoryModalOpen(false);
-    setIsGameOverModalOpen(false);
     if (!activeFolder) {
       setSuccessNotif(
         "Selecciona una carpeta en el baúl para iniciar el juego.",
@@ -1024,21 +1249,8 @@ export default function ArcadeArena() {
     setIsRestartOptionsModalOpen(true);
   };
 
-  // 3. REINTENTAR GENÉRICO (Abre modal de opciones de reinicio)
-  const handleRetryGame = () => {
-    setIsGameOverModalOpen(false);
-    setIsVictoryModalOpen(false);
-    setIsRestartOptionsModalOpen(true);
-  };
-
   // INTENTO UNIFICADO DE JUGAR/COLOCAR CARTA (Arrastrar o Tocar)
   const attemptPlayCard = (cardId, targetNodeId) => {
-    if (!isActualTurn) {
-      setSuccessNotif(`TURNO NO DISPONIBLE: Espera a tu turno para jugar.`);
-      setTimeout(() => setSuccessNotif(null), 2500);
-      return false;
-    }
-
     if (!targetNodeId || !nodes[targetNodeId]) return false;
     const targetNode = nodes[targetNodeId];
 
@@ -1068,15 +1280,32 @@ export default function ArcadeArena() {
       );
 
     if (!isCorrectCard) {
-      // CARTA TRAMPA O DISTRACTOR: Hubzi penaliza (solo bandas con presión)
-      setWrongCardShake(card.id);
+      // CARTA INCORRECTA O TRAMPA: apoyo sin castigo — el error enseña
+      sfx.error();
       triggerCapyVoice("wrong");
       recordAdaptiveAttempt(targetNode, false);
+      failedNodesRef.current.add(targetNodeId);
+      setStreak(0); // la racha se reinicia (feedback visual, no daño)
+
+      // Anti-estrés: 3 fallos seguidos → Hubzi ofrece una pausa Zen
+      failStreakRef.current += 1;
+      if (failStreakRef.current >= 3) {
+        failStreakRef.current = 0;
+        setZenOffer({
+          show: true,
+          category: "repetición de intentos",
+          distortion: "",
+          emotion: "frustración",
+        });
+      }
 
       const isTrap = Boolean(card.isTrap || isDistractor);
-      if (isTrap && userBandConfig.pressure) {
-        // Penalización por carta trampa: Resta 1 de energía si el nivel tiene trampas
-        setEnergy((prev) => Math.max(0, prev - 1));
+      if (isTrap) {
+        // La trampa se desvanece del mazo (nunca puede ser correcta en ningún nodo)
+        sfx.trap();
+        setHand((prev) =>
+          prev.filter((c) => String(c.id) !== String(card.id)),
+        );
       }
 
       const pedagogicalHint =
@@ -1087,7 +1316,7 @@ export default function ArcadeArena() {
         text: kidMode
           ? `¡Casi! "${card.name}" no era esa. ${pedagogicalHint}`
           : isTrap
-            ? `¡Cuidado, es una CARTA TRAMPA! ⚡ Pierdes 1 de energía. Pista: ${pedagogicalHint}`
+            ? `¡Sorpresa, es una CARTA TRAMPA! ⚡ Se desvanece del mazo. Pista: ${pedagogicalHint}`
             : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
         isVisible: true,
         mood: isTrap ? "surprised" : "encouraging",
@@ -1096,20 +1325,22 @@ export default function ArcadeArena() {
         kidMode
           ? `"${card.name}" no era. Pista: ${pedagogicalHint}`
           : isTrap
-            ? `⚠️ ¡CARTA TRAMPA DETONADA! -1 Energía. Pista: ${pedagogicalHint}`
+            ? `⚠️ ¡CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
             : `"${card.name}" no corresponde a "${targetNode.label}". Pista: ${pedagogicalHint}`,
       );
 
       setTimeout(() => {
-        setWrongCardShake(null);
         setSuccessNotif(null);
       }, 4500);
       return false;
     }
 
-    // CARTA CORRECTA: Colocar en el nodo y voz de celebración entusiasta
+    // CARTA CORRECTA: Colocar en el nodo, racha sube y voz de celebración entusiasta
+    sfx.success();
     triggerCapyVoice("correct");
     recordAdaptiveAttempt(targetNode, true);
+    setStreak((prev) => prev + 1);
+    failStreakRef.current = 0;
     setSelectedCardForDetail(null);
     setSelectedCardInHand(null);
     const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
@@ -1151,6 +1382,7 @@ export default function ArcadeArena() {
       setSelectedCardInHand(null);
       setSelectedCardForDetail(card);
     } else {
+      sfx.flip();
       setSelectedCardInHand(card);
       setSuccessNotif(
         `Carta "${card.name}" seleccionada. Toca la casilla correspondiente en el tablero.`,
@@ -1160,8 +1392,6 @@ export default function ArcadeArena() {
   };
 
   const handleDragEnd = (cardId, info) => {
-    if (!isActualTurn) return;
-
     const dropPoint = { x: info.point.x, y: info.point.y };
 
     // Detectar si se soltó sobre o cerca de una pregunta del tablero (radio generoso de 80px)
@@ -1192,358 +1422,6 @@ export default function ArcadeArena() {
     if (matchedNodeId) {
       attemptPlayCard(cardId, matchedNodeId);
     }
-  };
-
-  const handleEndTurn = () => {
-    if (!isActualTurn) {
-      setSuccessNotif(
-        gameConfig.mode === "1v1"
-          ? `TURNO NO DISPONIBLE: Espera a que el rival juegue.`
-          : `TURNO NO DISPONIBLE: La máquina está realizando su movimiento.`,
-      );
-      setTimeout(() => setSuccessNotif(null), 2500);
-      return;
-    }
-
-    setTurn((prev) => prev + 1);
-    setEnergy((prev) => Math.min(prev + 2, maxEnergy));
-
-    if (gameConfig.mode === "1v1") {
-      sendMove({ action: "end_turn" });
-      setSuccessNotif(`Turno cedido al rival.`);
-      setTimeout(() => setSuccessNotif(null), 2500);
-    } else if (gameConfig.mode === "solo") {
-      // En modo solo, pasar turno dispara la jugada de la máquina
-      triggerAiTurn();
-    }
-  };
-
-  // Detección automática del área al subir materiales para cualquier disciplina
-  const handleProcessMaterials = async (data) => {
-    setIsGeneratingArena(true);
-    let generatedSuccess = false;
-
-    // 1. Llamada a Gemini en backend enviando el archivo real (PDF, etc.) para extraer su contenido interno
-    try {
-      let res;
-      if (data.rawFiles && data.rawFiles.length > 0) {
-        const formData = new FormData();
-        formData.append("file", data.rawFiles[0]);
-        formData.append("raw_text", data.text || "");
-        res = await fetchWithAuth("/api/v1/arena/upload-and-generate", {
-          method: "POST",
-          body: formData,
-        });
-      } else {
-        res = await fetchWithAuth("/api/v1/arena/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: data.text || "Material de estudio pedagógico integral.",
-          }),
-        });
-      }
-
-      if (res && res.ok) {
-        const boardData = await res.json();
-        if (boardData.cards && boardData.cards.length > 0) {
-          setBoardInfo({
-            title:
-              boardData.title ||
-              `Estudio: ${data.files[0]?.name || "Material Didáctico"}`,
-            theme: "Material Asimilado con IA",
-          });
-
-          // Coordenadas espaciales bien distribuidas en el circuito
-          const posList = [
-            { left: "20%", top: "30%" },
-            { left: "48%", top: "24%" },
-            { left: "78%", top: "30%" },
-            { left: "34%", top: "68%" },
-            { left: "66%", top: "68%" },
-          ];
-
-          const newNodes = {};
-          // Cada nodo se liga 1-a-1 con la carta que le corresponde (por índice coincidente)
-          boardData.nodes.forEach((n, idx) => {
-            const matchingCard = boardData.cards[idx];
-            const cardId = matchingCard?.id || `card_${idx + 1}`;
-            newNodes[n.id] = {
-              id: n.id,
-              domain: "estudio",
-              icon: idx % 2 === 0 ? "database" : "codigo",
-              label:
-                n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`,
-              question:
-                n.question ||
-                n.description ||
-                "¿A qué concepto corresponde este principio?",
-              questionLatex: n.question_latex || null,
-              answerSpec: n.answer_spec || null,
-              hint:
-                n.description ||
-                "Revisa las cartas en tu mano y arrastra la respuesta adecuada.",
-              pos: posList[idx % posList.length],
-              color: idx % 2 === 0 ? "cyan" : "emerald",
-              shape: "hexagon",
-              placedCard: null,
-              lockedByOpponent: false,
-              correctCardId: cardId, // <-- enlace 1-a-1 con la carta correcta
-            };
-          });
-
-          const processedCards = boardData.cards.map((c, i) => {
-            const isDistractor =
-              c.id?.includes("distractor") || i >= boardData.nodes.length;
-            return {
-              id: c.id,
-              name: c.concept_name,
-              cost: c.points_multiplier || "1x",
-              type: i % 2 === 0 ? "cyan" : "emerald",
-              sourceType: "document",
-              domain: "estudio",
-              content:
-                c.content ||
-                "Respuesta falsa que no corresponde a ningún reactivo.",
-              matchesNodeId: isDistractor
-                ? null
-                : boardData.nodes[i]?.id || null,
-              isDistractor: isDistractor,
-            };
-          });
-
-          // 30% del total de preguntas como cartas falsas
-          const requiredDistractors = Math.max(
-            1,
-            Math.round(boardData.nodes.length * 0.3),
-          );
-          const currentDistractors = processedCards.filter(
-            (c) => c.isDistractor,
-          ).length;
-          if (currentDistractors < requiredDistractors) {
-            const needed = requiredDistractors - currentDistractors;
-            const distractorPool = [
-              "Enfoque Ortogonal Inverso",
-              "Principio de Premisa Contradictoria",
-              "Teoría de Correlación Espuria",
-              "Postulado No Demostrado",
-            ];
-            for (let k = 0; k < needed; k++) {
-              const dIdx = currentDistractors + k;
-              processedCards.push({
-                id: `card_distractor_dyn_${dIdx + 1}`,
-                name: distractorPool[dIdx % distractorPool.length],
-                cost: "1x",
-                type:
-                  (processedCards.length + k) % 2 === 0 ? "cyan" : "emerald",
-                sourceType: "document",
-                domain: "estudio",
-                content: "Respuesta alternativa no válida.",
-                matchesNodeId: null,
-                isDistractor: true,
-              });
-            }
-          }
-
-          const shuffledHand = [...processedCards].sort(
-            () => Math.random() - 0.5,
-          );
-          shuffledHand.forEach((c, i) => {
-            c.rotation = (i - Math.floor(processedCards.length / 2)) * 3;
-            c.zIndex = i + 1;
-          });
-
-          setNodes(newNodes);
-          setHand(shuffledHand);
-          setOpponentHand(
-            processedCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })),
-          );
-          setEnergy(maxEnergy);
-          setTurn(1);
-          setSuccessNotif(
-            `¡Material procesado con Gemini! Tablero generado en tiempo real.`,
-          );
-          setTimeout(() => setSuccessNotif(null), 4000);
-          generatedSuccess = true;
-
-          // Asociar este juego con preguntas a la carpeta activa en Base de Datos y LocalStorage
-          if (activeFolder) {
-            const newGameRecord = {
-              id: `game_${Date.now()}`,
-              title:
-                boardData.title ||
-                `Estudio: ${data.files[0]?.name || "Material"}`,
-              questions_count: Object.keys(newNodes).length,
-              created_at: new Date().toLocaleDateString("es-ES"),
-            };
-
-            // 1. Persistir en MongoDB
-            fetchWithAuth(`/api/v1/folders/${activeFolder.id}/games`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ game: newGameRecord }),
-            }).catch((e) =>
-              console.warn("No se pudo persistir el juego en BD:", e),
-            );
-
-            // 2. Persistir en LocalStorage
-            try {
-              const foldersRaw = localStorage.getItem(
-                "hubzy_user_study_folders",
-              );
-              if (foldersRaw) {
-                const fList = JSON.parse(foldersRaw);
-                const fIdx = fList.findIndex((f) => f.id === activeFolder.id);
-                if (fIdx >= 0) {
-                  if (!fList[fIdx].games) fList[fIdx].games = [];
-                  fList[fIdx].games.unshift(newGameRecord);
-                  localStorage.setItem(
-                    "hubzy_user_study_folders",
-                    JSON.stringify(fList),
-                  );
-                }
-              }
-            } catch {}
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Error conectando con /api/v1/arena/generate:", err);
-    }
-
-    // 2. Si no hubo respuesta del LLM, generar cartas y nodos directos a partir del nombre y tipo de los archivos subidos
-    if (!generatedSuccess) {
-      const detectedTheme =
-        /(ley|derecho|penal|demanda|abogad|juez|paps)/i.test(lower)
-          ? "Derecho & Leyes"
-          : /(contab|balance|niif|ifrs|sat|iva|auditor)/i.test(lower)
-            ? "Contaduría"
-            : /(finanz|ebitda|mercado|bolsa|invers)/i.test(lower)
-              ? "Finanzas"
-              : /(salud|medic|enferm|farmac|clinica)/i.test(lower)
-                ? "Medicina"
-                : /(educ|pedagog|aprendizaje)/i.test(lower)
-                  ? "Educación"
-                  : "Tecnología";
-
-      const fileBaseName =
-        data.files[0]?.name.replace(/\.[^/.]+$/, "") || "Material de Estudio";
-      setBoardInfo({
-        title: `SIMULACRO: ${fileBaseName.toUpperCase()}`,
-        theme: detectedTheme,
-      });
-
-      const posList = [
-        { left: "20%", top: "30%" },
-        { left: "48%", top: "24%" },
-        { left: "78%", top: "30%" },
-        { left: "34%", top: "68%" },
-        { left: "66%", top: "68%" },
-      ];
-
-      const examQuestionsTemplates = [
-        {
-          concept: fileBaseName.substring(0, 18),
-          q: `[REACTIVO DE EXAMEN - DEFINICIÓN]: ¿Cuál es el objeto central de estudio y la doctrina rectora analizada en el compendio de "${fileBaseName}"?`,
-          hint: `Analiza la tesis preliminar desarrollada al inicio del texto sobre ${fileBaseName.substring(0, 15)}.`,
-        },
-        {
-          concept: "Principio Rector",
-          q: `[REACTIVO DE EXAMEN - APLICACIÓN]: ¿Qué postulado o principio rector es de observancia obligatoria para validar los procedimientos según el marco de ${fileBaseName}?`,
-          hint: "Es la regla fundamental o axioma que rige toda la normativa aplicable.",
-        },
-        {
-          concept: "Marco Aplicado",
-          q: `[REACTIVO DE EXAMEN - CASO PRÁCTICO]: Ante una controversia técnica en la práctica profesional, ¿qué conjunto de criterios o marco normativo determina la solución del caso?`,
-          hint: "Observa la estructura metodológica y procedimental explicada en la materia.",
-        },
-        {
-          concept: "Criterio de Evaluación",
-          q: `[REACTIVO DE EXAMEN - ANÁLISIS CRÍTICO]: ¿Bajo qué estándar de ponderación o examen riguroso se contrasta la eficacia de las medidas adoptadas?`,
-          hint: "Involucra el juicio valorativo indispensable para superar la prueba evaluativa.",
-        },
-        {
-          concept: "Resolución Final",
-          q: `[REACTIVO DE EXAMEN - CONCLUSIÓN]: ¿Cuál es el dictamen o resolución vinculante que concluye formalmente el análisis de la materia estudiada?`,
-          hint: "Representa el acto resolutivo definitivo del proceso formativo.",
-        },
-      ];
-
-      const customCards = examQuestionsTemplates.map((item, idx) => ({
-        id: `card_${idx + 1}`,
-        name: item.concept,
-        cost: idx % 2 === 0 ? "1x" : "2x",
-        type: idx % 2 === 0 ? "cyan" : "emerald",
-        sourceType: "document",
-        domain: "estudio",
-        rotation: (idx - 2) * 4,
-        zIndex: idx + 1,
-        matchesNodeId: `node_${idx + 1}`, // <-- enlace 1-a-1 carta → nodo
-      }));
-
-      const customNodes = {};
-      examQuestionsTemplates.forEach((item, idx) => {
-        const nId = `node_${idx + 1}`;
-        customNodes[nId] = {
-          id: nId,
-          domain: "estudio",
-          icon: idx % 2 === 0 ? "database" : "codigo",
-          label: item.concept,
-          question: item.q,
-          hint: item.hint,
-          pos: posList[idx],
-          color: idx % 2 === 0 ? "cyan" : "emerald",
-          shape: "hexagon",
-          placedCard: null,
-          lockedByOpponent: false,
-          correctCardId: `card_${idx + 1}`, // <-- enlace 1-a-1 nodo → carta
-        };
-      });
-
-      setNodes(customNodes);
-      setHand(customCards);
-      setOpponentHand(
-        customCards.map((c, i) => ({ ...c, id: `opp_${c.id}_${i}` })),
-      );
-      setEnergy(maxEnergy);
-      setTurn(1);
-      setSuccessNotif(`Tablero estructurado a partir de: ${fileBaseName}`);
-      setTimeout(() => setSuccessNotif(null), 4000);
-
-      // Persistir partida en la carpeta activa (MongoDB y LocalStorage)
-      if (activeFolder) {
-        const newGameRecord = {
-          id: `game_${Date.now()}`,
-          title: `Estudio: ${fileBaseName.toUpperCase()}`,
-          questions_count: Object.keys(customNodes).length,
-          created_at: new Date().toLocaleDateString("es-ES"),
-        };
-        fetchWithAuth(`/api/v1/folders/${activeFolder.id}/games`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ game: newGameRecord }),
-        }).catch((e) =>
-          console.warn("No se pudo persistir el juego en BD:", e),
-        );
-
-        try {
-          const foldersRaw = localStorage.getItem("hubzy_user_study_folders");
-          if (foldersRaw) {
-            const fList = JSON.parse(foldersRaw);
-            const fIdx = fList.findIndex((f) => f.id === activeFolder.id);
-            if (fIdx >= 0) {
-              if (!fList[fIdx].games) fList[fIdx].games = [];
-              fList[fIdx].games.unshift(newGameRecord);
-              localStorage.setItem(
-                "hubzy_user_study_folders",
-                JSON.stringify(fList),
-              );
-            }
-          }
-        } catch {}
-      }
-    }
-    setIsGeneratingArena(false);
   };
 
   // SI LA PANTALLA DE BIENVENIDA ESTÁ ACTIVA, SE MUESTRA EXCLUSIVAMENTE ELLA (SIN EL TABLERO NI EL JUEGO ABAJO)
@@ -1583,6 +1461,7 @@ export default function ArcadeArena() {
             setIsWelcomeScreenVisible(false);
             setIsFolderModalOpen(true);
           }}
+          onOpenLegal={handleOpenLegal}
         />
 
         {/* Modal de Tutorial cuando se abre desde la bienvenida */}
@@ -1617,43 +1496,6 @@ export default function ArcadeArena() {
 
         {/* Banner de Consentimiento de Cookies */}
         <CookieConsentBanner onOpenLegal={handleOpenLegal} />
-
-        {/* Footer Legal en Pantalla de Bienvenida */}
-        <footer className="absolute bottom-2 inset-x-0 py-1.5 px-4 flex flex-wrap items-center justify-center select-none z-20">
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg backdrop-blur-md text-slate-300 text-[11px]">
-            <span className="font-bold text-amber-400">
-              Hubzy © {new Date().getFullYear()}
-            </span>
-            <span className="text-slate-600">•</span>
-            <button
-              onClick={() => handleOpenLegal("terms")}
-              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
-            >
-              Términos de Servicio
-            </button>
-            <span className="text-slate-600">•</span>
-            <button
-              onClick={() => handleOpenLegal("privacy")}
-              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
-            >
-              Privacidad
-            </button>
-            <span className="text-slate-600">•</span>
-            <button
-              onClick={() => handleOpenLegal("refunds")}
-              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
-            >
-              Reembolsos
-            </button>
-            <span className="text-slate-600">•</span>
-            <button
-              onClick={() => handleOpenLegal("business")}
-              className="hover:text-amber-300 transition-colors font-medium underline underline-offset-2 cursor-pointer"
-            >
-              Datos del Negocio
-            </button>
-          </div>
-        </footer>
       </div>
     );
   }
@@ -1663,18 +1505,33 @@ export default function ArcadeArena() {
     return (
       <div className="relative w-screen h-screen overflow-hidden select-none">
         <AdventureMap
-          folderName={activeFolder?.name || "Mundo de Aprendizaje"}
+          folderName={
+            activeIsland
+              ? `${activeFolder?.name || "Carpeta"} · 🏝️ ${activeIsland.name}`
+              : activeFolder?.name || "Mundo de Aprendizaje"
+          }
           documentTitle={
+            activeIsland?.name ||
             boardInfo?.theme ||
             activeFolder?.documents?.[0]?.name ||
             "Tema de Estudio"
           }
-          levels={GAME_LEVELS}
+          levels={activeLevels}
           currentLevel={currentLevel}
           unlockedLevel={unlockedLevel}
           levelStars={levelStars}
+          studyStreak={
+            (activeIsland
+              ? activeIsland.campaign_progress?.study_streak
+              : activeFolder?.campaign_progress?.study_streak) || 0
+          }
           onSelectLevel={async (lvlNum) => {
             setCurrentLevel(lvlNum);
+            persistCampaignProgress({
+              level_stars: levelStars,
+              unlocked_level: unlockedLevel,
+              current_level: lvlNum,
+            });
             if (activeFolder) {
               await loadGameForLevel(lvlNum, activeFolder, false);
             }
@@ -1685,6 +1542,7 @@ export default function ArcadeArena() {
             setIsFolderModalOpen(true);
           }}
           onOpenTutorial={() => setIsTutorialOpen(true)}
+          onResetCampaign={handleResetCampaign}
         />
 
         {/* Modal del Baúl de Carpetas accesible directamente desde el Mapa */}
@@ -1701,7 +1559,9 @@ export default function ArcadeArena() {
             setIsWelcomeScreenVisible(true);
           }}
           onSelectFolder={async (folder) => {
+            const island = folder.selectedIsland || null;
             setActiveFolder(folder);
+            setActiveIsland(island);
             setIsFolderModalOpen(false);
 
             if (
@@ -1709,14 +1569,12 @@ export default function ArcadeArena() {
               folder.documents &&
               folder.documents.filter((d) => !d.isUploading).length > 0
             ) {
-              setCurrentLevel(1);
+              // Reanudar donde quedó el jugador (progreso persistente)
+              const resumeLevel = getResumeLevel(folder, island);
+              setCurrentLevel(resumeLevel);
               setIsMapVisible(true);
-              await loadGameForLevel(1, folder, false);
+              await loadGameForLevel(resumeLevel, folder, false, island);
             }
-          }}
-          onStartNewFolder={(folder) => {
-            setActiveFolder(folder);
-            setIsFolderModalOpen(true);
           }}
         />
 
@@ -1743,7 +1601,7 @@ export default function ArcadeArena() {
         }}
       />
 
-      {/* 0.1 MODAL DE EDICIÓN DE PERFIL / VOZ ADAPTATIVA DE CAPI */}
+      {/* 0.1 MODAL DE EDICIÓN DE PERFIL / VOZ ADAPTATIVA DE Hubzi */}
       <UserAuthModal
         isOpen={isUserModalOpen}
         currentUser={currentUser}
@@ -1767,7 +1625,9 @@ export default function ArcadeArena() {
           setIsWelcomeScreenVisible(true);
         }}
         onSelectFolder={async (folder) => {
+          const island = folder.selectedIsland || null;
           setActiveFolder(folder);
+          setActiveIsland(island);
           setIsFolderModalOpen(false);
 
           if (
@@ -1775,29 +1635,38 @@ export default function ArcadeArena() {
             folder.documents &&
             folder.documents.filter((d) => !d.isUploading).length > 0
           ) {
-            // Inicia el juego en el Nivel 1 (Fácil: 3 preguntas)
-            setCurrentLevel(1);
-            const success = await loadGameForLevel(1, folder, false);
+            // Reanudar donde quedó el jugador (progreso persistente)
+            const resumeLevel = getResumeLevel(folder, island);
+            const islandCap = island?.total_levels || 20;
+            setCurrentLevel(resumeLevel);
+            const success = await loadGameForLevel(
+              resumeLevel,
+              folder,
+              false,
+              island,
+            );
             if (success) {
-              // Tras generar el nivel 1, pre-generar en segundo plano los niveles 2 a 5
-              // para que la transición entre niveles sea instantánea (0 ms) sin volver a escanear
+              // Tras cargar el nivel actual, pre-generar en segundo plano los
+              // 4 siguientes para transición instantánea entre niveles
               (async () => {
-                for (let lvl = 2; lvl <= 5; lvl++) {
+                for (
+                  let lvl = resumeLevel + 1;
+                  lvl <= Math.min(resumeLevel + 4, islandCap);
+                  lvl++
+                ) {
                   try {
                     const lvlInfo = GAME_LEVELS.find((l) => l.level === lvl);
-                    if (
-                      folder.cached_boards &&
-                      folder.cached_boards[`level_${lvl}`]
-                    )
+                    const key = lvlCacheKey(lvl, island);
+                    if (folder.cached_boards && folder.cached_boards[key])
                       continue;
                     const res = await fetchWithAuth(
-                      `/api/v1/folders/${folder.id}/generate-game?level=${lvl}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}`,
+                      `/api/v1/folders/${folder.id}/generate-game?level=${lvl}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}${islandQuery(island)}`,
                       { method: "POST" },
                     );
                     if (res.ok) {
                       const data = await res.json();
                       if (!folder.cached_boards) folder.cached_boards = {};
-                      folder.cached_boards[`level_${lvl}`] = data;
+                      folder.cached_boards[key] = data;
                       // Guardar en localStorage
                       try {
                         const userStorageKey = currentUser?.id
@@ -1817,7 +1686,7 @@ export default function ArcadeArena() {
                             JSON.stringify(savedFolders),
                           );
                         }
-                      } catch (_) {}
+                      } catch {}
                     }
                   } catch (preloadErr) {
                     console.debug(
@@ -1837,13 +1706,15 @@ export default function ArcadeArena() {
             setIsFolderModalOpen(true);
           }
         }}
-        onStartNewFolder={(folder) => {
-          setActiveFolder(folder);
-          setIsFolderModalOpen(true);
-        }}
       />
 
-      {/* 2. ACTIVIDAD DE RESPIRACIÓN Y RELAJACIÓN ZEN (CAPI ZEN CON VOZ ELEVENLABS) */}
+      {/* 1.9 PANEL INSTITUCIONAL (COLEGIOS: GRADOS, MATERIAS, PANEL DOCENTE) */}
+      <InstitutionModal
+        isOpen={isInstitutionModalOpen}
+        onClose={() => setIsInstitutionModalOpen(false)}
+      />
+
+      {/* 2. ACTIVIDAD DE RESPIRACIÓN Y RELAJACIÓN ZEN (HUBZI ZEN CON VOZ ELEVENLABS) */}
       <ZenRelaxModal
         isOpen={isRelaxModalOpen}
         onComplete={() => {
@@ -1858,14 +1729,38 @@ export default function ArcadeArena() {
         }}
       />
 
-      {/* 3. MODAL DE SELECCIÓN DE MODO DE JUEGO */}
-      <GameModeModal
-        isOpen={isModeModalOpen}
-        onSelectMode={handleSelectGameMode}
-      />
-
       {/* OVERLAY DE PROCESAMIENTO PROFUNDO DE DOCUMENTOS CON IA */}
-      {isGeneratingArena && <GenerationOverlay />}
+      {isGeneratingArena && (
+        <GenerationOverlay stage={genStage} onCancel={handleCancelGeneration} />
+      )}
+
+      {/* TOASTS DE NOTIFICACIÓN — feedback visible de éxito y error */}
+      <AnimatePresence>
+        {successNotif && (
+          <motion.div
+            key="success-notif"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-600/95 border-2 border-emerald-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(16,185,129,0.35)] max-w-lg"
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span>{successNotif}</span>
+          </motion.div>
+        )}
+        {errorNotif && (
+          <motion.div
+            key="error-notif"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-rose-600/95 border-2 border-rose-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(244,63,94,0.35)] max-w-lg"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span>{errorNotif}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. MODAL DE PREGUNTA */}
       <QuestionModal
@@ -1890,51 +1785,49 @@ export default function ArcadeArena() {
         onClose={() => setSelectedCardForDetail(null)}
       />
 
-      {/* 4. MODAL FIN DE PARTIDA */}
-      <GameOverModal
-        open={isGameOverModalOpen}
-        theme={boardInfo?.theme}
-        playerScore={playerScore}
-        opponentScore={opponentScore}
-        showOpponentScore={gameConfig.mode === "1v1"}
-        onRestart={handleRestartWithNewQuestions}
-        onTerminate={handleTerminateGame}
-      />
-
-      {/* 4.1 MODAL ASCENSO DE NIVEL — CELEBRACIÓN ULTRA-EMOTIVA CON CAPI */}
-      <LevelUpModal
-        open={isLevelUpModalOpen}
-        levelUpData={levelUpData}
-        capyText={capySpeech.text}
-        onProceed={handleProceedToNextLevel}
-      />
-
       {/* ENTORNO 3D & ILUMINACIÓN ATMOSFÉRICA CARD CLASH */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[700px] h-48 bg-radial from-white/40 via-sky-300/15 to-transparent blur-3xl pointer-events-none" />
       <div className="absolute right-0 top-1/3 w-64 h-64 bg-radial from-amber-300/20 via-orange-400/10 to-transparent blur-3xl pointer-events-none" />
 
-      {/* GUARDIÁN TÁCTICO 3D ZEN INTERACTIVO / HABLA CON ELEVENLABS Y REACCIONA SEGÚN LA SITUACIÓN */}
-      <CapyCompanion
-        capySpeech={capySpeech}
-        capyMood={capyMood}
-        isCapySad={isCapySad}
-        isCapySpeaking={isCapySpeaking}
-        isListening={isListening}
-        isThinkingHint={isThinkingHint}
-        isCapyMuted={isCapyMuted}
-        isAmbientPlaying={isAmbientPlaying}
-        zenOffer={zenOffer}
-        nodes={nodes}
-        currentLevel={currentLevel}
-        boardInfo={boardInfo}
-        activeFolder={activeFolder}
-        currentUser={currentUser}
-        onCapyClick={handleCapyClick}
-        onToggleMicrophone={toggleMicrophone}
-        onToggleMute={setIsCapyMuted}
-        onZenAccept={() => setIsRelaxModalOpen(true)}
-        onZenDismiss={() => setZenOffer((prev) => ({ ...prev, show: false }))}
-      />
+      {/* GUARDIÁN TÁCTICO 3D ZEN INTERACTIVO / SÓLO VISIBLE CUANDO EL TABLERO YA FUE GENERADO */}
+      {Object.keys(nodes).length > 0 && (
+        <CapyCompanion
+          capySpeech={capySpeech}
+          capyMood={capyMood}
+          isCapySad={isCapySad}
+          isCapySpeaking={isCapySpeaking}
+          isListening={isListening}
+          isThinkingHint={isThinkingHint}
+          isCapyMuted={isCapyMuted}
+          isAmbientPlaying={isAmbientPlaying}
+          zenOffer={zenOffer}
+          nodes={nodes}
+          currentLevel={currentLevel}
+          boardInfo={boardInfo}
+          activeFolder={activeFolder}
+          currentUser={currentUser}
+          onCapyClick={handleCapyClick}
+          onToggleMicrophone={toggleMicrophone}
+          onToggleMute={setIsCapyMuted}
+          onZenAccept={() => setIsRelaxModalOpen(true)}
+          onZenDismiss={() => setZenOffer((prev) => ({ ...prev, show: false }))}
+        />
+      )}
+
+      {/* RACHA DE ACIERTOS EN VIVO — feedback positivo, nunca castigo */}
+      {streak >= 2 && (
+        <motion.div
+          key={`streak-${streak}`}
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 18 }}
+          className="absolute top-16 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#0a162b]/90 border-2 border-[#FF7A00]/70 shadow-[0_4px_0_#050a13] pointer-events-none"
+          title="Aciertos consecutivos"
+        >
+          <Flame className="w-4 h-4 text-[#FF7A00] fill-current" />
+          <span className="text-sm font-black text-white">x{streak}</span>
+        </motion.div>
+      )}
 
       {/* BARRA SUPERIOR CON CONTROLES LIMPIOS ESTILO CARD CLASH */}
       <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
@@ -1981,31 +1874,24 @@ export default function ArcadeArena() {
           <span className="hidden lg:inline">Carpetas</span>
         </button>
 
-        {/* BOTÓN HUBZY PRO / STRIPE */}
-        <button
-          onClick={() => setIsSubscriptionModalOpen(true)}
-          className={`px-3 py-2 rounded-2xl border-2 border-b-4 text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 cursor-pointer active:translate-y-1 active:shadow-none ${
-            currentUser?.plan === "pro"
-              ? "bg-emerald-600/30 hover:bg-emerald-600/50 border-emerald-500 border-b-emerald-700 text-emerald-300 shadow-[0_4px_0_#064e3b]"
-              : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 border-[#0a162b] border-b-[#b45309] text-[#122443] shadow-[0_4px_0_#78350f]"
-          }`}
-          title="Ver planes y suscripción a Hubzy Pro"
-        >
-          <Crown
-            className={`w-4 h-4 ${currentUser?.plan === "pro" ? "text-emerald-300" : "text-[#122443] fill-current"}`}
-          />
-          <span className="font-extrabold">
-            {currentUser?.plan === "pro" ? "PRO" : "PLAN PRO"}
-          </span>
-        </button>
-
+        {/* BOTÓN COLEGIO / INSTITUCIÓN */}
+        {currentUser && (
+          <button
+            onClick={() => setIsInstitutionModalOpen(true)}
+            className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+            title="Hubzy para Colegios: grados, materias y panel docente"
+          >
+            <School className="w-4 h-4 text-emerald-300" />
+            <span className="hidden lg:inline">Colegio</span>
+          </button>
+        )}
         {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
         {currentUser ? (
           <div className="flex items-center gap-1 bg-[#122443] border-3 border-[#0a162b] rounded-2xl p-1 shadow-[0_4px_0_#050a13]">
             <button
               onClick={() => setIsUserModalOpen(true)}
               className="px-2.5 py-1 text-white text-xs font-black transition-all flex items-center gap-2 hover:bg-[#1a335e] rounded-xl cursor-pointer group"
-              title="Configurar perfil de usuario, edad y voz de Capi"
+              title="Configurar perfil de usuario, edad y voz de Hubzi"
             >
               <UserIcon
                 className={`w-4 h-4 shrink-0 ${currentUser?.gender === "femenino" ? "text-amber-400" : "text-cyan-300"}`}
@@ -2267,6 +2153,9 @@ export default function ArcadeArena() {
         level={currentLevel}
         accuracy={victoryStats.accuracy}
         totalQuestions={victoryStats.totalQuestions}
+        streak={streak}
+        campaignCompleted={currentLevel === maxLevel}
+        weakNodes={victoryStats.weakNodes || []}
         masteredConcepts={Object.values(nodes)
           .map((n) => n.placedCard)
           .filter(Boolean)}
@@ -2280,15 +2169,29 @@ export default function ArcadeArena() {
               : victoryStats.accuracy >= 70
                 ? 2
                 : 1;
-          setLevelStars((prev) => ({
-            ...prev,
-            [currentLevel]: Math.max(prev[currentLevel] || 0, earnedStars),
-          }));
-          // Desbloquear siguiente nivel si no estaba desbloqueado (hasta nivel 20)
-          if (currentLevel < 20) {
-            setUnlockedLevel((prev) => Math.max(prev, currentLevel + 1));
+          const nextStars = {
+            ...levelStars,
+            [currentLevel]: Math.max(levelStars[currentLevel] || 0, earnedStars),
+          };
+          setLevelStars(nextStars);
+          // Desbloquear siguiente nivel si no estaba desbloqueado (hasta el
+          // tope de la campaña: 20 en carpeta, total_levels en una isla)
+          const nextUnlocked =
+            currentLevel < maxLevel
+              ? Math.max(unlockedLevel, currentLevel + 1)
+              : unlockedLevel;
+          const nextCurrent = Math.min(currentLevel + 1, maxLevel);
+          if (currentLevel < maxLevel) {
+            setUnlockedLevel(nextUnlocked);
             setCurrentLevel((prev) => prev + 1);
           }
+          // Persistir progreso de campaña (BD + espejo local) + XP del nivel
+          persistCampaignProgress({
+            level_stars: nextStars,
+            unlocked_level: nextUnlocked,
+            current_level: nextCurrent,
+            xp_gained: playerScore,
+          });
           // Regresar al mapa de aventura con el nuevo nivel listo
           setIsMapVisible(true);
         }}
@@ -2303,14 +2206,27 @@ export default function ArcadeArena() {
           // Si el jugador superó el nivel con al menos 2 estrellas, registrar avance antes de salir
           const earnedStars =
             victoryStats.accuracy >= 90 ? 3 : victoryStats.accuracy >= 70 ? 2 : 1;
+          let nextStars = levelStars;
+          let nextUnlocked = unlockedLevel;
           if (earnedStars >= 2) {
-            setLevelStars((prev) => ({
-              ...prev,
-              [currentLevel]: Math.max(prev[currentLevel] || 0, earnedStars),
-            }));
-            if (currentLevel < 20) {
-              setUnlockedLevel((prev) => Math.max(prev, currentLevel + 1));
+            nextStars = {
+              ...levelStars,
+              [currentLevel]: Math.max(
+                levelStars[currentLevel] || 0,
+                earnedStars,
+              ),
+            };
+            setLevelStars(nextStars);
+            if (currentLevel < maxLevel) {
+              nextUnlocked = Math.max(unlockedLevel, currentLevel + 1);
+              setUnlockedLevel(nextUnlocked);
             }
+            persistCampaignProgress({
+              level_stars: nextStars,
+              unlocked_level: nextUnlocked,
+              current_level: nextUnlocked,
+              xp_gained: playerScore,
+            });
           }
           setIsMapVisible(true);
         }}

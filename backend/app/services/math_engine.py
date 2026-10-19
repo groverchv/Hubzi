@@ -9,7 +9,7 @@ parametrizadas, lo que hace la matemática:
   - verificable con exactitud (la respuesta se calcula, no se adivina)
 
 Los distractores no son aleatorios: son ERRORES TÍPICOS (misconcepciones)
-documentados de estudiantes. Cuando el jugador cae en una trampa, Capi puede
+documentados de estudiantes. Cuando el jugador cae en una trampa, Hubzi puede
 explicar exactamente por qué ese error es común.
 """
 

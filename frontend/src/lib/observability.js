@@ -72,7 +72,27 @@ export function identifyUser(user) {
 
 export function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  });
+
+  // En localhost limpiar caches antiguos para que los cambios se reflejen de inmediato
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    if ("caches" in window) {
+      caches.keys().then((keys) => {
+        keys.forEach((key) => {
+          if (key !== "hubzy-v5") caches.delete(key);
+        });
+      });
+    }
+  }
+
+  const register = () => {
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      reg.update?.().catch(() => {});
+    }).catch(() => {});
+  };
+
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    register();
+  } else {
+    window.addEventListener("load", register);
+  }
 }

@@ -267,7 +267,10 @@ class TestSafetyFilter:
 # CAPA ML OPCIONAL (graceful degradation sin transformers instalado)
 # =====================================================================
 
-from app.services.ml_safety import ml_detect_crisis_emotion, ml_detect_unsafe  # noqa: E402 -- import tardío intencional en tests
+from app.services.ml_safety import (  # noqa: E402 -- import tardío intencional en tests
+    ml_detect_crisis_emotion,
+    ml_detect_unsafe,
+)
 
 
 class TestMLSafety:

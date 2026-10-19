@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Folder, FolderPlus, Play, Wind, Crown, BookOpen, RefreshCw, LogOut, Trash2,
+  Folder, FolderPlus, Play, Wind, Crown, BookOpen, RefreshCw, LogOut, Trash2, Download,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { apiFetch } from "../lib/api";
+import { apiFetch, fetchWithAuth } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
-import capybara3dImg from "../assets/capybara_3d.webp";
+import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 
 function FolderSkeleton() {
   return (
@@ -72,7 +72,7 @@ export default function DashboardPage() {
 
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <Link to="/" className="flex items-center gap-2">
-          <img src={capybara3dImg} alt="Capi" className="w-9 h-9 rounded-xl border-2 border-[#122443] object-cover" />
+          <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-xl border-2 border-[#122443] object-cover" />
           <span className="text-xl font-black uppercase text-[#122443]">Hubzy</span>
         </Link>
         <div className="flex items-center gap-3">
@@ -209,8 +209,44 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* Portabilidad de datos — derecho a exportar */}
+        <section className="mt-14 rounded-3xl border-2 border-slate-200 bg-white/80 p-6">
+          <h2 className="text-sm font-black uppercase tracking-wide text-[#122443]">
+            {t("dashboard.your_data", "Tus datos")}
+          </h2>
+          <p className="mt-1 text-xs font-semibold text-slate-500">
+            {t(
+              "dashboard.export_desc",
+              "Descarga toda la información que Hubzy guarda de ti: perfil, carpetas, documentos y progreso de habilidades.",
+            )}
+          </p>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetchWithAuth("/api/v1/users/me/export");
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data, null, 2)], {
+                  type: "application/json",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `hubzy-mis-datos-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch (err) {
+                console.warn("Error exportando datos:", err);
+              }
+            }}
+            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-700 hover:bg-slate-600 px-4 py-2.5 text-xs font-black uppercase text-white border-b-4 border-slate-900 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            {t("dashboard.export_data", "Descargar mis datos")}
+          </button>
+        </section>
+
         {/* Zona de peligro — derecho de supresión de datos */}
-        <section className="mt-14 rounded-3xl border-2 border-rose-200 bg-rose-50/80 p-6">
+        <section className="mt-6 rounded-3xl border-2 border-rose-200 bg-rose-50/80 p-6">
           <h2 className="text-sm font-black uppercase tracking-wide text-rose-700">
             {t("dashboard.danger_zone", "Zona de peligro")}
           </h2>

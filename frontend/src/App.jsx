@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import AnimatedCloudsBackground from './components/AnimatedCloudsBackground';
 import { CrisisProvider } from './lib/crisis.jsx';
 import { useAuthStore } from './store/authStore';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Code-splitting: las páginas pesadas se cargan bajo demanda por ruta
 const ArcadeArena = lazy(() => import('./pages/ArcadeArena'));
@@ -35,6 +36,7 @@ function RequireUser({ children }) {
 function App() {
   return (
     <CrisisProvider>
+      <ErrorBoundary>
       <BrowserRouter>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
@@ -65,6 +67,7 @@ function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
+      </ErrorBoundary>
     </CrisisProvider>
   );
 }

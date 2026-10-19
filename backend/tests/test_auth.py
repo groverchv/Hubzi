@@ -217,3 +217,31 @@ def test_reset_password_rejects_bad_token(client):
         json={"token": "token-falso-de-verdad", "new_password": "cualquiera1"},
     )
     assert res.status_code == 400
+
+
+def test_purpose_tokens_are_single_use(client, registered_user):
+    """Un token de propósito canjeado no puede volver a usarse."""
+    from app.core.security import create_purpose_token
+
+    uid = registered_user["user"]["id"]
+    email = registered_user["email"]
+
+    verify_token = create_purpose_token(uid, email, "verify_email", 60)
+    res = client.post("/api/v1/auth/verify-email", json={"token": verify_token})
+    assert res.status_code == 200
+    # Segundo uso del MISMO token → rechazado
+    res = client.post("/api/v1/auth/verify-email", json={"token": verify_token})
+    assert res.status_code == 400
+
+    reset_token = create_purpose_token(uid, email, "reset_password", 60)
+    res = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": reset_token, "new_password": "otraClave789"},
+    )
+    assert res.status_code == 200
+    # Reutilizar el enlace de reset → rechazado
+    res = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": reset_token, "new_password": "otraClave999"},
+    )
+    assert res.status_code == 400

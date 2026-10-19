@@ -3,8 +3,10 @@ Servicio de generación de tableros de juego.
 Extraído de main.py: lógica de caché L1 (RAM) / L2 (MongoDB) + pipeline IA + Builder.
 """
 
+import asyncio
 import hashlib
 import logging
+import time
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -258,7 +260,11 @@ async def generate_board(
             return board_result
 
     try:
-        ai_data = ai_service.extract_concepts_from_text(
+        # El SDK de Groq/Gemini es síncrono: se ejecuta en un thread para no
+        # congelar el event loop durante la inferencia (puede tardar +10s).
+        llm_start = time.perf_counter()
+        ai_data = await asyncio.to_thread(
+            ai_service.extract_concepts_from_text,
             payload.text,
             variation_seed=variation_seed,
             question_count=question_count,
@@ -267,6 +273,11 @@ async def generate_board(
             excluded_concepts=excluded_concepts,
             age_band=band_key,
             gender=getattr(payload, "gender", None),
+        )
+        llm_ms = (time.perf_counter() - llm_start) * 1000
+        logger.info(
+            f"⏱️ pipeline generate_board: llm_ms={llm_ms:.0f} chars={len(payload.text)} "
+            f"level={level} domain={domain}"
         )
 
         concepts = ai_data.get("concepts", [])
@@ -422,7 +433,9 @@ async def generate_board(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except RuntimeError as re:
         logger.error(f"Error en comunicación con LLM: {re}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(re)) from re
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(re)
+        ) from re
     except Exception as ex:
         logger.error(f"Error inesperado procesando arena: {ex}")
         raise HTTPException(

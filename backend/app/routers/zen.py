@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/zen", tags=["Zen"])
 class ZenLogRequest(BaseModel):
     log_type: str = "breathing_session"
     duration_seconds: int = 60
-    notes: str | None = "Sesión completada con Capi Zen"
+    notes: str | None = "Sesión completada con Hubzi Zen"
 
 
 @router.post("/log", status_code=status.HTTP_201_CREATED)

@@ -8,9 +8,9 @@ const LISTEN_GREETINGS = [
 ];
 
 /**
- * Reconocimiento de voz (Web Speech API) con mensajes emotivos de Capi.
+ * Reconocimiento de voz (Web Speech API) con mensajes emotivos de Hubzi.
  * - onTranscript(text): se invoca con el dictado final del usuario.
- * - onFeedback(text): mensajes de estado para mostrar en la burbuja de Capi.
+ * - onFeedback(text): mensajes de estado para mostrar en la burbuja de Hubzi.
  */
 export function useSpeechRecognition({ onTranscript, onFeedback }) {
   const [isListening, setIsListening] = useState(false);

@@ -5,21 +5,21 @@ import {
   Lock,
   Play,
   ArrowLeft,
-  Zap,
   Folder,
   HelpCircle,
   Crown,
   Skull,
   ShieldAlert,
   Swords,
+  RotateCcw,
 } from "lucide-react";
-import capybara3dImg from "../assets/capybara_3d.webp";
+import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 
 /**
  * AdventureMap - Mapa de Aventura de 20 Niveles
  * - Nivel K = K preguntas progresivas
  * - Niveles 3+ tienen cartas trampa 💀
- * - Nivel 20 es la batalla de Jefe Final contra Capi Boss 👑
+ * - Nivel 20 es la batalla de Jefe Final contra Hubzi Boss 👑
  * - Requiere mínimo 2 estrellas para avanzar
  * - Scroll vertical fluido que asciende desde el Nivel 1 (costa) hasta el Nivel 20 (cumbre del volcán)
  */
@@ -30,11 +30,11 @@ export default function AdventureMap({
   currentLevel = 1,
   unlockedLevel = 1,
   levelStars = {},
-  energy = 4,
-  maxEnergy = 4,
   onSelectLevel,
   onBackToFolders,
   onOpenTutorial,
+  onResetCampaign,
+  studyStreak = 0,
 }) {
   const [selectedLevelModal, setSelectedLevelModal] = useState(null);
   const scrollContainerRef = useRef(null);
@@ -50,13 +50,13 @@ export default function AdventureMap({
           const trapCount = lvl < 8 ? 1 : lvl < 15 ? 2 : 3;
           return {
             level: lvl,
-            name: isBoss ? "Duelo Legendario: Capi Boss" : `Nivel ${lvl}`,
+            name: isBoss ? "Duelo Legendario: Hubzi Boss" : `Nivel ${lvl}`,
             questions: lvl,
             hasTraps,
             trapCount: hasTraps ? trapCount : 0,
             isBoss,
             desc: isBoss
-              ? "¡Examen definitivo de 20 preguntas! Derrota a Capi Boss completando el circuito."
+              ? "¡Examen definitivo de 20 preguntas! Derrota a Hubzi Boss completando el circuito."
               : hasTraps
                 ? `${lvl} preguntas con ${trapCount} carta(s) trampa en el mazo.`
                 : `${lvl} pregunta(s) directa(s).`,
@@ -146,10 +146,27 @@ export default function AdventureMap({
           <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wide truncate max-w-[200px] sm:max-w-md">
             {documentTitle} (Campaña de 20 Niveles)
           </h1>
+          {studyStreak >= 2 && (
+            <span
+              className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-400/50 text-[10px] font-black text-orange-300"
+              title={`${studyStreak} días seguidos estudiando`}
+            >
+              🔥 {studyStreak} días seguidos
+            </span>
+          )}
         </div>
 
-        {/* Botón Cómo Jugar */}
+        {/* Botones: Reiniciar Campaña + Cómo Jugar */}
         <div className="flex items-center gap-2">
+          {onResetCampaign && unlockedLevel > 1 && (
+            <button
+              onClick={onResetCampaign}
+              className="p-2 rounded-2xl bg-[#122443] hover:bg-rose-900/80 border-2 border-[#1e3a6c] border-b-3 border-b-[#050a13] text-rose-300 shadow-sm active:translate-y-1 transition-all cursor-pointer"
+              title="Reiniciar campaña (volver al Nivel 1)"
+            >
+              <RotateCcw className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          )}
           {onOpenTutorial && (
             <button
               onClick={onOpenTutorial}
@@ -223,7 +240,7 @@ export default function AdventureMap({
             { y: TOTAL_HEIGHT - 880, label: "Valle de las Trampas (N6 - N10)" },
             { y: TOTAL_HEIGHT - 1520, label: "Tierras Altas (N11 - N15)" },
             { y: TOTAL_HEIGHT - 2160, label: "Meseta de Élite (N16 - N19)" },
-            { y: 160, label: "Cima Legendaria: Capi Boss (N20)" },
+            { y: 160, label: "Cima Legendaria: Hubzi Boss (N20)" },
           ].map((island, idx) => (
             <div
               key={idx}
@@ -257,7 +274,7 @@ export default function AdventureMap({
                 className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center cursor-pointer"
                 onClick={() => handleNodeClick(lvl)}
               >
-                {/* Avatar animado de Capi sobre el nivel actual activo */}
+                {/* Avatar animado de Hubzi sobre el nivel actual activo */}
                 {isCurrent && (
                   <motion.div
                     initial={{ y: 0 }}
@@ -271,8 +288,8 @@ export default function AdventureMap({
                   >
                     <div className="relative w-12 h-12 rounded-full overflow-hidden border-3 border-[#FFB400] shadow-[0_4px_0_#050a13] bg-[#0a162b]">
                       <img
-                        src={capybara3dImg}
-                        alt="Capi Aquí"
+                        src={capyEscolar}
+                        alt="Hubzi Aquí"
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -282,7 +299,7 @@ export default function AdventureMap({
                   </motion.div>
                 )}
 
-                {/* Corona y aura dorada para Capi Boss (Nivel 20) */}
+                {/* Corona y aura dorada para Hubzi Boss (Nivel 20) */}
                 {isBoss && (
                   <div className="absolute -top-9 flex flex-col items-center text-[#FFB400] animate-bounce z-10">
                     <Crown className="w-8 h-8 fill-[#FFB400] drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />

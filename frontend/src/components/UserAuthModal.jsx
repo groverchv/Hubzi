@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Sparkles, Volume2, ShieldCheck, Heart, GraduationCap, Compass } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.webp';
+import capyPsicologo from '../assets/mascots/capy_psicologo_m.webp';
 import { capyVoice } from '../utils/capyVoice';
 import { fetchWithAuth } from '../lib/api';
 
@@ -23,7 +23,7 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
 
   const parsedAge = parseInt(age, 10) || 20;
   const ageProfile = parsedAge < 18 
-    ? { title: 'Modo Escolar / Juvenil', icon: Sparkles, desc: 'Capi dinámico, amigable y con enfoque positivo', color: 'text-amber-300 border-amber-500/40 bg-amber-950/40' }
+    ? { title: 'Modo Escolar / Juvenil', icon: Sparkles, desc: 'Hubzi dinámico, amigable y con enfoque positivo', color: 'text-amber-300 border-amber-500/40 bg-amber-950/40' }
     : parsedAge <= 25 
     ? { title: 'Modo Universitario', icon: GraduationCap, desc: 'Apoyo para desvelos, exámenes y alivio del estrés académico', color: 'text-purple-300 border-purple-500/40 bg-purple-950/40' }
     : { title: 'Modo Profesional / Adulto', icon: Compass, desc: 'Técnicas de mindfulness, serenidad y claridad mental', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-950/40' };
@@ -31,8 +31,8 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
   const handleTestVoice = async () => {
     setIsPreviewPlaying(true);
     const sampleText = isMaleUser 
-      ? `Hola ${username.trim() || 'amigo'}, soy tu compañera Capi. Estoy lista para cuidar de tu mente mientras estudias.`
-      : `Hola ${username.trim() || 'amiga'}, soy tu compañero Capi. Cuenta conmigo para mantener la calma y superar cada reto.`;
+      ? `Hola ${username.trim() || 'amigo'}, soy tu compañera Hubzi. Estoy lista para cuidar de tu mente mientras estudias.`
+      : `Hola ${username.trim() || 'amiga'}, soy tu compañero Hubzi. Cuenta conmigo para mantener la calma y superar cada reto.`;
 
     try {
       await capyVoice.speak(sampleText, {
@@ -112,10 +112,10 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
         exit={{ opacity: 0, scale: 0.92, y: 20 }}
         className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-[#16202e] to-[#0c131d] border-2 border-cyan-500/50 p-6 sm:p-7 shadow-[0_0_50px_rgba(6,182,212,0.3)] flex flex-col text-slate-100"
       >
-        {/* Cabecera con Capi */}
+        {/* Cabecera con Hubzi */}
         <div className="flex items-center gap-4 border-b border-slate-700/60 pb-4 mb-5">
           <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.5)] shrink-0 bg-slate-950">
-            <img src={capybara3dImg} alt="Capibara Psicólogo" className="w-full h-full object-cover" />
+            <img src={capyPsicologo} alt="Hubzi Psicólogo" className="w-full h-full object-cover scale-105" />
             <div className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <div>
@@ -180,7 +180,7 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
                 <User className="w-6 h-6 text-sky-400 mb-0.5" />
                 <span className="font-black text-xs">Hombre</span>
                 <span className="text-[9px] text-sky-300 font-mono text-center">
-                  Capi con voz femenina dulce
+                  Hubzi con voz femenina dulce
                 </span>
               </button>
 
@@ -196,7 +196,7 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
                 <User className="w-6 h-6 text-rose-400 mb-0.5" />
                 <span className="font-black text-xs">Mujer</span>
                 <span className="text-[9px] text-rose-300 font-mono text-center">
-                  Capi con voz masculina sabia
+                  Hubzi con voz masculina sabia
                 </span>
               </button>
             </div>
@@ -235,7 +235,7 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
             <div className="flex items-center gap-2.5">
               <Heart className="w-4 h-4 text-rose-400" />
               <div>
-                <span className="text-[10px] font-mono text-slate-400 block uppercase">Voz Asignada de Capi:</span>
+                <span className="text-[10px] font-mono text-slate-400 block uppercase">Voz Asignada de Hubzi:</span>
                 <span className="text-xs font-black text-cyan-300 font-mono">{assignedVoiceLabel}</span>
               </div>
             </div>

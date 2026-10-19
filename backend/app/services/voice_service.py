@@ -34,9 +34,9 @@ class VoiceService:
         self, voice_gender: str | None = None, user_gender: str | None = None
     ) -> str:
         """
-        Determina el género de la voz de Capi según la regla psicológica del usuario:
-        - Si el usuario es Hombre (masculino) -> Capi habla con voz FEMENINA.
-        - Si la usuaria es Mujer (femenino) -> Capi habla con voz MASCULINA.
+        Determina el género de la voz de Hubzi según la regla psicológica del usuario:
+        - Si el usuario es Hombre (masculino) -> Hubzi habla con voz FEMENINA.
+        - Si la usuaria es Mujer (femenino) -> Hubzi habla con voz MASCULINA.
         - O preferencia directa si fue especificada.
         """
         if voice_gender in ("female", "femenino"):
@@ -182,10 +182,10 @@ class VoiceService:
             "xi-api-key": self.api_key.strip(),
         }
         try:
-            req = urllib.request.Request(
+            req = urllib.request.Request(  # noqa: S310 -- URL fija de la API de ElevenLabs (https)
                 url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
             )
-            with urllib.request.urlopen(req, timeout=3.5) as response:  # noqa: S310 -- URL fija de API ElevenLabs con https
+            with urllib.request.urlopen(req, timeout=3.5) as response:  # noqa: S310 -- request construido arriba con URL fija https
                 if response.status == 200:
                     return response.read()
                 return None

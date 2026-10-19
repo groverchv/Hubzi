@@ -32,12 +32,17 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
+      # Estas vars sobrescriben lo que haya en backend/.env (red interna de compose)
       - MONGODB_URI=mongodb://mongodb:27017
       - MONGODB_DB_NAME=${MONGODB_DB_NAME:-hubzy_db}
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
     depends_on:
       - mongodb
       - qdrant

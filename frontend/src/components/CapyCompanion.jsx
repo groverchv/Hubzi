@@ -12,14 +12,17 @@ import {
   Music,
   Music2,
   Crown,
+  Heart,
+  AlertTriangle,
+  Zap,
 } from "lucide-react";
-import capybara3dImg from "../assets/capybara_3d.webp";
+import capyFallback from "../assets/mascots/capy_escolar_nino_m.webp";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
 import { getMascotByDomain } from "../utils/mascotCatalog";
 
 /**
- * Guardián táctico 3D Zen interactivo: la mascota Capi con su bocadillo de
+ * Guardián táctico 3D Zen interactivo: la mascota Hubzi con su bocadillo de
  * diálogo, overlays por mood, barra de vida del jefe (nivel 20), controles
  * de micrófono/voz/música y el banner de pausa Zen.
  */
@@ -121,7 +124,7 @@ export default function CapyCompanion({
                   </div>
                 ) : (
                   <span className="text-[7.5px] text-cyan-400/80 font-mono">
-                    Voz Capi Local
+                    Voz Hubzi Local
                   </span>
                 )}
               </div>
@@ -276,7 +279,7 @@ export default function CapyCompanion({
           whileTap={{ scale: 0.92 }}
           onClick={onCapyClick}
           className="relative group cursor-pointer flex flex-col items-center"
-          title="¡Haz clic en Capi! Te dará una pista con todo su amor 💙"
+          title="¡Haz clic en Hubzi! Te dará una pista con todo su amor 💙"
         >
           {/* Base Holográfica — brillo en los pies según mood */}
           <div
@@ -348,7 +351,7 @@ export default function CapyCompanion({
                   })()}
                 </div>
                 <span className="text-[8px] font-black uppercase tracking-wider text-amber-300 drop-shadow">
-                  JEFE CAPI HP
+                  JEFE HUBZI HP
                 </span>
               </div>
             )}
@@ -360,7 +363,7 @@ export default function CapyCompanion({
                 activeTheme,
                 currentUser?.gender,
               );
-              const mascotSrc = resolvedMascot?.image || capybara3dImg;
+              const mascotSrc = resolvedMascot?.image || capyFallback;
               const mascotTitle = resolvedMascot?.name || "Hubzi Compañero";
 
               return (
@@ -735,6 +738,7 @@ export default function CapyCompanion({
 
             {/* Botón Música Ambient Calmante */}
             <button
+              data-ambient-toggle
               onClick={(e) => {
                 e.stopPropagation();
                 hubziAmbient.toggle();

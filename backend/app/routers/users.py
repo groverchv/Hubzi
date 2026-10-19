@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 async def register_or_login_user(payload: UserRegisterRequest):
     """
     Flujo ligero (sin contraseña) para invitados: registra o actualiza un perfil
-    con nombre, sexo y edad, y asigna el género de voz complementario de Capi.
+    con nombre, sexo y edad, y asigna el género de voz complementario de Hubzi.
     """
     clean_username = payload.username.strip()
     norm_gender = payload.gender.strip().lower()
@@ -79,8 +79,14 @@ async def register_or_login_user(payload: UserRegisterRequest):
             res = await db_manager.db["users"].insert_one(user_doc)
             user_doc["id"] = str(res.inserted_id)
             return UserProfileResponse(**user_doc)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error registrando usuario en MongoDB: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Servicio de base de datos no disponible. Intenta de nuevo.",
+            ) from e
 
     import hashlib
 
@@ -158,13 +164,18 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
                     await rag_service.delete_document_vectors(doc["id"])
                     deleted["vectors"] += 1
 
-    # 2. Carpetas del usuario
+    # 2. Carpetas del usuario — si falla con BD configurada se aborta:
+    # una supresión parcial silenciosa viola el derecho de supresión.
     if db_manager.db is not None:
         try:
             res = await db_manager.db["study_folders"].delete_many({"user_id": uid})
             deleted["folders"] += res.deleted_count
         except Exception as e:
             logger.error(f"Error eliminando carpetas del usuario {uid}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo completar la eliminación de tus datos. Intenta de nuevo.",
+            ) from e
 
     mem_folder_ids = [fid for fid, f in in_memory_study_folders.items() if f.get("user_id") == uid]
     for fid in mem_folder_ids:
@@ -176,11 +187,15 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
         try:
             from bson import ObjectId
 
-            query = {"_id": ObjectId(uid)} if len(uid) == 24 else {"id": uid}
+            query = {"_id": ObjectId(uid)} if ObjectId.is_valid(uid) else {"id": uid}
             res = await db_manager.db["users"].delete_one(query)
             deleted["user"] = deleted["user"] or res.deleted_count > 0
         except Exception as e:
             logger.error(f"Error eliminando usuario {uid} de MongoDB: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo completar la eliminación de tu cuenta. Intenta de nuevo.",
+            ) from e
 
     if email and email in in_memory_auth_users:
         del in_memory_auth_users[email]
@@ -195,3 +210,62 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
         f"Cuenta eliminada: user={uid} folders={deleted['folders']} vectors={deleted['vectors']}"
     )
     return {"status": "account_deleted", "deleted": deleted}
+
+
+@router.get("/me/export")
+async def export_my_data(current_user: dict = Depends(get_current_user)):
+    """
+    Portabilidad de datos: devuelve TODO lo que el sistema guarda del usuario
+    autenticado en un solo JSON descargable (perfil, carpetas con documentos,
+    dominio de habilidades BKT). Sin campos internos sensibles como el hash.
+    """
+    uid = str(current_user.get("id") or current_user.get("_id"))
+
+    profile = {
+        "id": uid,
+        "email": current_user.get("email"),
+        "username": current_user.get("username"),
+        "gender": current_user.get("gender"),
+        "age_band": current_user.get("age_band"),
+        "plan": current_user.get("plan", "free"),
+        "email_verified": current_user.get("email_verified", False),
+        "created_at": str(current_user.get("created_at", "")),
+    }
+
+    # Con BD configurada un fallo aborta: una exportación parcial silenciosa
+    # incumpliría la promesa de portabilidad completa.
+    folders = []
+    if db_manager.db is not None:
+        try:
+            async for f in db_manager.db["study_folders"].find({"user_id": uid}):
+                f.pop("_id", None)
+                folders.append(f)
+        except Exception as e:
+            logger.error(f"Error exportando carpetas del usuario {uid}: {e}")
+            raise HTTPException(
+                status_code=500, detail="No se pudo completar la exportación. Intenta de nuevo."
+            ) from e
+    else:
+        for f in in_memory_study_folders.values():
+            if f.get("user_id") == uid:
+                folders.append(f)
+
+    skills = []
+    if db_manager.db is not None:
+        try:
+            async for s in db_manager.db["skill_mastery"].find({"user_id": uid}):
+                s.pop("_id", None)
+                skills.append(s)
+        except Exception as e:
+            logger.error(f"Error exportando habilidades del usuario {uid}: {e}")
+            raise HTTPException(
+                status_code=500, detail="No se pudo completar la exportación. Intenta de nuevo."
+            ) from e
+
+    return {
+        "exported_at": utcnow_iso(),
+        "profile": profile,
+        "folders": folders,
+        "skill_mastery": skills,
+        "note": "Exportación completa de tus datos personales en Hubzy.",
+    }

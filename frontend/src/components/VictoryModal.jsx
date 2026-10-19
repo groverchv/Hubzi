@@ -13,32 +13,35 @@ import {
   BookOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import capybara3dImg from '../assets/capybara_3d.webp';
+import capyEscolar from '../assets/mascots/capy_escolar_nino_m.webp';
 
-export default function VictoryModal({ 
-  isOpen, 
-  level = 1, 
-  accuracy = 100, 
-  totalQuestions = 5, 
+export default function VictoryModal({
+  isOpen,
+  level = 1,
+  accuracy = 100,
+  totalQuestions = 5,
+  streak = 0,
+  campaignCompleted = false,
+  weakNodes = [],
   masteredConcepts = [],
-  onNextLevel, 
+  onNextLevel,
   onRetry,
   onGoToMenu,
-  onReview 
+  onReview
 }) {
   const [showSummary, setShowSummary] = React.useState(false);
   React.useEffect(() => {
     if (isOpen) {
       try {
         confetti({
-          particleCount: 80,
-          spread: 70,
+          particleCount: campaignCompleted ? 220 : 80,
+          spread: campaignCompleted ? 110 : 70,
           origin: { y: 0.6 },
           colors: ['#FF7A00', '#48C838', '#FFB400', '#1C8FE8']
         });
       } catch (_) {}
     }
-  }, [isOpen]);
+  }, [isOpen, campaignCompleted]);
 
   if (!isOpen) return null;
 
@@ -61,16 +64,18 @@ export default function VictoryModal({
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] mb-3">
           <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />
           <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider">
-            ¡Nivel {level} Superado!
+            {campaignCompleted ? '👑 ¡Jefe Final Derrotado!' : `¡Nivel ${level} Superado!`}
           </span>
         </div>
 
         {/* Título de Victoria */}
         <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wide drop-shadow mb-1">
-          ¡EXCELENTE TRABAJO!
+          {campaignCompleted ? '¡CAMPAÑA COMPLETADA!' : '¡EXCELENTE TRABAJO!'}
         </h2>
         <p className="text-xs text-slate-300 font-bold mb-4">
-          Completaste todos los nodos del circuito de estudio con maestría.
+          {campaignCompleted
+            ? 'Dominaste los 20 niveles de esta materia. Eres una leyenda del estudio.'
+            : 'Completaste todos los nodos del circuito de estudio con maestría.'}
         </p>
 
         {/* Estrellas de Recompensa */}
@@ -129,9 +134,31 @@ export default function VictoryModal({
               <Flame className="w-3.5 h-3.5 text-[#FFB400]" />
               <span>Racha</span>
             </div>
-            <span className="text-lg font-black text-[#FFB400] mt-0.5">X{stars}</span>
+            <span className="text-lg font-black text-[#FFB400] mt-0.5">X{streak}</span>
           </div>
         </div>
+
+        {/* Temas por repasar — cierra el loop pedagógico con honestidad */}
+        {weakNodes.length > 0 && (
+          <div className="w-full p-3 rounded-2xl bg-amber-950/40 border-2 border-amber-500/40 mb-4 text-left">
+            <p className="text-[10px] font-black uppercase tracking-wide text-amber-300 mb-1.5 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5" /> Por repasar
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {weakNodes.slice(0, 6).map((label, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-0.5 rounded-lg bg-[#0a162b] border border-amber-500/30 text-[10px] font-bold text-amber-200"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+            <p className="text-[9px] text-slate-400 mt-1.5">
+              Re-juega este nivel para dominarlos al 100%.
+            </p>
+          </div>
+        )}
 
         {/* Micro-evaluación de Alivio Emocional / Estrés (KPI Central del MVP) */}
         <div className="w-full p-3 rounded-2xl bg-[#0a162b] border-2 border-[#1e3a6c] mb-4 text-center">
@@ -166,11 +193,11 @@ export default function VictoryModal({
         {/* Mensaje de Capibara Acompañante */}
         <div className="flex items-center gap-3 w-full p-3 rounded-2xl bg-[#1a335e]/60 border-2 border-[#1e3a6c] mb-3 text-left">
           <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-[#FFB400] shrink-0 bg-[#0a162b]">
-            <img src={capybara3dImg} alt="Capi" className="w-full h-full object-cover" />
+            <img src={capyEscolar} alt="Hubzi" className="w-full h-full object-cover" />
           </div>
           <div>
             <p className="text-[10px] font-black uppercase text-[#FFB400] tracking-wide flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#FFB400]" /> Capi dice:
+              <Sparkles className="w-3 h-3 text-[#FFB400]" /> Hubzi dice:
             </p>
             <p className="text-xs text-slate-200 font-bold leading-tight mt-0.5">
               "{stars === 3 ? '¡Increíble retención! Estás dominando este tema con soltura.' : '¡Buen progreso! Cada ronda afianza mejor los conceptos en tu mente.'}"

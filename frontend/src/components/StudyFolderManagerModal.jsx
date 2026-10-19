@@ -1,44 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchWithAuth } from '../lib/api';
+import { fetchWithAuth, uploadWithProgress } from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FolderPlus, 
-  Folder, 
-  Sparkles, 
-  ArrowRight, 
-  Plus, 
-  Trash2, 
-  BookOpen, 
-  Layers, 
+import {
+  FolderPlus,
+  Folder,
+  Sparkles,
+  Plus,
+  Trash2,
+  Layers,
   PlayCircle,
-  Clock,
   ChevronRight,
   FolderArchive,
   UploadCloud,
   FileText,
-  FileSpreadsheet,
   FileAudio,
   Image as ImageIcon,
   ArrowLeft,
   Gamepad2,
   CheckCircle2,
-  Lock,
-  ShieldCheck,
   Zap,
   Loader2,
   X,
-  Home
+  Home,
+  AlertCircle
 } from 'lucide-react';
 
 const STORAGE_KEY = 'hubzy_user_study_folders';
 
-export default function StudyFolderManagerModal({ 
-  isOpen, 
+export default function StudyFolderManagerModal({
+  isOpen,
   currentUser,
   onClose,
   onBackToMenu,
-  onSelectFolder, 
-  onStartNewFolder,
+  onSelectFolder,
   onUpgradeToPro
 }) {
   const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
@@ -69,6 +63,12 @@ export default function StudyFolderManagerModal({
   const [sampleCatalog, setSampleCatalog] = useState([]);
   const [addingSample, setAddingSample] = useState(null);
 
+  // Errores de subida por archivo (reemplaza los alert() nativos)
+  const [uploadErrors, setUploadErrors] = useState([]);
+
+  // Detección de temas en curso para la carpeta abierta (archipiélago)
+  const [detectingTopics, setDetectingTopics] = useState(false);
+
   // Limpiar temporizador al desmontar o cerrar modal
   useEffect(() => {
     return () => {
@@ -83,6 +83,38 @@ export default function StudyFolderManagerModal({
       if (processingTimerRef.current) clearInterval(processingTimerRef.current);
     }
   }, [isOpen]);
+
+  // Al abrir una carpeta con documentos pero sin islas detectadas, pedir al
+  // backend la detección de temas (el upload ya la lanza en background; este
+  // endpoint es idempotente — solo analiza docs sin topic_sections).
+  useEffect(() => {
+    const f = activeFolderView;
+    if (!f?.id || f.id === 'folder_administracion_default') return;
+    if (f.islands !== undefined) return;
+    if (!(f.documents || []).some((d) => !d.isUploading)) return;
+    let cancelled = false;
+    setDetectingTopics(true);
+    fetchWithAuth(`/api/v1/folders/${f.id}/detect-topics`, { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d?.islands) {
+          setActiveFolderView((prev) =>
+            prev?.id === f.id ? { ...prev, islands: d.islands } : prev,
+          );
+          setFolders((prev) =>
+            prev.map((x) => (x.id === f.id ? { ...x, islands: d.islands } : x)),
+          );
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setDetectingTopics(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFolderView?.id]);
 
   // Carpeta por defecto con administracion.pdf integrado
   const DEFAULT_ADMIN_FOLDER = {
@@ -143,6 +175,8 @@ export default function StudyFolderManagerModal({
         }
       })
       .catch(() => {});
+    // DEFAULT_ADMIN_FOLDER es constante de módulo — no es dep reactiva.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentUser]);
 
   const saveFolders = (updatedList) => {
@@ -261,92 +295,126 @@ export default function StudyFolderManagerModal({
         });
       }
     }
+    // Solo reacciona a cambios de `folders`; incluir activeFolderView crearía un bucle.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [folders]);
 
-  // Subir documentos REALES a la carpeta actualmente abierta
-  // El backend extrae el texto interno del PDF y lo persiste en MongoDB
+  // Subir documentos REALES a la carpeta actualmente abierta.
+  // Subida paralela acotada (3 a la vez) con progreso real por archivo vía XHR.
+  // El límite freemium lo impone el backend (402 → modal de upgrade).
   const handleUploadFilesToFolder = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !activeFolderView) return;
+    // Las materias de colegio son de solo lectura para estudiantes
+    if (activeFolderView.is_school_folder && activeFolderView.user_id !== currentUser?.id) return;
     e.target.value = '';
+    setUploadErrors([]);
+    const folderId = activeFolderView.id;
 
-    // Límite Freemium del MVP: 2 documentos en el plan gratuito
-    const isPro = currentUser?.plan === 'pro';
-    const totalDocsCount = folders.reduce((acc, f) => acc + (f.documents ? f.documents.length : 0), 0);
+    const updateTempDoc = (docId, patch) =>
+      setActiveFolderView(prev => ({
+        ...prev,
+        documents: (prev.documents || []).map(d =>
+          d.id === docId ? { ...d, ...patch } : d
+        ),
+      }));
+    const removeTempDoc = (docId) =>
+      setActiveFolderView(prev => ({
+        ...prev,
+        documents: (prev.documents || []).filter(d => d.id !== docId),
+      }));
 
-    if (!isPro && totalDocsCount >= 2) {
-      if (onUpgradeToPro) {
-        onUpgradeToPro();
-      } else {
-        alert("¡Límite del Plan Gratuito alcanzado (2 documentos)! Actualiza al Plan Pro para subir archivos ilimitados.");
-      }
-      return;
-    }
-
-    for (const file of files) {
+    const uploadOne = async (file) => {
       const tempDoc = {
         id: `uploading_${Date.now()}_${file.name}`,
         name: file.name,
         size: (file.size / 1024).toFixed(1) + ' KB',
         type: file.name.split('.').pop().toLowerCase(),
-        uploaded_at: 'Extrayendo texto...',
-        isUploading: true
+        uploaded_at: 'Subiendo… 0%',
+        isUploading: true,
+        progress: 0,
       };
-
-      // Mostrar placeholder mientras sube
       setActiveFolderView(prev => ({
         ...prev,
-        documents: [tempDoc, ...(prev.documents || []).filter(d => d.name !== file.name)]
+        documents: [tempDoc, ...(prev.documents || []).filter(d => d.name !== file.name)],
       }));
 
+      const formData = new FormData();
+      formData.append('file', file);
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const res = await fetchWithAuth(`/api/v1/folders/${activeFolderView.id}/upload-document`, {
-          method: 'POST',
-          body: formData
-        });
-
-        if (res.ok) {
-          const savedDoc = await res.json();
-          // Refrescar lista completa de carpetas desde el backend
-          const refreshRes = await fetchWithAuth('/api/v1/folders').catch(() => null);
-          if (refreshRes && refreshRes.ok) {
-            const data = await refreshRes.json();
-            if (data && data.folders) {
-              setFolders(data.folders);
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(data.folders));
-              const currentFolder = data.folders.find(f => f.id === activeFolderView.id);
-              if (currentFolder) {
-                setActiveFolderView({
-                  ...currentFolder,
-                  documents: (currentFolder.documents || []).map(d => ({ ...d, isUploading: false }))
-                });
-              }
-            }
-          } else {
-            setActiveFolderView(prev => {
-              const updatedDocs = (prev.documents || []).map(d =>
-                d.id === tempDoc.id ? { ...savedDoc, isUploading: false } : d
-              );
-              return { ...prev, documents: updatedDocs };
-            });
-          }
-        } else {
-          const err = await res.json().catch(() => ({}));
-          setActiveFolderView(prev => ({
-            ...prev,
-            documents: (prev.documents || []).filter(d => d.id !== tempDoc.id)
-          }));
-          alert(`Error al procesar "${file.name}": ${err.detail || 'Verifica que el archivo no esté dañado.'}`);
+        await uploadWithProgress(
+          `/api/v1/folders/${folderId}/upload-document`,
+          formData,
+          {
+            onProgress: (p) =>
+              updateTempDoc(tempDoc.id, {
+                progress: p,
+                uploaded_at: p < 100 ? `Subiendo… ${p}%` : 'Extrayendo texto…',
+              }),
+          },
+        );
+        updateTempDoc(tempDoc.id, { uploaded_at: 'Procesado ✓', isUploading: false, progress: 100 });
+      } catch (upErr) {
+        removeTempDoc(tempDoc.id);
+        if (upErr.status === 402) {
+          if (onUpgradeToPro) onUpgradeToPro();
+          else setUploadErrors(prev => [...prev, `${file.name}: ${upErr.message}`]);
+          return;
         }
-      } catch (uploadErr) {
-        setActiveFolderView(prev => ({
+        setUploadErrors(prev => [
           ...prev,
-          documents: (prev.documents || []).filter(d => d.id !== tempDoc.id)
-        }));
-        console.warn('Error subiendo archivo:', uploadErr);
+          `${file.name}: ${upErr.message || 'verifica que el archivo no esté dañado.'}`,
+        ]);
+      }
+    };
+
+    const CONCURRENCY = 3;
+    for (let i = 0; i < files.length; i += CONCURRENCY) {
+      await Promise.all(files.slice(i, i + CONCURRENCY).map(uploadOne));
+    }
+
+    // Refrescar la lista una sola vez al final del lote (no por archivo)
+    const refreshRes = await fetchWithAuth('/api/v1/folders').catch(() => null);
+    if (refreshRes && refreshRes.ok) {
+      const data = await refreshRes.json();
+      if (data && data.folders) {
+        setFolders(data.folders);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.folders));
+        const currentFolder = data.folders.find(f => f.id === folderId);
+        if (currentFolder) {
+          setActiveFolderView(prev => {
+            if (!prev || prev.id !== folderId) return prev;
+            const stillUploading = (prev.documents || []).filter(d => d.isUploading);
+            return {
+              ...currentFolder,
+              documents: [
+                ...stillUploading,
+                ...(currentFolder.documents || []).map(d => ({ ...d, isUploading: false })),
+              ],
+            };
+          });
+          // Las islas se construyen en background tras la subida: re-sondear
+          // una vez para que aparezcan sin tener que reabrir la carpeta.
+          setTimeout(async () => {
+            try {
+              const r = await fetchWithAuth(
+                `/api/v1/folders/${folderId}/detect-topics`,
+                { method: 'POST' },
+              );
+              if (r.ok) {
+                const d = await r.json();
+                if (d?.islands) {
+                  setActiveFolderView(prev =>
+                    prev?.id === folderId ? { ...prev, islands: d.islands } : prev,
+                  );
+                  setFolders(prev =>
+                    prev.map(x => (x.id === folderId ? { ...x, islands: d.islands } : x)),
+                  );
+                }
+              }
+            } catch {}
+          }, 4000);
+        }
       }
     }
   };
@@ -355,6 +423,8 @@ export default function StudyFolderManagerModal({
   // Eliminar documento de la carpeta (Frontend y Backend MongoDB)
   const handleDeleteDoc = async (docIdentifier) => {
     if (!activeFolderView || !docIdentifier) return;
+    // Las materias de colegio son de solo lectura para estudiantes
+    if (activeFolderView.is_school_folder && activeFolderView.user_id !== currentUser?.id) return;
 
     // 1. Optimistic update inmediato en la interfaz
     const updatedDocs = (activeFolderView.documents || []).filter(
@@ -606,6 +676,11 @@ export default function StudyFolderManagerModal({
                   {folders.map((folder) => {
                     const docsCount = folder.documents?.length || 0;
                     const gamesCount = folder.games?.length || 0;
+                    const prog = folder.campaign_progress;
+                    const progLevel = prog?.unlocked_level || 1;
+                    const progStars = prog?.level_stars
+                      ? Object.values(prog.level_stars).reduce((a, b) => a + b, 0)
+                      : 0;
 
                     return (
                       <div
@@ -635,17 +710,37 @@ export default function StudyFolderManagerModal({
                                 <span className="text-[11px] text-slate-400 font-medium">
                                   {folder.created_at || 'Misión Activa'}
                                 </span>
+                                {folder.is_school_folder && (
+                                  <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/40 text-[9px] font-black text-emerald-300 uppercase tracking-wide align-middle">
+                                    🏫 Colegio
+                                  </span>
+                                )}
                               </div>
                             </div>
 
-                            <button
-                              onClick={(e) => handleDeleteFolder(e, folder.id)}
-                              className="p-2 text-slate-500 hover:text-rose-400 hover:bg-slate-800/80 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
-                              title="Eliminar carpeta"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {/* Solo el dueño (docente) puede borrar la carpeta;
+                                estudiantes ven la materia como solo-lectura. */}
+                            {(!folder.is_school_folder || folder.user_id === currentUser?.id) && (
+                              <button
+                                onClick={(e) => handleDeleteFolder(e, folder.id)}
+                                className="p-2 text-slate-500 hover:text-rose-400 hover:bg-slate-800/80 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                                title="Eliminar carpeta"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
+
+                          {/* Tarea asignada por el docente (badge informativo, sin presión) */}
+                          {folder.assignment && (
+                            <div className="mb-2 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-[10px] font-bold text-amber-300 flex items-center gap-1.5">
+                              <span>📌</span>
+                              <span className="truncate">
+                                {folder.assignment.title}
+                                {folder.assignment.due_date && ` · para el ${folder.assignment.due_date}`}
+                              </span>
+                            </div>
+                          )}
 
                           <p className="text-xs text-slate-300 line-clamp-2 mt-1 pl-1">
                             {folder.description}
@@ -663,6 +758,26 @@ export default function StudyFolderManagerModal({
                               <Layers className="w-3.5 h-3.5 text-cyan-400" />
                               {gamesCount} partidas
                             </span>
+                            {progLevel > 1 && (
+                              <>
+                                <span className="text-slate-600">•</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectFolder({
+                                      ...folder,
+                                      playDirectly: true,
+                                    });
+                                  }}
+                                  className="flex items-center gap-1 text-emerald-300 hover:text-emerald-100 bg-emerald-500/10 hover:bg-emerald-500/25 px-2 py-0.5 rounded-lg border border-emerald-500/40 transition-colors cursor-pointer"
+                                  title={`Continuar campaña en el Nivel ${progLevel}`}
+                                >
+                                  <PlayCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                  Nivel {progLevel} ★{progStars}
+                                  {prog?.total_xp > 0 && ` · ${prog.total_xp} XP`}
+                                </button>
+                              </>
+                            )}
                           </span>
 
                           <span className="flex items-center gap-1 font-bold text-slate-400 group-hover:text-amber-300 transition-colors">
@@ -722,7 +837,8 @@ export default function StudyFolderManagerModal({
                 </div>
               </div>
 
-              {/* Botón para Subir Más Archivos a esta Carpeta (Naranja Arcade Card Clash con Alto Contraste) */}
+              {/* Botón para Subir Más Archivos — oculto a estudiantes en carpetas de colegio */}
+              {(!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="px-4 py-2.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-2 border-[#ff9b38] border-b-4 border-b-[#D45B00] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
@@ -730,6 +846,7 @@ export default function StudyFolderManagerModal({
                 <UploadCloud className="w-4 h-4 text-white stroke-[2.8]" />
                 <span className="drop-shadow-sm">Subir Más Archivos</span>
               </button>
+              )}
             </div>
 
             {/* Franja de muestras: probar el juego sin tener un PDF a mano */}
@@ -754,6 +871,92 @@ export default function StudyFolderManagerModal({
 
             {/* Listado de Documentos de la Carpeta */}
             <div className="p-6 flex-1 overflow-y-auto space-y-4 bg-[#0f1726]">
+              {/* ======= ARCHIPIÉLAGO DE ISLAS (un tema = una campaña) ======= */}
+              {(detectingTopics || (activeFolderView.islands || []).length > 0) && (
+                <div className="rounded-3xl border-2 border-[#1e3a6c] bg-gradient-to-b from-[#0d1f3c] to-[#0a162b] p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-cyan-300" />
+                    <h3 className="text-sm font-black uppercase tracking-wider text-cyan-200">
+                      Archipiélago de Temas
+                    </h3>
+                    {detectingTopics && (
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Detectando temas…
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mb-3">
+                    Cada isla es un tema detectado en tus documentos, con su propia campaña de niveles. Las preguntas nunca mezclan temas.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(activeFolderView.islands || []).map((isl) => {
+                      const p = isl.campaign_progress || {};
+                      const stars = Object.values(p.level_stars || {}).reduce((a, b) => a + b, 0);
+                      const lvl = p.current_level || p.unlocked_level || 1;
+                      return (
+                        <button
+                          key={isl.id}
+                          onClick={() =>
+                            onSelectFolder({
+                              ...activeFolderView,
+                              playDirectly: true,
+                              selectedIsland: isl,
+                            })
+                          }
+                          className="group text-left rounded-2xl border-2 border-[#2b3f5f] hover:border-cyan-400/70 bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-2xl leading-none">🏝️</span>
+                            <span className="flex items-center gap-1.5">
+                              {/* Tarea del docente dirigida a esta isla */}
+                              {activeFolderView.assignment?.island_id === isl.id && (
+                                <span
+                                  className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/50"
+                                  title={activeFolderView.assignment.title}
+                                >
+                                  📌 Tarea
+                                </span>
+                              )}
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                {isl.total_levels} niveles
+                              </span>
+                            </span>
+                          </div>
+                          <h4 className="mt-2 font-black text-white text-sm leading-tight line-clamp-2">
+                            {isl.name}
+                          </h4>
+                          <div className="mt-2 flex items-center justify-between text-[11px] font-bold">
+                            <span className="text-amber-300">
+                              {stars > 0 ? `★ ${stars}` : 'Sin explorar'}
+                              {p.total_xp > 0 && <span className="text-slate-400"> · {p.total_xp} XP</span>}
+                            </span>
+                            <span className="flex items-center gap-1 text-emerald-300 group-hover:text-emerald-100">
+                              <PlayCircle className="w-3.5 h-3.5" />
+                              {lvl > 1 || stars > 0 ? `Continuar N${lvl}` : 'Jugar'}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(activeFolderView.islands || []).length > 0 && (
+                    <button
+                      onClick={() =>
+                        onSelectFolder({
+                          ...activeFolderView,
+                          playDirectly: true,
+                          selectedIsland: null,
+                        })
+                      }
+                      className="mt-3 w-full text-center text-[11px] font-bold text-slate-400 hover:text-cyan-200 py-1.5 rounded-xl border border-dashed border-slate-600 hover:border-cyan-500/50 transition-colors cursor-pointer"
+                    >
+                      🌊 Jugar con todo el contenido mezclado (campaña general)
+                    </button>
+                  )}
+                </div>
+              )}
+
               {(!activeFolderView.documents || activeFolderView.documents.length === 0) ? (
                 <div className="py-12 px-4 rounded-3xl border-2 border-dashed border-slate-700 bg-[#141d2c]/60 text-center flex flex-col items-center justify-center">
                   <div className="w-16 h-16 rounded-3xl bg-[#1b273b] border-2 border-slate-600 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
@@ -765,22 +968,61 @@ export default function StudyFolderManagerModal({
                   <p className="text-xs text-slate-400 mt-1 max-w-sm mb-4">
                     Sube tus PDFs, imágenes, audios o textos para que la IA genere preguntas y cartas didácticas.
                   </p>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-2 border-[#ff9b38] border-b-4 border-b-[#D45B00] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 stroke-[3]" />
-                    <span>Subir Documentos Ahora</span>
-                  </button>
+                  {(!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-5 py-2.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-2 border-[#ff9b38] border-b-4 border-b-[#D45B00] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 stroke-[3]" />
+                      <span>Subir Documentos Ahora</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase px-1">
-                    <span>Archivos listos para el juego ({activeFolderView.documents.length})</span>
-                    <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Listos para generar tablero
-                    </span>
-                  </div>
+                  {(() => {
+                    const readyCount = (activeFolderView.documents || []).filter(d => !d.isUploading).length;
+                    const uploadingCount = (activeFolderView.documents || []).filter(d => d.isUploading).length;
+                    return (
+                      <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase px-1">
+                        <span>
+                          {uploadingCount > 0 ? (
+                            <span className="text-sky-300 flex items-center gap-1.5 normal-case font-bold">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                              Subiendo archivo al servidor ({uploadingCount})
+                            </span>
+                          ) : (
+                            `Archivos en la carpeta (${readyCount})`
+                          )}
+                        </span>
+                        {uploadingCount > 0 ? (
+                          <span className="text-[11px] text-sky-400 font-medium flex items-center gap-1 normal-case">
+                            Cargando archivo...
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Archivo subido (esperando tu orden para procesar)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {uploadErrors.length > 0 && (
+                    <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5 space-y-1">
+                      {uploadErrors.map((msg, i) => (
+                        <p key={i} className="text-[11px] text-rose-300 font-semibold flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {msg}
+                        </p>
+                      ))}
+                      <button
+                        onClick={() => setUploadErrors([])}
+                        className="text-[10px] text-rose-400/80 hover:text-rose-300 underline cursor-pointer"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {activeFolderView.documents.map((doc) => (
@@ -788,14 +1030,14 @@ export default function StudyFolderManagerModal({
                         key={doc.id}
                         className={`p-3.5 rounded-2xl border-2 flex items-center justify-between group transition-all ${
                           doc.isUploading
-                            ? 'bg-[#0f1f12] border-emerald-500/40 animate-pulse'
+                            ? 'bg-[#1a2318] border-amber-500/50 animate-pulse'
                             : 'bg-[#141d2c] border-[#223147] hover:border-slate-600'
                         }`}
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div className="w-10 h-10 rounded-xl bg-[#1b273b] border border-slate-700 flex items-center justify-center shrink-0">
                             {doc.isUploading
-                              ? <span className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                              ? <span className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
                               : getDocIcon(doc.name)
                             }
                           </div>
@@ -812,17 +1054,17 @@ export default function StudyFolderManagerModal({
                               )}
                             </div>
                             <span className={`text-[10px] font-mono ${
-                              doc.isUploading ? 'text-emerald-400' : 'text-slate-400'
+                              doc.isUploading ? 'text-sky-300 font-bold' : 'text-slate-400'
                             }`}>
                               {doc.isUploading
-                                ? 'Extrayendo texto...'
-                                : `${doc.size || 'Cargado'} • ${doc.char_count ? doc.char_count.toLocaleString() + ' chars' : doc.uploaded_at || 'Procesado'}`
+                                ? (doc.uploaded_at || 'Cargando archivo...')
+                                : `${doc.size || 'Cargado'} • ${doc.uploaded_at || 'Listo'}`
                               }
                             </span>
                           </div>
                         </div>
 
-                        {!doc.isUploading && (
+                        {!doc.isUploading && (!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -848,21 +1090,21 @@ export default function StudyFolderManagerModal({
                   if (isProcessingGame) return (
                     <span className="flex items-center gap-2 font-semibold text-emerald-300">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                      <span>Procesando preguntas y tablero... ({processingCountdown}s)</span>
+                      <span>Generando preguntas y tablero... ({processingCountdown}s)</span>
                     </span>
                   );
                   const readyDocs = (activeFolderView.documents || []).filter(d => !d.isUploading);
                   const uploadingDocs = (activeFolderView.documents || []).filter(d => d.isUploading);
                   if (uploadingDocs.length > 0) return (
-                    <span className="flex items-center gap-2 font-semibold text-amber-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                      <span>Procesando {uploadingDocs.length} archivo(s)... Espera un momento.</span>
+                    <span className="flex items-center gap-2 font-semibold text-sky-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />
+                      <span>Subiendo archivo a la carpeta... (Aún no se procesa)</span>
                     </span>
                   );
                   if (readyDocs.length > 0) return (
-                    <span className="flex items-center gap-2 font-semibold text-emerald-300">
+                    <span className="flex items-center gap-2 font-semibold text-slate-300">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                      <span>{readyDocs.length} {readyDocs.length === 1 ? 'documento procesado' : 'documentos procesados'}. ¡Listo para jugar!</span>
+                      <span>{readyDocs.length} {readyDocs.length === 1 ? 'archivo guardado' : 'archivos guardados'}. Presiona el botón verde para iniciar y procesar con IA.</span>
                     </span>
                   );
                   return (

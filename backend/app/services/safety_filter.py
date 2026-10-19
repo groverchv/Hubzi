@@ -3,7 +3,7 @@ Filtro de seguridad de contenido para menores de edad.
 
 Se aplica a TODA salida que pueda leer un usuario de banda infantil
 (sprout, explorer, adventurer, challenger): enunciados de tableros,
-respuestas de Capi, pistas y descripciones.
+respuestas de Hubzi, pistas y descripciones.
 
 Dos capas:
 1. Lista de temas/palabras prohibidas para <18 (violencia gráfica, sexual,

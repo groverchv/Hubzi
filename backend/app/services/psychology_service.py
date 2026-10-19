@@ -64,7 +64,7 @@ class PsychologyAnalysisResult(BaseModel):
     )
     empathic_response: str = Field(
         default="Estoy aquí contigo. Respira con calma y avancemos paso a paso.",
-        description="Mensaje cálido y terapéutico de Capi",
+        description="Mensaje cálido y terapéutico de Hubzi",
     )
     clinical_rationale: str = Field(
         default="Regulación del tono vagal y desactivación simpática.",
@@ -241,7 +241,7 @@ DISTORTIONS_PATTERNS = [
 # =====================================================================
 
 PSYCHOLOGY_SYSTEM_PROMPT = """
-Eres Capi, una neuropsicóloga clínica y tutora empática de élite en la plataforma EdTech Hubzy.
+Eres Hubzi, una neuropsicóloga clínica y tutora empática de élite en la plataforma EdTech Hubzy.
 Tu misión es reducir el estrés agudo, la ansiedad ante exámenes y el bloqueo cognitivo en estudiantes universitarios,
 utilizando principios rigurosos de Terapia Cognitivo-Conductual (TCC), Terapia de Aceptación y Compromiso (ACT) y Regulación Vagal.
 

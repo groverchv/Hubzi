@@ -57,12 +57,20 @@ class DatabaseManager:
                         try:
                             await self.db["cached_analyses"].drop_index("content_hash_1")
                         except Exception as drop_err:
-                            logger.debug(f"Índice content_hash_1 no existía o no se pudo eliminar: {drop_err}")
+                            logger.debug(
+                                f"Índice content_hash_1 no existía o no se pudo eliminar: {drop_err}"
+                            )
                         await self.db["cached_analyses"].create_index("content_hash")
                     await self.db["study_folders"].create_index([("user_id", 1), ("_id", -1)])
                     await self.db["ai_training_dataset"].create_index("created_at")
                     await self.db["users"].create_index("email", unique=True, sparse=True)
                     await self.db["zen_logs"].create_index([("user_id", 1), ("created_at", -1)])
+                    # Tokens de propósito único (verify_email / reset_password):
+                    # jti único + TTL de 7 días para auto-limpieza
+                    await self.db["consumed_tokens"].create_index("jti", unique=True, sparse=True)
+                    await self.db["consumed_tokens"].create_index(
+                        "consumed_at", expireAfterSeconds=60 * 60 * 24 * 7
+                    )
                     logger.info("Índices de MongoDB optimizados y verificados.")
                 except Exception as ie:
                     logger.warning(f"Aviso al verificar índices de MongoDB: {ie}")
@@ -71,11 +79,19 @@ class DatabaseManager:
             self.db = None
 
         try:
-            if QdrantClient is not None and settings.QDRANT_URL and settings.QDRANT_API_KEY:
-                logger.info("Conectando a Qdrant Cloud Vector DB...")
-                self.qdrant_client = QdrantClient(
-                    url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=10
-                )
+            if QdrantClient is not None:
+                if settings.QDRANT_URL:
+                    logger.info("Conectando a Qdrant Cloud Vector DB...")
+                    self.qdrant_client = QdrantClient(
+                        url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=10
+                    )
+                else:
+                    logger.info(
+                        f"Conectando a Qdrant local en {settings.QDRANT_HOST}:{settings.QDRANT_PORT}..."
+                    )
+                    self.qdrant_client = QdrantClient(
+                        host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=5
+                    )
                 collections = [c.name for c in self.qdrant_client.get_collections().collections]
                 if self.qdrant_collection not in collections:
                     self.qdrant_client.create_collection(
@@ -88,9 +104,9 @@ class DatabaseManager:
                     f"Conectado exitosamente a Qdrant (Colección: {self.qdrant_collection})"
                 )
             else:
-                logger.info("Qdrant no configurado con credenciales en .env")
+                logger.info("Qdrant no disponible (qdrant-client no instalado)")
         except Exception as e:
-            logger.error(f"Error conectando a Qdrant: {e}")
+            logger.warning(f"Qdrant no accesible ({e}); el RAG queda desactivado.")
             self.qdrant_client = None
 
     async def close(self):

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wind, Play, Volume2, VolumeX, Sparkles, ChevronRight } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.webp';
 import { capyVoice } from '../utils/capyVoice';
+import capyPsicologo from '../assets/mascots/capy_psicologo_m.webp';
 import { fetchWithAuth } from '../lib/api';
 
 /**
@@ -73,7 +73,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
     capyVoice.stop();
   };
 
-  // Reproducción 100% LOCAL e instantánea de la voz terapéutica de Capi Zen
+  // Reproducción 100% LOCAL e instantánea de la voz terapéutica de Hubzi Zen
   const speakVoice = (text) => {
     if (isMuted || !text) return;
     capyVoice.stop();
@@ -149,7 +149,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
             body: JSON.stringify({
               log_type: 'breathing_4_7_8',
               duration_seconds: 38,
-              notes: 'Pausa activa terapéutica completada con Capi Zen'
+              notes: 'Pausa activa terapéutica completada con Hubzi Zen'
             })
           }).catch(() => {});
         } catch (e) {}
@@ -201,12 +201,12 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
           <div className="flex items-center justify-between w-full mb-6">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl overflow-hidden border border-emerald-400 shadow-sm bg-slate-900">
-                <img src={capybara3dImg} alt="Capi Zen" className="w-full h-full object-cover" />
+                <img src={capyPsicologo} alt="Hubzi Zen" className="w-full h-full object-cover" />
               </div>
               <div className="text-left">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-white font-mono flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3 text-amber-400" />
-                  Capi Zen Guía
+                  Hubzi Zen Guía
                 </h4>
                 <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                   <span>Terapia 4-7-8</span>
@@ -231,7 +231,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
                   }
                 }}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
-                title={isMuted ? "Activar voz local de Capi" : "Silenciar voz"}
+                title={isMuted ? "Activar voz local de Hubzi" : "Silenciar voz"}
               >
                 {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
               </button>

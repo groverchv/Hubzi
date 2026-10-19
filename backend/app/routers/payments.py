@@ -7,6 +7,12 @@ from app.core.config import settings
 from app.core.database import db_manager
 from app.core.rate_limit import limiter
 from app.core.security import get_current_user, utcnow_iso
+from app.routers.institutions import (
+    _activate_school_subscription,
+    _can_manage,
+    _cancel_school_subscription,
+    _get_institution,
+)
 
 logger = logging.getLogger("hubzy.payments")
 router = APIRouter(prefix="/api/v1/payments", tags=["Monetization"])
@@ -29,39 +35,33 @@ async def _upgrade_user_to_pro(
 ):
     if db_manager.db is None:
         return
-    try:
-        from bson import ObjectId
+    from bson import ObjectId
 
-        query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
-        await db_manager.db["users"].update_one(
-            query,
-            {
-                "$set": {
-                    "plan": "pro",
-                    "pro_since": utcnow_iso(),
-                    "stripe_customer": customer_id,
-                    "stripe_subscription": subscription_id,
-                }
-            },
-        )
-        logger.info(f"Usuario {user_id} actualizado al Plan PRO.")
-    except Exception as dbe:
-        logger.warning(f"Error actualizando usuario PRO en BD: {dbe}")
+    query = {"_id": ObjectId(user_id)} if ObjectId.is_valid(user_id) else {"id": user_id}
+    # Si la escritura falla, el error propaga: el webhook de Stripe devuelve
+    # 500 y Stripe reintenta hasta confirmar el upgrade del usuario que pagó.
+    await db_manager.db["users"].update_one(
+        query,
+        {
+            "$set": {
+                "plan": "pro",
+                "pro_since": utcnow_iso(),
+                "stripe_customer": customer_id,
+                "stripe_subscription": subscription_id,
+            }
+        },
+    )
+    logger.info(f"Usuario {user_id} actualizado al Plan PRO.")
 
 
 async def _downgrade_user(customer_id: str):
     if db_manager.db is None:
         return
-    try:
-        await db_manager.db["users"].update_one(
-            {"stripe_customer": customer_id},
-            {"$set": {"plan": "free"}, "$unset": {"stripe_subscription": ""}},
-        )
-        logger.info(
-            f"Suscripción cancelada para customer {customer_id}; usuario vuelve a plan free."
-        )
-    except Exception as dbe:
-        logger.warning(f"Error degradando plan de usuario: {dbe}")
+    await db_manager.db["users"].update_one(
+        {"stripe_customer": customer_id},
+        {"$set": {"plan": "free"}, "$unset": {"stripe_subscription": ""}},
+    )
+    logger.info(f"Suscripción cancelada para customer {customer_id}; usuario vuelve a plan free.")
 
 
 class CreateCheckoutSessionRequest(BaseModel):
@@ -114,7 +114,7 @@ async def create_checkout_session(
                             "currency": "usd",
                             "product_data": {
                                 "name": "Hubzy Pro (Estudiante Zen)",
-                                "description": "Carpetas ilimitadas, batallas 1v1 y 'pregúntale a tus apuntes' con Capi IA.",
+                                "description": "Carpetas ilimitadas, más preguntas por juego y 'pregúntale a tus apuntes' con Hubzi IA.",
                             },
                             "unit_amount": 299,
                         },
@@ -152,38 +152,63 @@ async def verify_payment_session(
 
     try:
         session = stripe.checkout.Session.retrieve(session_id)
-        is_paid = session.payment_status == "paid" or session.status == "complete"
-        session_user = session.client_reference_id or (session.metadata or {}).get("user_id")
-        uid = str(current_user.get("id") or current_user.get("_id"))
-
-        # El pago solo puede acreditar al dueño de la sesión de checkout
-        if is_paid and session_user and session_user != uid:
-            raise HTTPException(
-                status_code=403, detail="Esta sesión de pago no pertenece a tu cuenta."
-            )
-
-        if is_paid and session_user:
-            await _upgrade_user_to_pro(
-                session_user,
-                customer_id=session.customer,
-                subscription_id=getattr(session, "subscription", None),
-            )
-
-        return {
-            "status": "success" if is_paid else "pending",
-            "is_paid": is_paid,
-            "user_id": session_user,
-            "amount_total": session.amount_total,
-            "currency": session.currency,
-            "mode": session.mode,
-        }
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Error verificando sesión Stripe: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error al verificar pago: {e!s}"
         ) from e
+
+    is_paid = session.payment_status == "paid" or session.status == "complete"
+    session_user = session.client_reference_id or (session.metadata or {}).get("user_id")
+    uid = str(current_user.get("id") or current_user.get("_id"))
+    meta = session.metadata or {}
+
+    if meta.get("kind") == "school":
+        # Licencia institucional: solo el admin de esa institución la activa.
+        inst_id = meta.get("institution_id") or session_user
+        inst = await _get_institution(inst_id) if inst_id else None
+        if not inst:
+            raise HTTPException(status_code=404, detail="Institución no encontrada.")
+        if not _can_manage(current_user, inst):
+            raise HTTPException(
+                status_code=403, detail="Solo el administrador activa la licencia."
+            )
+        if is_paid:
+            await _activate_school_subscription(
+                inst_id,
+                seats=int(meta.get("seats") or 0),
+                customer_id=session.customer,
+                subscription_id=getattr(session, "subscription", None),
+            )
+        return {
+            "status": "success" if is_paid else "pending",
+            "is_paid": is_paid,
+            "institution_id": inst_id,
+            "amount_total": session.amount_total,
+            "currency": session.currency,
+            "mode": session.mode,
+        }
+
+    # El pago solo puede acreditar al dueño de la sesión de checkout
+    if is_paid and session_user and session_user != uid:
+        raise HTTPException(status_code=403, detail="Esta sesión de pago no pertenece a tu cuenta.")
+
+    # Fuera del try de Stripe: un fallo de MongoDB debe ser 500 (reintento), no 400.
+    if is_paid and session_user:
+        await _upgrade_user_to_pro(
+            session_user,
+            customer_id=session.customer,
+            subscription_id=getattr(session, "subscription", None),
+        )
+
+    return {
+        "status": "success" if is_paid else "pending",
+        "is_paid": is_paid,
+        "user_id": session_user,
+        "amount_total": session.amount_total,
+        "currency": session.currency,
+        "mode": session.mode,
+    }
 
 
 @router.post("/webhook", include_in_schema=False)
@@ -210,17 +235,30 @@ async def stripe_webhook(request: Request):
     data = event["data"]["object"]
 
     if etype == "checkout.session.completed":
-        user_id = data.get("client_reference_id") or (data.get("metadata") or {}).get("user_id")
-        if user_id:
-            await _upgrade_user_to_pro(
-                user_id,
-                customer_id=data.get("customer"),
-                subscription_id=data.get("subscription"),
-            )
+        meta = data.get("metadata") or {}
+        if meta.get("kind") == "school":
+            inst_id = meta.get("institution_id") or data.get("client_reference_id")
+            if inst_id:
+                await _activate_school_subscription(
+                    inst_id,
+                    seats=int(meta.get("seats") or 0),
+                    customer_id=data.get("customer"),
+                    subscription_id=data.get("subscription"),
+                )
+        else:
+            user_id = data.get("client_reference_id") or meta.get("user_id")
+            if user_id:
+                await _upgrade_user_to_pro(
+                    user_id,
+                    customer_id=data.get("customer"),
+                    subscription_id=data.get("subscription"),
+                )
     elif etype in ("customer.subscription.deleted", "customer.subscription.canceled"):
         customer_id = data.get("customer")
         if customer_id:
             await _downgrade_user(customer_id)
+            # También puede ser la licencia de una institución
+            await _cancel_school_subscription(customer_id)
     elif etype == "invoice.payment_failed":
         logger.warning(f"Pago de suscripción fallido para customer {data.get('customer')}")
 

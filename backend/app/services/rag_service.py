@@ -7,6 +7,7 @@ de Gemini (text-embedding-004, 768 dims) para:
   - Mejor fundamentación de las preguntas generadas (menos alucinación).
 """
 
+import asyncio
 import hashlib
 import logging
 from typing import Any
@@ -87,10 +88,11 @@ class RagService:
         if not chunks:
             return 0
         try:
-            # Embeddings en lotes de 50 para no saturar la API
+            # Embeddings en lotes de 50 para no saturar la API.
+            # Las llamadas al SDK son síncronas → threads para no bloquear el loop.
             embeddings: list[list[float]] = []
             for i in range(0, len(chunks), 50):
-                embeddings.extend(self._embed(chunks[i : i + 50]))
+                embeddings.extend(await asyncio.to_thread(self._embed, chunks[i : i + 50]))
 
             points = []
             for idx, (chunk, vector) in enumerate(zip(chunks, embeddings, strict=False)):
@@ -109,7 +111,8 @@ class RagService:
                         },
                     )
                 )
-            db_manager.qdrant_client.upsert(
+            await asyncio.to_thread(
+                db_manager.qdrant_client.upsert,
                 collection_name=db_manager.qdrant_collection,
                 points=points,
             )
@@ -125,7 +128,8 @@ class RagService:
         if not self.available:
             return
         try:
-            db_manager.qdrant_client.delete(
+            await asyncio.to_thread(
+                db_manager.qdrant_client.delete,
                 collection_name=db_manager.qdrant_collection,
                 points_selector=qdrant_models.FilterSelector(
                     filter=qdrant_models.Filter(
@@ -146,8 +150,9 @@ class RagService:
         if not self.available or not query.strip():
             return []
         try:
-            query_vector = self._embed([query])[0]
-            result = db_manager.qdrant_client.query_points(
+            query_vector = (await asyncio.to_thread(self._embed, [query]))[0]
+            result = await asyncio.to_thread(
+                db_manager.qdrant_client.query_points,
                 collection_name=db_manager.qdrant_collection,
                 query=query_vector,
                 query_filter=qdrant_models.Filter(

@@ -1,7 +1,7 @@
 """
 Bandas de edad de Hubzi — la columna vertebral de la experiencia adaptativa.
 
-Cada banda define los parámetros de juego, lectura y tono de Capi según el
+Cada banda define los parámetros de juego, lectura y tono de Hubzi según el
 desarrollo cognitivo del usuario (5 a 30+ años). Todo es configuración:
 los servicios y routers consultan estos dicts, nunca hardcodean por edad.
 """

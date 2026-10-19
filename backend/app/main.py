@@ -15,11 +15,12 @@ from app.routers import (
     arena,
     auth,
     folders,
+    institutions,
+    jobs,
     payments,
     psychology,
     users,
     voice,
-    ws,
     zen,
 )
 
@@ -72,6 +73,24 @@ app.add_middleware(
 )
 
 
+# Request-id + timing: correlación de logs por petición (observabilidad base)
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    import time
+    import uuid
+
+    req_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Request-ID"] = req_id
+    logger.info(
+        f"{request.method} {request.url.path} -> {response.status_code} "
+        f"[{elapsed_ms:.0f}ms] req={req_id}"
+    )
+    return response
+
+
 # Headers de seguridad HTTP (OWASP baseline)
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -118,5 +137,6 @@ app.include_router(voice.router)
 app.include_router(psychology.router)
 app.include_router(payments.router)
 app.include_router(ai.router)
-app.include_router(ws.router)
 app.include_router(adaptive.router)
+app.include_router(jobs.router)
+app.include_router(institutions.router)

@@ -8,16 +8,15 @@ from app.core.age_bands import band_for_age, needs_parental_consent
 from app.core.database import db_manager
 from app.core.rate_limit import limiter
 from app.core.security import (
+    consume_purpose_token,
     create_access_token,
     create_purpose_token,
-    decode_purpose_token,
     get_current_user,
     hash_password,
     is_legacy_password_hash,
     utcnow_iso,
     verify_password,
 )
-from app.services import email_service
 from app.core.session_store import in_memory_auth_users
 from app.models.user import (
     AuthResponse,
@@ -25,13 +24,14 @@ from app.models.user import (
     UserAuthRegisterRequest,
     UserProfileResponse,
 )
+from app.services import email_service
 
 logger = logging.getLogger("hubzy.auth")
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
 
 def assign_voice_gender(gender: str, voice_preference: str | None = None) -> str:
-    """Regla de voz complementaria de Capi: hombre→voz femenina, mujer→voz masculina."""
+    """Regla de voz complementaria de Hubzi: hombre→voz femenina, mujer→voz masculina."""
     if voice_preference and voice_preference in ("female", "male"):
         return voice_preference
     norm = (gender or "").strip().lower()
@@ -105,6 +105,8 @@ async def auth_register(request: Request, payload: UserAuthRegisterRequest):
 
     user_id = None
     if db_manager.db is not None:
+        from pymongo.errors import DuplicateKeyError
+
         try:
             existing = await db_manager.db["users"].find_one({"email": clean_email})
             if existing:
@@ -116,8 +118,18 @@ async def auth_register(request: Request, payload: UserAuthRegisterRequest):
             user_id = str(res.inserted_id)
         except HTTPException:
             raise
+        except DuplicateKeyError:
+            # Race check-then-insert: el índice único de email es la última línea
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe una cuenta registrada con este correo electrónico.",
+            ) from None
         except Exception as e:
             logger.error(f"Error registrando en MongoDB: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Servicio de base de datos no disponible. Intenta de nuevo.",
+            ) from e
 
     if user_id is None:
         if clean_email in in_memory_auth_users:
@@ -156,6 +168,10 @@ async def auth_login(request: Request, payload: UserAuthLoginRequest):
                 user_from_mongo = True
         except Exception as e:
             logger.error(f"Error buscando usuario en MongoDB: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Servicio de base de datos no disponible. Intenta de nuevo.",
+            ) from e
 
     if not user_data and clean_email in in_memory_auth_users:
         user_data = in_memory_auth_users[clean_email]
@@ -221,12 +237,10 @@ class VerifyEmailRequest(BaseModel):
 async def _find_user_by_email(clean_email: str) -> tuple[dict | None, str | None]:
     """Busca usuario por email en Mongo o memoria. Devuelve (doc, user_id)."""
     if db_manager.db is not None:
-        try:
-            doc = await db_manager.db["users"].find_one({"email": clean_email})
-            if doc:
-                return doc, str(doc["_id"])
-        except Exception as e:
-            logger.error(f"Error buscando usuario por email: {e}")
+        doc = await db_manager.db["users"].find_one({"email": clean_email})
+        if doc:
+            return doc, str(doc["_id"])
+        return None, None
     if clean_email in in_memory_auth_users:
         doc = in_memory_auth_users[clean_email]
         return doc, doc.get("id")
@@ -236,14 +250,11 @@ async def _find_user_by_email(clean_email: str) -> tuple[dict | None, str | None
 async def _update_user(user_id: str, clean_email: str, updates: dict) -> None:
     """Aplica un $set al usuario en Mongo o en el store en memoria."""
     if db_manager.db is not None:
-        try:
-            from bson import ObjectId
+        from bson import ObjectId
 
-            query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
-            await db_manager.db["users"].update_one(query, {"$set": updates})
-            return
-        except Exception as e:
-            logger.error(f"Error actualizando usuario {user_id}: {e}")
+        query = {"_id": ObjectId(user_id)} if ObjectId.is_valid(user_id) else {"id": user_id}
+        await db_manager.db["users"].update_one(query, {"$set": updates})
+        return
     if clean_email in in_memory_auth_users:
         in_memory_auth_users[clean_email].update(updates)
 
@@ -258,7 +269,10 @@ async def auth_forgot_password(request: Request, payload: ForgotPasswordRequest)
     clean_email = payload.email.strip().lower()
     if "@" not in clean_email:
         # Respuesta genérica también aquí — no confirmamos formato ni existencia
-        return {"status": "ok", "detail": "Si el correo existe, recibirás un enlace de recuperación."}
+        return {
+            "status": "ok",
+            "detail": "Si el correo existe, recibirás un enlace de recuperación.",
+        }
     user_doc, user_id = await _find_user_by_email(clean_email)
 
     if user_doc and user_id:
@@ -273,13 +287,17 @@ async def auth_forgot_password(request: Request, payload: ForgotPasswordRequest)
 @router.post("/reset-password")
 @limiter.limit("10/minute")
 async def auth_reset_password(request: Request, payload: ResetPasswordRequest):
-    """Canjea el token de recuperación por una contraseña nueva."""
-    data = decode_purpose_token(payload.token, "reset_password")
+    """Canjea el token de recuperación por una contraseña nueva (un solo uso)."""
+    data = await consume_purpose_token(payload.token, "reset_password")
     if not data:
-        raise HTTPException(status_code=400, detail="El enlace es inválido o expiró.")
+        raise HTTPException(
+            status_code=400, detail="El enlace es inválido, expiró o ya fue utilizado."
+        )
 
     clean_email = (data.get("email") or "").strip().lower()
-    await _update_user(data["sub"], clean_email, {"password_hash": hash_password(payload.new_password)})
+    await _update_user(
+        data["sub"], clean_email, {"password_hash": hash_password(payload.new_password)}
+    )
     logger.info(f"Contraseña restablecida para {clean_email}")
     return {"status": "ok", "detail": "Contraseña actualizada. Ya puedes iniciar sesión."}
 
@@ -287,10 +305,13 @@ async def auth_reset_password(request: Request, payload: ResetPasswordRequest):
 @router.post("/verify-email")
 @limiter.limit("10/minute")
 async def auth_verify_email(request: Request, payload: VerifyEmailRequest):
-    """Confirma el correo del usuario con el token enviado al registrarse."""
-    data = decode_purpose_token(payload.token, "verify_email")
+    """Confirma el correo del usuario con el token enviado al registrarse (un solo uso)."""
+    data = await consume_purpose_token(payload.token, "verify_email")
     if not data:
-        raise HTTPException(status_code=400, detail="El enlace de verificación es inválido o expiró.")
+        raise HTTPException(
+            status_code=400,
+            detail="El enlace de verificación es inválido, expiró o ya fue utilizado.",
+        )
 
     clean_email = (data.get("email") or "").strip().lower()
     await _update_user(data["sub"], clean_email, {"email_verified": True})
@@ -299,7 +320,9 @@ async def auth_verify_email(request: Request, payload: VerifyEmailRequest):
 
 @router.post("/resend-verification")
 @limiter.limit("3/minute")
-async def auth_resend_verification(request: Request, current_user: dict = Depends(get_current_user)):
+async def auth_resend_verification(
+    request: Request, current_user: dict = Depends(get_current_user)
+):
     """Reenvía el email de verificación al usuario autenticado."""
     if current_user.get("email_verified"):
         return {"status": "ok", "detail": "Tu correo ya está verificado."}

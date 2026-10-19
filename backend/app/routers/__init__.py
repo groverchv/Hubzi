@@ -8,7 +8,6 @@ from app.routers import (
     psychology,
     users,
     voice,
-    ws,
     zen,
 )
 
@@ -22,6 +21,5 @@ __all__ = [
     "psychology",
     "users",
     "voice",
-    "ws",
     "zen",
 ]

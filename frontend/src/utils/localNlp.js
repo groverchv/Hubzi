@@ -1,5 +1,5 @@
 /**
- * NLP local de respaldo para Capi: cuando el backend/IA no responde a tiempo,
+ * NLP local de respaldo para Hubzi: cuando el backend/IA no responde a tiempo,
  * este analizador determinista cubre intención, ánimo y pistas contextuales.
  * Extraído de ArcadeArena para ser testeable y reutilizable.
  */
@@ -15,7 +15,7 @@ export function analyzeIntentLocally(transcript, nodesCtx, handCtx, { boardTitle
     return {
       mood: "love",
       reply:
-        "¡Oye, oye! Aquí estoy yo, tu Capi favorito. Respira conmigo un segundo: eso que sientes es completamente normal y válido. Los más brillantes también se atoran. ¿Hacemos una pausa Zen y luego lo atacamos juntos con toda la energía?",
+        "¡Oye, oye! Aquí estoy yo, tu Hubzi favorito. Respira conmigo un segundo: eso que sientes es completamente normal y válido. Los más brillantes también se atoran. ¿Hacemos una pausa Zen y luego lo atacamos juntos con toda la energía?",
       needsZen: true,
     };
   }

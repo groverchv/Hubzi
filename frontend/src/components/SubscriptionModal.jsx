@@ -13,7 +13,7 @@ import {
   BookOpen,
   Users
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.webp';
+import capyAdmin from '../assets/mascots/capy_administradora_f.webp';
 import { fetchWithAuth } from '../lib/api';
 
 export default function SubscriptionModal({
@@ -86,10 +86,10 @@ export default function SubscriptionModal({
           <X className="w-5 h-5 stroke-[2.5]" />
         </button>
 
-        {/* Cabecera con Capi y Badge Pro */}
+        {/* Cabecera con Hubzi y Badge Pro */}
         <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[#1e3a6c]">
           <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-3 border-[#FFB400] shadow-[0_4px_0_#D48800] shrink-0 bg-[#0a162b]">
-            <img src={capybara3dImg} alt="Capi Pro" className="w-full h-full object-cover" />
+            <img src={capyAdmin} alt="Hubzi Pro" className="w-full h-full object-cover scale-105" />
           </div>
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#0a162b] border-2 border-[#FFB400] mb-1">
@@ -131,8 +131,7 @@ export default function SubscriptionModal({
           {[
             { text: 'Subida ILIMITADA de PDFs y libros de texto densos', highlight: true },
             { text: 'Acceso completo a los 5 Niveles de dificultad en la Arena', highlight: true },
-            { text: 'Voz interactiva y psicología empática sin pausas con Capi IA', highlight: true },
-            { text: 'Modo multijugador 1v1 para competir con compañeros de clase', highlight: false },
+            { text: 'Voz interactiva y psicología empática sin pausas con Hubzi IA', highlight: true },
             { text: 'Sin límites de preguntas por simulacro ni colas de espera', highlight: false }
           ].map((item, idx) => (
             <div key={idx} className="flex items-center gap-2.5 text-slate-200">

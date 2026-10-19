@@ -222,6 +222,10 @@ Estructura JSON requerida (responde ÚNICAMENTE con JSON válido):
 SYSTEM_INSTRUCTION = build_system_instruction(question_count=5, difficulty="normal", level=2)
 
 
+# Tope de texto extraído por documento: acota el uso de memoria y el
+# tamaño del prompt que viaja al LLM en cada generación.
+MAX_DOC_TEXT_CHARS = 200_000
+
 # Modelos en orden de preferencia y cuota disponible. Si uno falla con 429 (cuota agotada) o 503, se usa el siguiente automáticamente.
 # Modelos oficiales de Google Gemini en orden de velocidad y cuota disponible.
 GEMINI_FALLBACK_MODELS = [
@@ -240,6 +244,10 @@ class AIService:
     def __init__(self):
         self.client = None
         self.groq_client = None
+        # Stickiness: recordar el último modelo que respondió para probarlo
+        # primero y no pagar la cascada de fallos en cada request.
+        self._last_good_groq: str | None = None
+        self._last_good_gemini: str | None = None
 
         # Groq Client (Ultra fast inference)
         if GROQ_AVAILABLE and settings.GROQ_API_KEY:
@@ -252,10 +260,16 @@ class AIService:
                 self.groq_client = None
                 logger.warning(f"No se pudo inicializar Groq Client: {e}")
 
-        # Google Gemini Client
+        # Google Gemini Client — timeout explícito para que una llamada
+        # colgada no congele el worker indefinidamente.
         if GENAI_AVAILABLE and settings.GEMINI_API_KEY:
             try:
-                self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                http_options = None
+                if hasattr(genai_types, "HttpOptions"):
+                    http_options = genai_types.HttpOptions(timeout=90_000)
+                self.client = genai.Client(
+                    api_key=settings.GEMINI_API_KEY, http_options=http_options
+                )
                 logger.info("Google GenAI client inicializado correctamente (SDK google-genai).")
             except Exception as e:
                 self.client = None
@@ -321,7 +335,7 @@ class AIService:
         # 1. PRIORIDAD: GROQ (Velocidad ultrarrápida / baja latencia ~300+ tok/s)
         # =====================================================================
         if self.groq_client:
-            for g_model in GROQ_MODELS:
+            for g_model in self._ordered_models(GROQ_MODELS, self._last_good_groq):
                 try:
                     logger.info(
                         f"⚡ Invocando Groq ultrarrápido con modelo '{g_model}' (nivel: {level}, {question_count} preguntas)..."
@@ -338,6 +352,7 @@ class AIService:
                     )
                     raw_text = (chat_completion.choices[0].message.content or "").strip()
                     parsed_json = json.loads(raw_text)
+                    self._last_good_groq = g_model
                     logger.info(
                         f"⚡ Reactivos generados exitosamente con Groq ({g_model}) a máxima velocidad."
                     )
@@ -354,7 +369,7 @@ class AIService:
             raise RuntimeError("Groq falló y Gemini no está configurado.")
 
         last_error = None
-        for model_name in GEMINI_FALLBACK_MODELS:
+        for model_name in self._ordered_models(GEMINI_FALLBACK_MODELS, self._last_good_gemini):
             try:
                 logger.info(
                     f"Invocando Gemini con modelo '{model_name}' (nivel: {level}, {question_count} preguntas, seed: {variation_seed})..."
@@ -428,6 +443,7 @@ class AIService:
                 if not parsed_json or not isinstance(parsed_json, dict):
                     raise json.JSONDecodeError("JSON no válido o no diccionario", raw_text, 0)
 
+                self._last_good_gemini = model_name
                 logger.info(f"Reactivos generados exitosamente con modelo '{model_name}'.")
                 return parsed_json
 
@@ -477,7 +493,7 @@ class AIService:
         part = genai_types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
         last_error = None
 
-        for model_name in GEMINI_FALLBACK_MODELS:
+        for model_name in self._ordered_models(GEMINI_FALLBACK_MODELS, self._last_good_gemini):
             try:
                 logger.info(f"Ejecutando OCR Multimodal ultra-rápido con modelo '{model_name}'...")
                 response = self.client.models.generate_content(
@@ -491,6 +507,7 @@ class AIService:
                     ),
                 )
                 extracted = (response.text or "").strip()
+                self._last_good_gemini = model_name
                 logger.info(
                     f"OCR completado exitosamente con '{model_name}': {len(extracted)} caracteres extraídos."
                 )
@@ -505,7 +522,24 @@ class AIService:
         logger.error(f"Error en OCR multimodal en todos los modelos: {last_error}")
         raise RuntimeError(f"Error procesando OCR del archivo: {last_error!s}")
 
+    @staticmethod
+    def _ordered_models(models: list[str], last_good: str | None) -> list[str]:
+        """Pone primero el último modelo que funcionó (evita pagar la cascada de fallos)."""
+        if last_good and last_good in models:
+            return [last_good] + [m for m in models if m != last_good]
+        return list(models)
+
     def extract_document_text(self, file_bytes: bytes, filename: str) -> str:
+        """Extracción con tope de tamaño para acotar memoria y prompts del LLM."""
+        text = self._extract_document_text(file_bytes, filename)
+        if len(text) > MAX_DOC_TEXT_CHARS:
+            logger.info(
+                f"Texto de '{filename}' truncado a {MAX_DOC_TEXT_CHARS} caracteres ({len(text)} originales)."
+            )
+            text = text[:MAX_DOC_TEXT_CHARS]
+        return text
+
+    def _extract_document_text(self, file_bytes: bytes, filename: str) -> str:
         """
         Pipeline Híbrido Inteligente de Extracción de Texto:
         1. PDFs:
@@ -610,6 +644,54 @@ class AIService:
             except Exception:
                 return ""
 
+    def summarize_document(self, text: str, max_chars: int = 1500) -> str:
+        """
+        Resumen ejecutivo del documento (viñetas de conceptos clave).
+        Se usa como metadato ligero por doc y para futuras generaciones
+        con contexto acotado. Devuelve "" si ningún proveedor responde.
+        """
+        if not text or len(text.strip()) < 80:
+            return ""
+        prompt = (
+            "Resume en un máximo de 8 viñetas los conceptos, definiciones y fórmulas "
+            "clave del siguiente material de estudio. Español, denso, directo, sin saludos "
+            "ni comentarios meta:\n\n"
+            f"{text[:60000]}"
+        )
+        if self.groq_client:
+            for g_model in self._ordered_models(GROQ_MODELS, self._last_good_groq):
+                try:
+                    comp = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.3,
+                        max_tokens=500,
+                        timeout=10.0,
+                    )
+                    out = (comp.choices[0].message.content or "").strip()
+                    if out:
+                        self._last_good_groq = g_model
+                        return out[:max_chars]
+                except Exception as e:
+                    logger.debug(f"Resumen con Groq ({g_model}) falló: {e}")
+        if self.client:
+            for model_name in self._ordered_models(
+                GEMINI_FALLBACK_MODELS[:3], self._last_good_gemini
+            ):
+                try:
+                    resp = self.client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=genai_types.GenerateContentConfig(temperature=0.3),
+                    )
+                    out = (resp.text or "").strip()
+                    if out:
+                        self._last_good_gemini = model_name
+                        return out[:max_chars]
+                except Exception as e:
+                    logger.debug(f"Resumen con Gemini ({model_name}) falló: {e}")
+        return ""
+
     def generate_capy_response_with_psychology(
         self,
         user_message: str,
@@ -617,6 +699,7 @@ class AIService:
         hand_context: list,
         theme: str = "",
         user_profile: dict[str, Any] | None = None,
+        history: list | None = None,
     ) -> dict[str, Any]:
         """
         Analiza el estado psicológico y emocional del estudiante usando NLP
@@ -631,8 +714,8 @@ class AIService:
         age = user_info.get("age", 20)
 
         # Configuración de rol según la regla de género:
-        # Estudiante Hombre -> Capi como figura protectora y maternal femenina
-        # Estudiante Mujer -> Capi como figura sabia y serena masculina
+        # Estudiante Hombre -> Hubzi como figura protectora y maternal femenina
+        # Estudiante Mujer -> Hubzi como figura sabia y serena masculina
         if gender in ("masculino", "hombre", "varon"):
             persona_role = "Hablas como una capibara consejera femenina, infinitamente dulce, tierna y maternal."
             vocative = "mi campeón lindo, mi cielo, mi rey inteligente"
@@ -709,8 +792,23 @@ class AIService:
                 "y recordarle que errar es parte del juego. Sugiere hacer una pausa o respirar juntos si lo necesita."
             )
 
+        # Memoria conversacional: los últimos intercambios le dan a Hubzi
+        # continuidad de amigo real (máx ~6 turnos para no inflar el prompt)
+        history_summary = ""
+        for h in (history or [])[-6:]:
+            speaker = student_name if h.get("role") == "user" else "Hubzi"
+            snippet = str(h.get("text", ""))[:140]
+            if snippet:
+                history_summary += f"- {speaker}: {snippet}\n"
+        if history_summary:
+            history_summary = (
+                "CONVERSACIÓN RECIENTE (mantén continuidad, recuerda lo que te contó):\n"
+                + history_summary
+                + "\n"
+            )
+
         sys_prompt = (
-            f"Eres Capi: una capibara terapeuta gamer de Hubzy. {persona_role}\n"
+            f"Eres Hubzi: una capibara terapeuta gamer de Hubzy. {persona_role}\n"
             f"Te diriges a tu estudiante {student_name}.\n"
             f"{age_tone}\n"
             f"El tema de la sesión es: '{theme}'.\n"
@@ -719,9 +817,11 @@ class AIService:
             f"{nodes_summary}\n\n"
             "CARTAS DISPONIBLES:\n"
             f"{hand_summary}\n\n"
+            f"{history_summary}"
             "REGLAS OBLIGATORIAS DE TU VOZ Y PERSONALIDAD:\n"
             f"1. Llena al estudiante de afecto sincero y llámalo a veces por su nombre ({student_name}) o con expresiones como ({vocative}).\n"
             "2. Sé sintético: máximo 2 oraciones breves (entre 18 y 30 palabras) diseñadas para sonar como un abrazo al corazón.\n"
+            "6. Si el usuario habla de su vida, emociones o cualquier tema fuera del juego, conversa como su amigo cercano — no todo es estudio.\n"
             "3. Si el usuario tiene miedo o frustración, valida su emoción y hazle sentir que no está solo y que un error no cambia lo valioso e inteligente que es.\n"
             "4. Si pide una pista, dale la luz pedagógica con mucho cariño y suavidad.\n"
             "5. Devuelve ÚNICAMENTE el texto limpio para ser pronunciado por voz (sin asteriscos, sin comillas)."
@@ -807,7 +907,7 @@ class AIService:
             for g_model in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]:
                 try:
                     sys_instruction = (
-                        "Eres Capi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
+                        "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
                         "Tu objetivo es reducir la ansiedad ante exámenes y optimizar el rendimiento del estudiante.\n"
                         f"NIVEL COGNITIVO: Nivel {level}/5. Enfoque: {psy_desc}\n"
                         f"SITUACIÓN: {sit_desc}\n"
@@ -845,7 +945,7 @@ class AIService:
         # 2. Respaldo con Gemini
         if self.client:
             sys_instruction = (
-                "Eres Capi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
+                "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
                 "Tu objetivo es reducir la ansiedad ante exámenes y optimizar el rendimiento del estudiante.\n"
                 f"NIVEL COGNITIVO: Nivel {level}/5. Enfoque: {psy_desc}\n"
                 f"SITUACIÓN: {sit_desc}\n"

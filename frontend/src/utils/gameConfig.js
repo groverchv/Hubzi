@@ -1,5 +1,5 @@
 // 20 NIVELES DE PROGRESIÓN PEDAGÓGICA (Nivel K = K preguntas)
-// Nivel 20 = Batalla Final contra Capi Boss
+// Nivel 20 = Batalla Final contra Hubzi Boss
 export const GAME_LEVELS = Array.from({ length: 20 }, (_, i) => {
   const lvl = i + 1;
   const isBoss = lvl === 20;
@@ -24,14 +24,14 @@ export const GAME_LEVELS = Array.from({ length: 20 }, (_, i) => {
 
   return {
     level: lvl,
-    name: isBoss ? "Duelo Legendario: Capi Boss" : `Fase ${lvl}: ${diffLabel}`,
+    name: isBoss ? "Duelo Legendario: Hubzi Boss" : `Fase ${lvl}: ${diffLabel}`,
     questions: lvl, // Exactamente K preguntas en el nivel K
     difficulty,
     hasTraps,
     trapCount: hasTraps ? trapCount : 0,
     isBoss,
     desc: isBoss
-      ? "¡Enfrenta al Gran Capi en el examen definitivo de 20 reactivos! Derrótalo acertando el circuito."
+      ? "¡Enfrenta al Gran Hubzi en el examen definitivo de 20 reactivos! Derrótalo acertando el circuito."
       : hasTraps
         ? `Resuelve los ${lvl} nodos con atención: ¡Hay ${trapCount} carta(s) trampa en tu mazo!`
         : `Circuito inicial de ${lvl} pregunta(s) directa(s).`,

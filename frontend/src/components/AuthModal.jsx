@@ -16,7 +16,7 @@ import {
   Volume2,
   X
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.webp';
+import capyEscolar from '../assets/mascots/capy_escolar_nino_m.webp';
 import { fetchWithAuth } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 
@@ -40,7 +40,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   if (!isOpen) return null;
 
   const isMaleUser = gender === 'masculino';
-  const assignedVoiceLabel = isMaleUser ? 'Voz Femenina dulce (Capi)' : 'Voz Masculina sabia (Capi)';
+  const assignedVoiceLabel = isMaleUser ? 'Voz Femenina dulce (Hubzi)' : 'Voz Masculina sabia (Hubzi)';
 
   const handleToggleMode = (newMode) => {
     setMode(newMode);
@@ -200,7 +200,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         {/* Header con Capibara y Título */}
         <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[#1e3a6c]">
           <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-3 border-[#FFB400] shadow-[0_4px_0_#D48800] shrink-0 bg-[#0a162b]">
-            <img src={capybara3dImg} alt="Capi Guardián" className="w-full h-full object-cover" />
+            <img src={capyEscolar} alt="Hubzi Guardián" className="w-full h-full object-cover scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
           <div>
@@ -384,7 +384,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     }`}
                   >
                     <span>Hombre</span>
-                    <span className="text-[9px] text-pink-400">Voz Capi Fem.</span>
+                    <span className="text-[9px] text-pink-400">Voz Hubzi Fem.</span>
                   </button>
 
                   <button
@@ -397,7 +397,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                     }`}
                   >
                     <span>Mujer</span>
-                    <span className="text-[9px] text-cyan-400">Voz Capi Masc.</span>
+                    <span className="text-[9px] text-cyan-400">Voz Hubzi Masc.</span>
                   </button>
                 </div>
               </div>

@@ -32,13 +32,12 @@ import capyContadorM from '../assets/mascots/capy_contador_m.webp';
 import capyProfesorM from '../assets/mascots/capy_profesor_m.webp';
 import capyDisenadorM from '../assets/mascots/capy_disenador_m.webp';
 import capyPeriodistaM from '../assets/mascots/capy_periodista_m.webp';
-import capyOriginal from '../assets/capybara_3d.webp';
 
 export const MASCOT_CATALOG = [
   // --- SALUD & CIENCIAS MÉDICAS ---
   {
     id: 'capy_medica_f',
-    name: 'Dra. Capy',
+    name: 'Dra. Hubzi',
     role: 'Medicina & Cirugía',
     gender: 'female',
     category: 'Salud',
@@ -47,7 +46,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_medico_m',
-    name: 'Dr. Capy',
+    name: 'Dr. Hubzi',
     role: 'Medicina General',
     gender: 'male',
     category: 'Salud',
@@ -56,7 +55,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_enfermera_f',
-    name: 'Lic. Capy Enfermera',
+    name: 'Lic. Hubzi Enfermera',
     role: 'Enfermería & Cuidados',
     gender: 'female',
     category: 'Salud',
@@ -65,7 +64,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_enfermero_m',
-    name: 'Lic. Capy Enfermero',
+    name: 'Lic. Hubzi Enfermero',
     role: 'Enfermería Hospitalaria',
     gender: 'male',
     category: 'Salud',
@@ -74,7 +73,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_odontologo_m',
-    name: 'Dr. Capy Dental',
+    name: 'Dr. Hubzi Dental',
     role: 'Odontología',
     gender: 'male',
     category: 'Salud',
@@ -83,7 +82,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_farmaceutica_f',
-    name: 'Q.F. Capy',
+    name: 'Q.F. Hubzi',
     role: 'Farmacia & Bioquímica',
     gender: 'female',
     category: 'Salud',
@@ -92,7 +91,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_veterinaria_f',
-    name: 'Dra. Capy Vet',
+    name: 'Dra. Hubzi Vet',
     role: 'Medicina Veterinaria',
     gender: 'female',
     category: 'Salud',
@@ -103,7 +102,7 @@ export const MASCOT_CATALOG = [
   // --- DERECHO & CIENCIAS JURÍDICAS ---
   {
     id: 'capy_abogado_m',
-    name: 'Lic. Capy',
+    name: 'Lic. Hubzi',
     role: 'Derecho Procesal & Penal',
     gender: 'male',
     category: 'Leyes',
@@ -112,7 +111,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_abogada_f',
-    name: 'Dra. Capy Jurista',
+    name: 'Dra. Hubzi Jurista',
     role: 'Derecho Constitucional & Civil',
     gender: 'female',
     category: 'Leyes',
@@ -123,7 +122,7 @@ export const MASCOT_CATALOG = [
   // --- INGENIERÍA & TECNOLOGÍA ---
   {
     id: 'capy_programadora_f',
-    name: 'Capy Dev',
+    name: 'Hubzi Dev',
     role: 'Ingeniería de Software & IA',
     gender: 'female',
     category: 'Tecnología',
@@ -132,7 +131,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_programador_m',
-    name: 'Capy Hacker',
+    name: 'Hubzi Hacker',
     role: 'Sistemas & Algoritmos',
     gender: 'male',
     category: 'Tecnología',
@@ -141,7 +140,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_ingeniero_civil_m',
-    name: 'Ing. Capy Civil',
+    name: 'Ing. Hubzi Civil',
     role: 'Ingeniería Civil',
     gender: 'male',
     category: 'Ingeniería',
@@ -150,7 +149,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_ingeniera_civil_f',
-    name: 'Ing. Capy Obras',
+    name: 'Ing. Hubzi Obras',
     role: 'Estructuras & Geotecnia',
     gender: 'female',
     category: 'Ingeniería',
@@ -159,7 +158,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_arquitecto_m',
-    name: 'Arq. Capy',
+    name: 'Arq. Hubzi',
     role: 'Arquitectura & Urbanismo',
     gender: 'male',
     category: 'Diseño',
@@ -170,7 +169,7 @@ export const MASCOT_CATALOG = [
   // --- CIENCIAS EXACTAS & SOCIALES ---
   {
     id: 'capy_matematica_f',
-    name: 'Profa. Capy Math',
+    name: 'Profa. Hubzi Math',
     role: 'Matemáticas & Cálculo',
     gender: 'female',
     category: 'Ciencias',
@@ -179,7 +178,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_quimico_m',
-    name: 'Dr. Capy Químico',
+    name: 'Dr. Hubzi Químico',
     role: 'Química & Laboratorio',
     gender: 'male',
     category: 'Ciencias',
@@ -188,7 +187,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_psicologo_m',
-    name: 'Lic. Capy Psi',
+    name: 'Lic. Hubzi Psi',
     role: 'Psicología & Neurociencias',
     gender: 'male',
     category: 'Humanidades',
@@ -197,7 +196,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_administradora_f',
-    name: 'Mg. Capy Business',
+    name: 'Mg. Hubzi Business',
     role: 'Administración & Finanzas',
     gender: 'female',
     category: 'Negocios',
@@ -206,7 +205,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_artista_f',
-    name: 'Capy Artista',
+    name: 'Hubzi Artista',
     role: 'Artes Visuales & Creatividad',
     gender: 'female',
     category: 'Artes',
@@ -217,7 +216,7 @@ export const MASCOT_CATALOG = [
   // --- NUEVAS ÁREAS & ESPECIALIDADES PROFESIONALES ---
   {
     id: 'capy_economista_m',
-    name: 'Lic. Capy Econ',
+    name: 'Lic. Hubzi Econ',
     role: 'Economía & Finanzas',
     gender: 'male',
     category: 'Negocios',
@@ -226,7 +225,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_biologo_m',
-    name: 'Dr. Capy Bio',
+    name: 'Dr. Hubzi Bio',
     role: 'Biología & Genética',
     gender: 'male',
     category: 'Ciencias',
@@ -235,7 +234,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_astronomo_m',
-    name: 'Capy Cosmos',
+    name: 'Hubzi Cosmos',
     role: 'Astronomía & Astrofísica',
     gender: 'male',
     category: 'Ciencias',
@@ -244,7 +243,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_historiador_m',
-    name: 'Prof. Capy Arqueo',
+    name: 'Prof. Hubzi Arqueo',
     role: 'Historia & Arqueología',
     gender: 'male',
     category: 'Humanidades',
@@ -253,7 +252,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_chef_m',
-    name: 'Chef Capy Gourmet',
+    name: 'Chef Hubzi Gourmet',
     role: 'Gastronomía & Nutrición',
     gender: 'male',
     category: 'Artes',
@@ -262,7 +261,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_electrico_m',
-    name: 'Ing. Capy Volt',
+    name: 'Ing. Hubzi Volt',
     role: 'Ingeniería Eléctrica & Electrónica',
     gender: 'male',
     category: 'Ingeniería',
@@ -271,7 +270,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_ciberseguridad_m',
-    name: 'Capy CyberShield',
+    name: 'Hubzi CyberShield',
     role: 'Ciberseguridad & Redes',
     gender: 'male',
     category: 'Tecnología',
@@ -280,7 +279,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_mecanico_m',
-    name: 'Ing. Capy Torque',
+    name: 'Ing. Hubzi Torque',
     role: 'Ingeniería Mecánica & Automotriz',
     gender: 'male',
     category: 'Ingeniería',
@@ -289,7 +288,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_contador_m',
-    name: 'C.P. Capy Balance',
+    name: 'C.P. Hubzi Balance',
     role: 'Contaduría Pública & Auditoría',
     gender: 'male',
     category: 'Negocios',
@@ -298,7 +297,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_profesor_m',
-    name: 'Prof. Capy Maestro',
+    name: 'Prof. Hubzi Maestro',
     role: 'Educación & Pedagogía',
     gender: 'male',
     category: 'Educación',
@@ -307,7 +306,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_disenador_m',
-    name: 'Capy UX/UI',
+    name: 'Hubzi UX/UI',
     role: 'Diseño Gráfico & Experiencia de Usuario',
     gender: 'male',
     category: 'Diseño',
@@ -316,7 +315,7 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_periodista_m',
-    name: 'Lic. Capy Prensa',
+    name: 'Lic. Hubzi Prensa',
     role: 'Periodismo & Comunicación',
     gender: 'male',
     category: 'Humanidades',
@@ -327,7 +326,7 @@ export const MASCOT_CATALOG = [
   // --- ESCOLARES & GENERAL ---
   {
     id: 'capy_escolar_nina_f',
-    name: 'Capy Colegiala',
+    name: 'Hubzi Colegiala',
     role: 'Primaria & Secundaria',
     gender: 'female',
     category: 'Escolar',
@@ -336,21 +335,12 @@ export const MASCOT_CATALOG = [
   },
   {
     id: 'capy_escolar_nino_m',
-    name: 'Capy Estudiante',
+    name: 'Hubzi Estudiante',
     role: 'Colegio & Bachillerato',
     gender: 'male',
     category: 'Escolar',
     image: capyEscolarNinoM,
     greeting: '¡Cuaderno listo y lápiz afilado! ¡Vamos por la mejor nota!'
-  },
-  {
-    id: 'capy_original',
-    name: 'Capy Zen',
-    role: 'Compañero Universal',
-    gender: 'neutral',
-    category: 'General',
-    image: capyOriginal,
-    greeting: '¡Aquí estoy para acompañarte con música, calma y buena vibra!'
   }
 ];
 
@@ -441,8 +431,11 @@ export function getMascotByDomain(domainCategory = 'general', userGender = null)
     return MASCOT_CATALOG.find(m => m.id === 'capy_artista_f') || MASCOT_CATALOG[0];
   }
   if (normalized.includes('escolar') || normalized.includes('primari') || normalized.includes('secundari') || normalized.includes('coleg')) {
-    if (userGender === 'male') return MASCOT_CATALOG.find(m => m.id === 'capy_escolar_nino_m') || MASCOT_CATALOG[4];
-    return MASCOT_CATALOG.find(m => m.id === 'capy_escolar_nina_f') || MASCOT_CATALOG[4];
+    if (userGender === 'female') return MASCOT_CATALOG.find(m => m.id === 'capy_escolar_nina_f') || MASCOT_CATALOG[0];
+    return MASCOT_CATALOG.find(m => m.id === 'capy_escolar_nino_m') || MASCOT_CATALOG[0];
   }
-  return MASCOT_CATALOG.find(m => m.id === 'capy_original') || MASCOT_CATALOG[0];
+  if (userGender === 'female') {
+    return MASCOT_CATALOG.find(m => m.id === 'capy_escolar_nina_f') || MASCOT_CATALOG.find(m => m.id === 'capy_administradora_f') || MASCOT_CATALOG[0];
+  }
+  return MASCOT_CATALOG.find(m => m.id === 'capy_escolar_nino_m') || MASCOT_CATALOG.find(m => m.id === 'capy_profesor_m') || MASCOT_CATALOG[0];
 }

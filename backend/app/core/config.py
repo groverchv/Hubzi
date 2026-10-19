@@ -1,4 +1,7 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEV_JWT_SECRET = "dev-only-insecure-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -30,9 +33,10 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
     STRIPE_PRICE_ID: str | None = None  # price_... para suscripción mensual Pro
+    STRIPE_SCHOOL_PRICE_ID: str | None = None  # price_... seat/mes institucional
 
     # Auth / JWT
-    JWT_SECRET: str = "dev-only-insecure-secret-change-me"
+    JWT_SECRET: str = _DEV_JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 días
 
@@ -42,6 +46,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     SENTRY_DSN: str | None = None
     RATE_LIMIT_ENABLED: bool = True
+    # Backend de almacenamiento de slowapi (memory:// por defecto).
+    # Para múltiples workers/réplicas usar p. ej. redis://host:6379 o mongodb://host:27017
+    RATE_LIMIT_STORAGE_URI: str | None = None
 
     # Recursos de crisis configurables (JSON: [{"name","detail","phone","url"}])
     # IMPORTANTE: verificar números locales reales antes de producción (ver docs/exploracion-ansiedad-uagrm.md)
@@ -73,6 +80,21 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
+
+    @model_validator(mode="after")
+    def _reject_insecure_secrets_in_production(self):
+        """Fail-fast: jamás arrancar en producción con credenciales por defecto."""
+        if self.is_production:
+            if (
+                not self.JWT_SECRET
+                or self.JWT_SECRET == _DEV_JWT_SECRET
+                or len(self.JWT_SECRET) < 32
+            ):
+                raise ValueError(
+                    "JWT_SECRET inseguro para producción. Genera uno con "
+                    "`openssl rand -hex 32` y expórtalo como variable de entorno."
+                )
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

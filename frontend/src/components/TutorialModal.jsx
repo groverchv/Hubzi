@@ -10,7 +10,7 @@ import {
   HelpCircle,
   X
 } from 'lucide-react';
-import capybara3dImg from '../assets/capybara_3d.webp';
+import capyProfesor from '../assets/mascots/capy_profesor_m.webp';
 
 const TUTORIAL_STEPS = [
   {
@@ -27,7 +27,7 @@ const TUTORIAL_STEPS = [
     icon: Target,
     iconColor: 'text-[#48C838]',
     desc: 'Los nodos en el tablero te plantean desafíos. Haz clic en el nodo correspondiente para colocar la carta correcta.',
-    tip: 'Si tienes dudas, Capi te puede dar pistas en tiempo real.'
+    tip: 'Si tienes dudas, Hubzi te puede dar pistas en tiempo real.'
   },
   {
     step: 3,
@@ -35,7 +35,7 @@ const TUTORIAL_STEPS = [
     icon: Sparkles,
     iconColor: 'text-[#FFB400]',
     desc: 'Responde la pregunta de validación para sellar el concepto. ¡Supera los 5 niveles progresivos y domina cualquier materia!',
-    tip: 'Puedes hablar con Capi tocando su micrófono en cualquier momento.'
+    tip: 'Puedes hablar con Hubzi tocando su micrófono en cualquier momento.'
   }
 ];
 
@@ -77,7 +77,7 @@ export default function TutorialModal({ isOpen, onClose }) {
         {/* Header con Capibara Tutor */}
         <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[#1e3a6c]">
           <div className="w-13 h-13 rounded-2xl overflow-hidden border-3 border-[#FFB400] shrink-0 bg-[#0a162b] shadow-[0_3px_0_#D48800]">
-            <img src={capybara3dImg} alt="Capi Tutor" className="w-full h-full object-cover" />
+            <img src={capyProfesor} alt="Hubzi Tutor" className="w-full h-full object-cover scale-105" />
           </div>
           <div>
             <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider flex items-center gap-1">

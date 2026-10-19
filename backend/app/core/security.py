@@ -73,6 +73,7 @@ def create_purpose_token(user_id: str, email: str, purpose: str, expires_minutes
         "exp": now + timedelta(minutes=expires_minutes),
         "type": "purpose",
         "purpose": purpose,
+        "jti": secrets.token_hex(8),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
@@ -83,6 +84,46 @@ def decode_purpose_token(token: str, expected_purpose: str) -> dict | None:
     if not payload or payload.get("type") != "purpose":
         return None
     if payload.get("purpose") != expected_purpose:
+        return None
+    return payload
+
+
+async def _try_consume_jti(jti: str) -> bool:
+    """
+    Marca un jti como consumido de forma atómica.
+    True si es la primera vez que se usa; False si ya fue canjeado.
+    """
+    from app.core.database import db_manager
+    from app.core.session_store import in_memory_consumed_tokens
+
+    if db_manager.db is not None:
+        try:
+            await db_manager.db["consumed_tokens"].insert_one(
+                {"jti": jti, "consumed_at": datetime.now(timezone.utc)}
+            )
+            return True
+        except Exception:
+            # DuplicateKeyError en el índice único de jti → token ya canjeado
+            return False
+    if jti in in_memory_consumed_tokens:
+        return False
+    in_memory_consumed_tokens.add(jti)
+    return True
+
+
+async def consume_purpose_token(token: str, expected_purpose: str) -> dict | None:
+    """
+    Decodifica un token de propósito y lo marca como consumido (un solo uso).
+    Devuelve el payload si es válido y no fue canjeado antes; None en caso contrario.
+    """
+    payload = decode_purpose_token(token, expected_purpose)
+    if not payload:
+        return None
+    jti = payload.get("jti")
+    if not jti:
+        # Token emitido antes de la introducción de jti: se acepta (expira pronto)
+        return payload
+    if not await _try_consume_jti(jti):
         return None
     return payload
 
@@ -98,20 +139,19 @@ def utcnow_iso() -> str:
 
 async def _resolve_user(user_id: str) -> dict | None:
     """Busca al usuario en MongoDB y luego en el almacén en memoria (dev sin BD)."""
+    from bson import ObjectId
+
     from app.core.database import db_manager
     from app.core.session_store import in_memory_auth_users
 
     if db_manager.db is not None:
-        try:
-            from bson import ObjectId
-
-            query = {"_id": ObjectId(user_id)} if len(user_id) == 24 else {"id": user_id}
-            user = await db_manager.db["users"].find_one(query)
-            if user:
-                user["id"] = str(user["_id"])
-                return user
-        except Exception as e:
-            logger.warning(f"Error resolviendo usuario {user_id}: {e}")
+        # ObjectId.is_valid evita el InvalidId de bson. Un fallo real de
+        # MongoDB propaga como 500 en lugar de degradar silenciosamente a memoria.
+        query = {"_id": ObjectId(user_id)} if ObjectId.is_valid(user_id) else {"id": user_id}
+        user = await db_manager.db["users"].find_one(query)
+        if user:
+            user["id"] = str(user["_id"])
+            return user
 
     for u in in_memory_auth_users.values():
         if u.get("id") == user_id:

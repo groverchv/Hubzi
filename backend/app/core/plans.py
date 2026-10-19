@@ -9,19 +9,22 @@ PLAN_LIMITS = {
     "guest": {
         "max_folders": 3,
         "max_docs_per_folder": 5,
-        "multiplayer": False,
         "max_questions_per_game": 8,
     },
     "free": {
         "max_folders": 3,
         "max_docs_per_folder": 5,
-        "multiplayer": False,
         "max_questions_per_game": 8,
     },
     "pro": {
         "max_folders": None,
         "max_docs_per_folder": None,
-        "multiplayer": True,
+        "max_questions_per_game": 30,
+    },
+    # Plan institucional (colegios): miembros con rol student/teacher/admin
+    "school": {
+        "max_folders": None,
+        "max_docs_per_folder": None,
         "max_questions_per_game": 30,
     },
 }
@@ -54,11 +57,3 @@ def enforce_question_limit(plan: str, requested: int | None) -> int | None:
     if requested is not None and limit is not None and requested > limit:
         return limit
     return requested
-
-
-def enforce_multiplayer(plan: str):
-    if not get_limits(plan)["multiplayer"]:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Las batallas 1v1 en vivo son exclusivas del plan Hubzy Pro.",
-        )
