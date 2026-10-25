@@ -43,7 +43,7 @@ import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
 import { sfx } from "../utils/sfx";
 import { detectDomainCategory } from "../utils/domainIcons";
-import { STATIC_ADMIN_GAME } from "../utils/staticAdminGame";
+
 import { fetchWithAuth } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { useCrisis, checkCrisisFlag } from "../lib/crisis.jsx";
@@ -1266,34 +1266,6 @@ export default function ArcadeArena() {
       }
     }
 
-    // Únicamente si es la carpeta demo de muestra (identificada por su ID fijo;
-    // la carpeta demo lleva administracion.pdf precargado en su lista de docs)
-    const isStaticDemoFolder =
-      targetFolder.id === "folder_administracion_default";
-
-    if (isStaticDemoFolder && STATIC_ADMIN_GAME.levels) {
-      // La demo solo empaqueta niveles 1-5; para 6-20 se cicla el contenido
-      // estático (la demo es solo la primera impresión — el contenido real
-      // se genera por IA cuando el usuario crea su propia carpeta).
-      const staticLevelData =
-        STATIC_ADMIN_GAME.levels[targetLevel] ??
-        STATIC_ADMIN_GAME.levels[((targetLevel - 1) % 5) + 1];
-      const success = applyBoardData(
-        staticLevelData,
-        targetFolder.name || "Administración General",
-        targetLevel,
-      );
-      if (success) {
-        setCurrentLevel(targetLevel);
-        setIsGeneratingArena(false);
-        setGenStage(null);
-        setSuccessNotif(
-          `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) [administracion.pdf demo] listo.`,
-        );
-        return true;
-      }
-    }
-
     try {
       const res = await fetchWithAuth(
         `/api/v1/folders/${targetFolder.id}/generate-game?level=${targetLevel}&question_count=${lvlInfo.questions}&difficulty=${lvlInfo.difficulty}&async=true${islandQuery(targetIsland)}${force ? "&force=true" : ""}`,
@@ -1671,25 +1643,6 @@ export default function ArcadeArena() {
           username={currentUser?.username || currentUser?.email?.split("@")[0]}
           onOpenLogin={() => setIsAuthModalOpen(true)}
           onOpenTutorial={() => setIsTutorialOpen(true)}
-          onStartDemo={() => {
-            // Entrar de inmediato a la partida demostrativa con administracion.pdf
-            const demoUser = currentUser || {
-              id: "guest_demo",
-              username: "Estudiante Demo",
-              email: "demo@hubzi.app",
-              is_guest: true,
-            };
-            if (!currentUser) setCurrentUser(demoUser);
-            setIsWelcomeScreenVisible(false);
-            const defaultFolder = {
-              id: "folder_administracion_default",
-              name: "Administración General",
-              documents: [{ name: "administracion.pdf" }],
-            };
-            setActiveFolder(defaultFolder);
-            setIsMapVisible(true);
-            loadGameForLevel(1, defaultFolder, false);
-          }}
           onContinue={() => {
             if (!currentUser) {
               // Si no inició sesión, abre el modal de login

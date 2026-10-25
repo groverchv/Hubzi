@@ -30,7 +30,6 @@ export default function WelcomeScreen({
   onOpenTutorial,
   onOpenLogin,
   onOpenLegal,
-  onStartDemo,
   isLoggedIn = false,
   username = ''
 }) {
@@ -66,11 +65,6 @@ export default function WelcomeScreen({
   const handleContinueClick = (e) => {
     lobbyAmbient.stop(0.4);
     if (onContinue) onContinue(e);
-  };
-
-  const handleStartDemoClick = (e) => {
-    lobbyAmbient.stop(0.4);
-    if (onStartDemo) onStartDemo(e);
   };
 
   const handleInstallClick = () => {
@@ -301,19 +295,6 @@ export default function WelcomeScreen({
                 <Lock className="w-4 h-4 text-amber-400 stroke-[2.5]" />
               )}
             </div>
-          </motion.button>
-
-          {/* BOTÓN MVP ZERO-FRICTION: PARTIDA DEMO INSTANTÁNEA */}
-          <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={handleStartDemoClick}
-            className="w-full py-2.5 px-5 rounded-2xl bg-[#0a162b]/95 hover:bg-[#122443] border-2 border-[#FFB400]/70 border-b-4 border-b-[#050a13] text-white flex items-center justify-center gap-2.5 shadow-[0_4px_0_#050a13] cursor-pointer transition-all"
-          >
-            <Sparkles className="w-4 h-4 text-[#FFB400] animate-pulse" />
-            <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#FFB400]">
-              PROBAR AHORA (Administración General)
-            </span>
           </motion.button>
 
           {/* Accesos rápidos en móviles (Tutorial y Legal) */}

@@ -106,7 +106,8 @@ async def create_checkout_session(
                 metadata={"user_id": user_id, "plan_id": payload.plan_id},
             )
         else:
-            # Fallback legacy (pago único) para entornos sin price_id configurado
+            # Sin STRIPE_PRICE_ID: suscripción mensual con precio inline
+            # (price_data + recurring — no requiere producto pre-creado).
             session = stripe.checkout.Session.create(
                 line_items=[
                     {
@@ -117,11 +118,12 @@ async def create_checkout_session(
                                 "description": "Carpetas ilimitadas, más preguntas por juego y 'pregúntale a tus apuntes' con Hubzi IA.",
                             },
                             "unit_amount": 299,
+                            "recurring": {"interval": "month"},
                         },
                         "quantity": 1,
                     }
                 ],
-                mode="payment",
+                mode="subscription",
                 customer_email=email,
                 client_reference_id=user_id,
                 success_url=f"{success_url}&session_id={{CHECKOUT_SESSION_ID}}",

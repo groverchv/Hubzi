@@ -130,7 +130,7 @@ export default function StudyFolderManagerModal({
 
   useEffect(() => {
     const f = activeFolderView;
-    if (!f?.id || f.id === 'folder_administracion_default') return;
+    if (!f?.id) return;
     if (f.islands !== undefined) return;
     if (!(f.documents || []).some((d) => !d.isUploading)) return;
     let cancelled = false;
@@ -150,26 +150,6 @@ export default function StudyFolderManagerModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFolderView?.id]);
 
-  // Carpeta por defecto con administracion.pdf integrado
-  const DEFAULT_ADMIN_FOLDER = {
-    id: "folder_administracion_default",
-    name: "Administración General",
-    description: "Origen y desarrollo de la administración (Perspectivas - UCB San Pablo). 11 páginas analizadas.",
-    created_at: "Listo para jugar",
-    user_id: currentUser?.id || "guest",
-    documents: [
-      {
-        id: "doc_administracion_pdf",
-        name: "administracion.pdf",
-        size: "245 KB",
-        uploaded_at: "Integrado",
-        is_processed: true,
-        extracted_text_preview: "La administración es una de las actividades humanas más importantes, encargada de organizar y dirigir el trabajo individual y colectivo..."
-      }
-    ],
-    games: []
-  };
-
   // Cargar las carpetas privadas del usuario activo desde el backend o localStorage
   useEffect(() => {
     if (!isOpen) return;
@@ -177,16 +157,12 @@ export default function StudyFolderManagerModal({
     try {
       const saved = localStorage.getItem(currentKey);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!parsed.some(f => f.id === DEFAULT_ADMIN_FOLDER.id || f.name === DEFAULT_ADMIN_FOLDER.name)) {
-          parsed.unshift(DEFAULT_ADMIN_FOLDER);
-        }
-        setFolders(parsed);
+        setFolders(JSON.parse(saved));
       } else {
-        setFolders([DEFAULT_ADMIN_FOLDER]);
+        setFolders([]);
       }
     } catch {
-      setFolders([DEFAULT_ADMIN_FOLDER]);
+      setFolders([]);
     }
 
     // Catálogo de muestras curadas (una sola vez por apertura)
@@ -200,16 +176,11 @@ export default function StudyFolderManagerModal({
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data && data.folders) {
-          const list = data.folders;
-          if (!list.some(f => f.id === DEFAULT_ADMIN_FOLDER.id || f.name === DEFAULT_ADMIN_FOLDER.name)) {
-            list.unshift(DEFAULT_ADMIN_FOLDER);
-          }
-          setFolders(list);
-          localStorage.setItem(currentKey, JSON.stringify(list));
+          setFolders(data.folders);
+          localStorage.setItem(currentKey, JSON.stringify(data.folders));
         }
       })
       .catch(() => {});
-    // DEFAULT_ADMIN_FOLDER es constante de módulo — no es dep reactiva.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentUser]);
 
@@ -530,11 +501,10 @@ export default function StudyFolderManagerModal({
   const handlePlayDirectly = () => {
     if (!activeFolderView || isProcessingGame) return;
 
-    // Si la carpeta ya tiene análisis previo o es la carpeta estática por defecto, ENTRAR INMEDIATAMENTE
+    // Si la carpeta ya tiene análisis previo, ENTRAR INMEDIATAMENTE
     const isAlreadyAnalyzed = Boolean(
       activeFolderView.cached_boards || 
-      activeFolderView.cached_board || 
-      activeFolderView.id === 'folder_administracion_default'
+      activeFolderView.cached_board
     );
 
     if (isAlreadyAnalyzed) {
@@ -717,12 +687,8 @@ export default function StudyFolderManagerModal({
               </AnimatePresence>
 
               {/* Onboarding guiado: solo cuando el usuario aún no tiene
-                  carpetas propias (la de ejemplo no cuenta). */}
-              {!folders.some(
-                (f) =>
-                  f.id !== DEFAULT_ADMIN_FOLDER.id &&
-                  f.id !== 'folder_administracion_default',
-              ) && (
+                  carpetas propias. */}
+              {folders.length === 0 && (
                 <div className="rounded-3xl border-2 border-cyan-500/30 bg-gradient-to-r from-[#0d1f3c] to-[#122443] p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black uppercase tracking-wider text-cyan-300 mb-1.5">
