@@ -71,6 +71,15 @@ class DatabaseManager:
                     await self.db["consumed_tokens"].create_index(
                         "consumed_at", expireAfterSeconds=60 * 60 * 24 * 7
                     )
+                    # Progreso por estudiante en materias escolares: _key es
+                    # la clave natural — el unique index cierra el doble-insert
+                    # de upserts concurrentes sobre el mismo estudiante+isla.
+                    await self.db["student_progress"].create_index(
+                        "_key", unique=True, sparse=True
+                    )
+                    await self.db["skill_mastery"].create_index(
+                        [("user_id", 1), ("domain", 1), ("topic", 1)], unique=True
+                    )
                     logger.info("Índices de MongoDB optimizados y verificados.")
                 except Exception as ie:
                     logger.warning(f"Aviso al verificar índices de MongoDB: {ie}")

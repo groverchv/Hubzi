@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.rate_limit import limiter
 from app.services.voice_service import voice_service
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/v1/voice", tags=["Voice"])
 
 
 class SpeechRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=4000)  # TTS cobra por carácter
     voice_id: str | None = None
     profile: str | None = (
         "loving_psychologist"  # "loving_psychologist" | "crisis_soothing" | "anxiety_relief" | "zen" | "cute"

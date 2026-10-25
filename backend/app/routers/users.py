@@ -1,4 +1,5 @@
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -45,8 +46,20 @@ async def register_or_login_user(payload: UserRegisterRequest):
     if db_manager.db is not None:
         try:
             existing = await db_manager.db["users"].find_one(
-                {"username": {"$regex": f"^{clean_username}$", "$options": "i"}}
+                {
+                    "username": {
+                        "$regex": f"^{re.escape(clean_username)}$",
+                        "$options": "i",
+                    }
+                }
             )
+            if existing and existing.get("password_hash"):
+                # Cuenta real con credenciales — jamás se toca desde el
+                # registro de invitados (evita hijack del perfil ajeno).
+                raise HTTPException(
+                    status_code=409,
+                    detail="Ese nombre pertenece a una cuenta registrada. Inicia sesión con tu correo.",
+                )
             if existing:
                 await db_manager.db["users"].update_one(
                     {"_id": existing["_id"]},
@@ -107,7 +120,7 @@ async def register_or_login_user(payload: UserRegisterRequest):
 async def get_my_profile(current_user: dict = Depends(get_current_user)):
     """Perfil del usuario autenticado (desde JWT)."""
     user_id = str(current_user.get("id") or current_user.get("_id"))
-    age = current_user.get("age", 20)
+    age = current_user.get("age") or 20  # tolera age=None en docs legacy
     return UserProfileResponse(
         id=user_id,
         email=current_user.get("email"),

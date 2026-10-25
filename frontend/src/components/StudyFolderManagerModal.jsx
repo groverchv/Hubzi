@@ -22,10 +22,20 @@ import {
   Loader2,
   X,
   Home,
-  AlertCircle
+  AlertCircle,
+  Palmtree,
+  Pin,
+  School,
+  Waves,
+  Star
 } from 'lucide-react';
 
 const STORAGE_KEY = 'hubzy_user_study_folders';
+// Clave de storage por usuario: las carpetas de una cuenta logueada NUNCA
+// se escriben en la clave genérica — esa es del invitado y las filtraría a
+// quien use el navegador después sin sesión.
+const folderStorageKey = (user) =>
+  user?.id ? `${STORAGE_KEY}_${user.id}` : STORAGE_KEY;
 
 export default function StudyFolderManagerModal({
   isOpen,
@@ -68,6 +78,8 @@ export default function StudyFolderManagerModal({
 
   // Detección de temas en curso para la carpeta abierta (archipiélago)
   const [detectingTopics, setDetectingTopics] = useState(false);
+  // Toast de celebración cuando la detección revela temas nuevos
+  const [topicsToast, setTopicsToast] = useState(null);
 
   // Limpiar temporizador al desmontar o cerrar modal
   useEffect(() => {
@@ -87,6 +99,35 @@ export default function StudyFolderManagerModal({
   // Al abrir una carpeta con documentos pero sin islas detectadas, pedir al
   // backend la detección de temas (el upload ya la lanza en background; este
   // endpoint es idempotente — solo analiza docs sin topic_sections).
+  // Aplica las islas devueltas por detect-topics y anuncia con un toast
+  // cuando aparecen temas nuevos (momento "wow" del archipiélago).
+  const applyIslands = (folderId, islands) => {
+    const hadCount =
+      activeFolderView?.id === folderId && Array.isArray(activeFolderView.islands)
+        ? activeFolderView.islands.length
+        : 0;
+    setActiveFolderView((prev) =>
+      prev?.id === folderId ? { ...prev, islands } : prev,
+    );
+    setFolders((prev) =>
+      prev.map((x) => (x.id === folderId ? { ...x, islands } : x)),
+    );
+    const named = (islands || []).filter((i) => i?.name && i.name !== 'General');
+    if (named.length && (islands?.length || 0) > hadCount) {
+      setTopicsToast({
+        count: named.length,
+        names: named.slice(0, 3).map((i) => i.name),
+      });
+    }
+  };
+
+  // El toast se auto-oculta tras unos segundos
+  useEffect(() => {
+    if (!topicsToast) return;
+    const t = setTimeout(() => setTopicsToast(null), 6500);
+    return () => clearTimeout(t);
+  }, [topicsToast]);
+
   useEffect(() => {
     const f = activeFolderView;
     if (!f?.id || f.id === 'folder_administracion_default') return;
@@ -97,14 +138,7 @@ export default function StudyFolderManagerModal({
     fetchWithAuth(`/api/v1/folders/${f.id}/detect-topics`, { method: 'POST' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!cancelled && d?.islands) {
-          setActiveFolderView((prev) =>
-            prev?.id === f.id ? { ...prev, islands: d.islands } : prev,
-          );
-          setFolders((prev) =>
-            prev.map((x) => (x.id === f.id ? { ...x, islands: d.islands } : x)),
-          );
-        }
+        if (!cancelled && d?.islands) applyIslands(f.id, d.islands);
       })
       .catch(() => {})
       .finally(() => {
@@ -139,7 +173,7 @@ export default function StudyFolderManagerModal({
   // Cargar las carpetas privadas del usuario activo desde el backend o localStorage
   useEffect(() => {
     if (!isOpen) return;
-    const currentKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
+    const currentKey = folderStorageKey(currentUser);
     try {
       const saved = localStorage.getItem(currentKey);
       if (saved) {
@@ -180,9 +214,11 @@ export default function StudyFolderManagerModal({
   }, [isOpen, currentUser]);
 
   const saveFolders = (updatedList) => {
-    const currentKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
     setFolders(updatedList);
-    localStorage.setItem(currentKey, JSON.stringify(updatedList));
+    localStorage.setItem(
+      folderStorageKey(currentUser),
+      JSON.stringify(updatedList),
+    );
   };
 
   // Crear nueva carpeta
@@ -299,18 +335,9 @@ export default function StudyFolderManagerModal({
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [folders]);
 
-  // Subir documentos REALES a la carpeta actualmente abierta.
-  // Subida paralela acotada (3 a la vez) con progreso real por archivo vía XHR.
-  // El límite freemium lo impone el backend (402 → modal de upgrade).
-  const handleUploadFilesToFolder = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length || !activeFolderView) return;
-    // Las materias de colegio son de solo lectura para estudiantes
-    if (activeFolderView.is_school_folder && activeFolderView.user_id !== currentUser?.id) return;
-    e.target.value = '';
-    setUploadErrors([]);
-    const folderId = activeFolderView.id;
-
+  // Sube UN archivo con progreso real vía XHR. Errores quedan en
+  // `uploadErrors` como {name, message, file} para reintento individual.
+  const uploadOne = async (file, folderId) => {
     const updateTempDoc = (docId, patch) =>
       setActiveFolderView(prev => ({
         ...prev,
@@ -324,53 +351,87 @@ export default function StudyFolderManagerModal({
         documents: (prev.documents || []).filter(d => d.id !== docId),
       }));
 
-    const uploadOne = async (file) => {
-      const tempDoc = {
-        id: `uploading_${Date.now()}_${file.name}`,
-        name: file.name,
-        size: (file.size / 1024).toFixed(1) + ' KB',
-        type: file.name.split('.').pop().toLowerCase(),
-        uploaded_at: 'Subiendo… 0%',
-        isUploading: true,
-        progress: 0,
-      };
-      setActiveFolderView(prev => ({
-        ...prev,
-        documents: [tempDoc, ...(prev.documents || []).filter(d => d.name !== file.name)],
-      }));
-
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        await uploadWithProgress(
-          `/api/v1/folders/${folderId}/upload-document`,
-          formData,
-          {
-            onProgress: (p) =>
-              updateTempDoc(tempDoc.id, {
-                progress: p,
-                uploaded_at: p < 100 ? `Subiendo… ${p}%` : 'Extrayendo texto…',
-              }),
-          },
-        );
-        updateTempDoc(tempDoc.id, { uploaded_at: 'Procesado ✓', isUploading: false, progress: 100 });
-      } catch (upErr) {
-        removeTempDoc(tempDoc.id);
-        if (upErr.status === 402) {
-          if (onUpgradeToPro) onUpgradeToPro();
-          else setUploadErrors(prev => [...prev, `${file.name}: ${upErr.message}`]);
-          return;
-        }
-        setUploadErrors(prev => [
-          ...prev,
-          `${file.name}: ${upErr.message || 'verifica que el archivo no esté dañado.'}`,
-        ]);
-      }
+    const tempDoc = {
+      id: `uploading_${Date.now()}_${file.name}`,
+      name: file.name,
+      size: (file.size / 1024).toFixed(1) + ' KB',
+      type: file.name.split('.').pop().toLowerCase(),
+      uploaded_at: 'Subiendo… 0%',
+      isUploading: true,
+      progress: 0,
     };
+    setActiveFolderView(prev => ({
+      ...prev,
+      documents: [tempDoc, ...(prev.documents || []).filter(d => d.name !== file.name)],
+    }));
+
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await uploadWithProgress(
+        `/api/v1/folders/${folderId}/upload-document`,
+        formData,
+        {
+          onProgress: (p) =>
+            updateTempDoc(tempDoc.id, {
+              progress: p,
+              uploaded_at: p < 100 ? `Subiendo… ${p}%` : 'Extrayendo texto…',
+            }),
+        },
+      );
+      updateTempDoc(tempDoc.id, { uploaded_at: 'Procesado ✓', isUploading: false, progress: 100 });
+    } catch (upErr) {
+      removeTempDoc(tempDoc.id);
+      if (upErr.status === 402) {
+        if (onUpgradeToPro) onUpgradeToPro();
+        else {
+          setUploadErrors(prev => [
+            ...prev,
+            { name: file.name, message: upErr.message || 'límite del plan alcanzado.', file },
+          ]);
+        }
+        return;
+      }
+      const friendly =
+        upErr.status === 413
+          ? 'Supera el tamaño máximo de 25 MB.'
+          : upErr.status === 415
+            ? 'Formato no soportado. Usa PDF, DOCX, TXT, MD, CSV o imagen.'
+            : upErr.status === 422
+              ? 'No se pudo leer el archivo (¿está protegido o dañado?).'
+              : upErr.message || 'Verifica que el archivo no esté dañado.';
+      setUploadErrors(prev => [...prev, { name: file.name, message: friendly, file }]);
+    }
+  };
+
+  // Reintentar una subida fallida sin obligar al usuario a re-seleccionar.
+  const retryUpload = async (idx) => {
+    const entry = uploadErrors[idx];
+    if (!entry?.file || !activeFolderView) return;
+    setUploadErrors(prev => prev.filter((_, i) => i !== idx));
+    await uploadOne(entry.file, activeFolderView.id);
+    const refreshRes = await fetchWithAuth('/api/v1/folders').catch(() => null);
+    if (refreshRes?.ok) {
+      const data = await refreshRes.json();
+      if (data?.folders) setFolders(data.folders);
+    }
+  };
+
+  // Subir documentos REALES a la carpeta actualmente abierta.
+  // Subida paralela acotada (3 a la vez) con progreso real por archivo vía XHR.
+  // El límite freemium lo impone el backend (402 → modal de upgrade).
+  const handleUploadFilesToFolder = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !activeFolderView) return;
+    // Las materias de colegio son de solo lectura para estudiantes
+    if (activeFolderView.is_school_folder && activeFolderView.user_id !== currentUser?.id) return;
+    e.target.value = '';
+    setUploadErrors([]);
+    const folderId = activeFolderView.id;
 
     const CONCURRENCY = 3;
     for (let i = 0; i < files.length; i += CONCURRENCY) {
-      await Promise.all(files.slice(i, i + CONCURRENCY).map(uploadOne));
+      await Promise.all(files.slice(i, i + CONCURRENCY).map(f => uploadOne(f, folderId)));
     }
 
     // Refrescar la lista una sola vez al final del lote (no por archivo)
@@ -379,7 +440,10 @@ export default function StudyFolderManagerModal({
       const data = await refreshRes.json();
       if (data && data.folders) {
         setFolders(data.folders);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.folders));
+        localStorage.setItem(
+          folderStorageKey(currentUser),
+          JSON.stringify(data.folders),
+        );
         const currentFolder = data.folders.find(f => f.id === folderId);
         if (currentFolder) {
           setActiveFolderView(prev => {
@@ -403,14 +467,7 @@ export default function StudyFolderManagerModal({
               );
               if (r.ok) {
                 const d = await r.json();
-                if (d?.islands) {
-                  setActiveFolderView(prev =>
-                    prev?.id === folderId ? { ...prev, islands: d.islands } : prev,
-                  );
-                  setFolders(prev =>
-                    prev.map(x => (x.id === folderId ? { ...x, islands: d.islands } : x)),
-                  );
-                }
+                if (d?.islands) applyIslands(folderId, d.islands);
               }
             } catch {}
           }, 4000);
@@ -450,7 +507,10 @@ export default function StudyFolderManagerModal({
         const data = await res.json();
         if (data && data.folders) {
           setFolders(data.folders);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.folders));
+          localStorage.setItem(
+            folderStorageKey(currentUser),
+            JSON.stringify(data.folders),
+          );
           const current = data.folders.find(f => f.id === activeFolderView.id);
           if (current) {
             setActiveFolderView({
@@ -519,7 +579,12 @@ export default function StudyFolderManagerModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-2 md:p-4 bg-black/85 backdrop-blur-md select-none font-sans">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-2 md:p-4 bg-black/85 backdrop-blur-md select-none font-sans"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Baúl de carpetas de estudio"
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -651,6 +716,45 @@ export default function StudyFolderManagerModal({
                 )}
               </AnimatePresence>
 
+              {/* Onboarding guiado: solo cuando el usuario aún no tiene
+                  carpetas propias (la de ejemplo no cuenta). */}
+              {!folders.some(
+                (f) =>
+                  f.id !== DEFAULT_ADMIN_FOLDER.id &&
+                  f.id !== 'folder_administracion_default',
+              ) && (
+                <div className="rounded-3xl border-2 border-cyan-500/30 bg-gradient-to-r from-[#0d1f3c] to-[#122443] p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black uppercase tracking-wider text-cyan-300 mb-1.5">
+                      Tu primera partida en 3 pasos
+                    </p>
+                    <ol className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-bold text-slate-200">
+                      <li className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-[10px] font-black inline-flex items-center justify-center">1</span>
+                        Crea una carpeta
+                      </li>
+                      <li className="text-slate-500">→</li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-[10px] font-black inline-flex items-center justify-center">2</span>
+                        Sube tu PDF o audio
+                      </li>
+                      <li className="text-slate-500">→</li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-black inline-flex items-center justify-center">3</span>
+                        Juega tu primera isla
+                      </li>
+                    </ol>
+                  </div>
+                  <button
+                    onClick={() => setActiveFolderView(DEFAULT_ADMIN_FOLDER)}
+                    className="shrink-0 px-4 py-2.5 rounded-2xl bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                  >
+                    <Gamepad2 className="w-4 h-4 stroke-[2.5]" />
+                    <span>Probar con material de ejemplo</span>
+                  </button>
+                </div>
+              )}
+
               {/* Listado de Carpetas */}
               {folders.length === 0 ? (
                 <div className="py-12 px-4 rounded-3xl border-2 border-dashed border-slate-700 bg-[#141d2c]/60 text-center flex flex-col items-center justify-center">
@@ -712,7 +816,7 @@ export default function StudyFolderManagerModal({
                                 </span>
                                 {folder.is_school_folder && (
                                   <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/40 text-[9px] font-black text-emerald-300 uppercase tracking-wide align-middle">
-                                    🏫 Colegio
+                                    <School className="w-2.5 h-2.5" /> Colegio
                                   </span>
                                 )}
                               </div>
@@ -734,7 +838,7 @@ export default function StudyFolderManagerModal({
                           {/* Tarea asignada por el docente (badge informativo, sin presión) */}
                           {folder.assignment && (
                             <div className="mb-2 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-[10px] font-bold text-amber-300 flex items-center gap-1.5">
-                              <span>📌</span>
+                              <Pin className="w-3 h-3 shrink-0" />
                               <span className="truncate">
                                 {folder.assignment.title}
                                 {folder.assignment.due_date && ` · para el ${folder.assignment.due_date}`}
@@ -773,7 +877,7 @@ export default function StudyFolderManagerModal({
                                   title={`Continuar campaña en el Nivel ${progLevel}`}
                                 >
                                   <PlayCircle className="w-3.5 h-3.5 text-emerald-400" />
-                                  Nivel {progLevel} ★{progStars}
+                                  Nivel {progLevel} · <Star className="w-3 h-3 fill-amber-400 text-amber-400" />{progStars}
                                   {prog?.total_xp > 0 && ` · ${prog.total_xp} XP`}
                                 </button>
                               </>
@@ -907,15 +1011,15 @@ export default function StudyFolderManagerModal({
                           className="group text-left rounded-2xl border-2 border-[#2b3f5f] hover:border-cyan-400/70 bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <span className="text-2xl leading-none">🏝️</span>
+                            <Palmtree className="w-6 h-6 text-cyan-300 group-hover:text-cyan-100 transition-colors" />
                             <span className="flex items-center gap-1.5">
                               {/* Tarea del docente dirigida a esta isla */}
                               {activeFolderView.assignment?.island_id === isl.id && (
                                 <span
-                                  className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/50"
+                                  className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/50"
                                   title={activeFolderView.assignment.title}
                                 >
-                                  📌 Tarea
+                                  <Pin className="w-2.5 h-2.5" /> Tarea
                                 </span>
                               )}
                               <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
@@ -927,8 +1031,8 @@ export default function StudyFolderManagerModal({
                             {isl.name}
                           </h4>
                           <div className="mt-2 flex items-center justify-between text-[11px] font-bold">
-                            <span className="text-amber-300">
-                              {stars > 0 ? `★ ${stars}` : 'Sin explorar'}
+                            <span className="inline-flex items-center gap-1 text-amber-300">
+                              {stars > 0 ? (<><Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {stars}</>) : 'Sin explorar'}
                               {p.total_xp > 0 && <span className="text-slate-400"> · {p.total_xp} XP</span>}
                             </span>
                             <span className="flex items-center gap-1 text-emerald-300 group-hover:text-emerald-100">
@@ -951,7 +1055,7 @@ export default function StudyFolderManagerModal({
                       }
                       className="mt-3 w-full text-center text-[11px] font-bold text-slate-400 hover:text-cyan-200 py-1.5 rounded-xl border border-dashed border-slate-600 hover:border-cyan-500/50 transition-colors cursor-pointer"
                     >
-                      🌊 Jugar con todo el contenido mezclado (campaña general)
+                      <Waves className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />Jugar con todo el contenido mezclado (campaña general)
                     </button>
                   )}
                 </div>
@@ -1009,18 +1113,29 @@ export default function StudyFolderManagerModal({
                   })()}
 
                   {uploadErrors.length > 0 && (
-                    <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5 space-y-1">
-                      {uploadErrors.map((msg, i) => (
-                        <p key={i} className="text-[11px] text-rose-300 font-semibold flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {msg}
-                        </p>
+                    <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 space-y-2">
+                      {uploadErrors.map((err, i) => (
+                        <div key={i} className="flex items-center gap-2.5">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                          <p className="flex-1 min-w-0 text-[11px] font-semibold text-rose-200">
+                            <span className="font-black text-rose-300">{err.name}</span>
+                            <span className="text-rose-300/80"> — {err.message}</span>
+                          </p>
+                          <button
+                            onClick={() => retryUpload(i)}
+                            className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/40 text-[10px] font-black uppercase tracking-wide text-rose-200 transition-all cursor-pointer"
+                          >
+                            Reintentar
+                          </button>
+                          <button
+                            onClick={() => setUploadErrors(prev => prev.filter((_, j) => j !== i))}
+                            className="shrink-0 p-1 text-rose-400/60 hover:text-rose-300 cursor-pointer"
+                            aria-label={`Descartar error de ${err.name}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       ))}
-                      <button
-                        onClick={() => setUploadErrors([])}
-                        className="text-[10px] text-rose-400/80 hover:text-rose-300 underline cursor-pointer"
-                      >
-                        Descartar
-                      </button>
                     </div>
                   )}
 
@@ -1150,6 +1265,39 @@ export default function StudyFolderManagerModal({
             </div>
           </>
         )}
+
+        {/* Toast: la detección de temas encontró islas nuevas */}
+        <AnimatePresence>
+          {topicsToast && (
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 max-w-md w-[92%] sm:w-auto rounded-2xl bg-[#0d2b16] border-2 border-emerald-500/50 shadow-[0_8px_30px_rgba(16,185,129,0.35)] px-5 py-4 flex items-start gap-3"
+              role="status"
+            >
+              <Palmtree className="w-6 h-6 text-emerald-300 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black text-emerald-300">
+                  {topicsToast.count === 1
+                    ? '¡Detectamos 1 tema en tu material!'
+                    : `¡Detectamos ${topicsToast.count} temas en tu material!`}
+                </p>
+                <p className="text-xs text-emerald-100/80 mt-0.5 truncate">
+                  {topicsToast.names.join(' · ')}
+                  {topicsToast.count > 3 ? '…' : ''} — cada isla tiene su propia campaña.
+                </p>
+              </div>
+              <button
+                onClick={() => setTopicsToast(null)}
+                className="p-1 rounded-lg text-emerald-300/70 hover:text-emerald-200 hover:bg-emerald-500/15 cursor-pointer"
+                aria-label="Cerrar aviso"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </motion.div>
     </div>

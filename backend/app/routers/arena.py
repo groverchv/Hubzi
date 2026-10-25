@@ -133,7 +133,8 @@ async def upload_and_generate_arena_board(
     persisted_doc_id = None
 
     if file:
-        file_bytes = await file.read()
+        # Lectura acotada: nunca bufferizar más que el límite +1 byte (OOM/DoS).
+        file_bytes = await file.read(MAX_FILE_SIZE + 1)
         filename = file.filename or "archivo"
         _validate_upload(file_bytes, filename)
         try:
@@ -186,6 +187,13 @@ async def upload_and_generate_arena_board(
             )
             background_tasks.add_task(
                 summarize_and_store, folder_id, doc_record["id"], extracted_text
+            )
+            # Islas del archipiélago: mismo disparo que el upload de carpetas —
+            # sin esto, "subir y jugar" dejaba los docs sin detección de temas.
+            from app.routers.folders import detect_topics_and_store
+
+            background_tasks.add_task(
+                detect_topics_and_store, folder_id, doc_record["id"]
             )
             logger.info(
                 f"Documento '{filename}' persistido en carpeta '{folder_id}' vía upload-and-generate."
@@ -244,7 +252,8 @@ class CapySpeechRequest(BaseModel):
 
 
 @router.post("/capy-speech", tags=["Arena"])
-async def get_capy_speech(payload: CapySpeechRequest):
+@limiter.limit("30/minute")
+async def get_capy_speech(request: Request, payload: CapySpeechRequest):
     """Genera locución dinámica y serena de Hubzi como psicólogo cognitivo."""
     speech = ai_service.generate_capy_speech(
         situation=payload.situation,
@@ -266,7 +275,8 @@ class CapyAskRequest(BaseModel):
 
 
 @router.post("/capy-ask", tags=["Arena"])
-async def ask_capybara(payload: CapyAskRequest):
+@limiter.limit("30/minute")
+async def ask_capybara(request: Request, payload: CapyAskRequest):
     """
     Recibe la transcripción del micrófono del usuario y genera una pista pedagógica
     o intervención empática anti-estrés evaluada con NLP clínico y Gemini.

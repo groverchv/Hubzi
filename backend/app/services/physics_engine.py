@@ -11,10 +11,25 @@ Distractores físicos = errores típicos documentados: confusión de unidades
 
 import logging
 import random
+import threading
 
 from app.core.age_bands import get_band
 
 logger = logging.getLogger("hubzy.physics_engine")
+
+# Mismo patrón que math_engine: lock + save/restore del RNG global para que el
+# seed llegue a los generadores internos sin contaminar otras peticiones.
+_SEED_LOCK = threading.Lock()
+
+
+def _run_seeded(seed: int, fn):
+    state = random.getstate()
+    with _SEED_LOCK:
+        random.seed(seed)
+        try:
+            return fn()
+        finally:
+            random.setstate(state)
 
 # Tabla de magnitudes fundamentales del SI — base del juego de matching
 MAGNITUDES = [
@@ -291,7 +306,11 @@ def generate_physics_problems(
 ) -> list:
     """Genera `count` problemas de física mezclando los 3 arquetipos."""
     if seed is not None:
-        random.seed(seed)
+        return _run_seeded(seed, lambda: _generate(band_key, level, count))
+    return _generate(band_key, level, count)
+
+
+def _generate(band_key: str, level: int, count: int) -> list:
     band = get_band(band_key)
 
     # Bandas pequeñas: solo magnitudes (arquetipo match); conversiones desde explorer

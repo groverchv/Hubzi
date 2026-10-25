@@ -30,6 +30,7 @@ import TutorialModal from "../components/TutorialModal";
 import VictoryModal from "../components/VictoryModal";
 import WelcomeScreen from "../components/WelcomeScreen";
 import GenerationOverlay from "../components/GenerationOverlay";
+import CoachMark from "../components/CoachMark";
 import AdventureMap from "../components/AdventureMap";
 import LegalModal from "../components/LegalModal";
 import CookieConsentBanner from "../components/CookieConsentBanner";
@@ -123,8 +124,28 @@ export default function ArcadeArena() {
       .catch(() => {});
   };
 
-  // Pantalla Inicial de Bienvenida (Estilo Card Clash)
-  const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(true);
+  // Pantalla Inicial de Bienvenida (Estilo Card Clash).
+  // Solo se muestra si no hay sesión previa y el usuario nunca entró:
+  // quien ya conoce Hubzy vuelve directo a la arena (resume sin fricción).
+  const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(() => {
+    try {
+      if (localStorage.getItem("hubzy_current_user")) return false;
+      return !localStorage.getItem("hubzy_seen_welcome");
+    } catch {
+      return true;
+    }
+  });
+
+  // Al salir de la bienvenida una vez, queda vista para siempre.
+  useEffect(() => {
+    if (!isWelcomeScreenVisible) {
+      try {
+        localStorage.setItem("hubzy_seen_welcome", "1");
+      } catch {
+        /* almacenamiento no disponible */
+      }
+    }
+  }, [isWelcomeScreenVisible]);
 
   // Modal de Login / Registro
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -166,7 +187,7 @@ export default function ArcadeArena() {
         .then((data) => {
           if (data.is_paid) {
             setSuccessNotif(
-              "¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro 🎉",
+              "¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro",
             );
             if (currentUser) {
               const updated = { ...currentUser, plan: "pro" };
@@ -186,12 +207,43 @@ export default function ArcadeArena() {
             document.title,
             window.location.pathname,
           );
-          setTimeout(() => setSuccessNotif(null), 5000);
         });
     } else if (payment === "cancelled") {
       setSuccessNotif("Pago cancelado en Stripe.");
       window.history.replaceState({}, document.title, window.location.pathname);
-      setTimeout(() => setSuccessNotif(null), 4000);
+    }
+
+    // Retorno de Stripe del checkout INSTITUCIONAL (?school_payment=success)
+    const schoolPayment = params.get("school_payment");
+    if (schoolPayment === "success" && sessionId) {
+      fetchWithAuth(`/api/v1/payments/verify-session/${sessionId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.is_paid) {
+            setSuccessNotif(
+              "¡Licencia escolar activada! Tu colegio ya puede matricular estudiantes.",
+            );
+          } else {
+            setSuccessNotif(
+              "Pago registrado — la licencia se activará automáticamente al confirmarse.",
+            );
+          }
+        })
+        .catch(() => {
+          setErrorNotif(
+            "No se pudo confirmar el pago aún — si ya pagaste, la licencia se activa sola en unos minutos.",
+          );
+        })
+        .finally(() => {
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+        });
+    } else if (schoolPayment === "cancelled") {
+      setErrorNotif("Pago de licencia escolar cancelado.");
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     // Deep-link desde el Dashboard: /arena?upgrade=1 abre el modal Pro
@@ -221,12 +273,15 @@ export default function ArcadeArena() {
   });
   const [isGeneratingArena, setIsGeneratingArena] = useState(false);
   const [genStage, setGenStage] = useState(null); // Etapa real reportada por el job async
+  const [genError, setGenError] = useState(null); // { message } — mantiene el overlay con opción de reintentar
   const genAbortRef = useRef(null); // AbortController de la generación en curso
+  const lastGenRef = useRef(null); // último intento {level, folder, island, force} para reintentar
   const victoryConsumedRef = useRef(false); // true mientras el tablero completado siga en pantalla (anti victoria fantasma)
   const failedNodesRef = useRef(new Set()); // nodos con ≥1 intento fallido → precisión real
   const failStreakRef = useRef(0); // fallos consecutivos → trigger de apoyo Zen
   const masteryRef = useRef({}); // topic → {p_mastery, mastered, recommendation} (BKT)
   const chatHistoryRef = useRef([]); // memoria conversacional de Hubzi [{role, text}]
+  const breakOfferedRef = useRef(false); // micro-pausa sugerida una vez por sesión
   const [selectedNodeForQuestion, setSelectedNodeForQuestion] = useState(null);
   const [selectedCardForDetail, setSelectedCardForDetail] = useState(null);
   const [selectedCardInHand, setSelectedCardInHand] = useState(null);
@@ -303,9 +358,8 @@ export default function ArcadeArena() {
               setHintCardId(matchingCard.id);
               setHintNodeId(emptyNode.id);
               setSuccessNotif(
-                `💡 Pista de Hubzi: ¡Esta carta pertenece a la casilla "${emptyNode.label || "en espera"}"!`,
+                `Pista de Hubzi: ¡Esta carta pertenece a la casilla "${emptyNode.label || "en espera"}"!`,
               );
-              setTimeout(() => setSuccessNotif(null), 6000);
             }
           }
         }
@@ -347,6 +401,24 @@ export default function ArcadeArena() {
       disarmAmbientAutostart();
       if (capySpeechTimeoutRef.current)
         clearTimeout(capySpeechTimeoutRef.current);
+    };
+  }, []);
+
+  // Al desmontar la arena: soltar voz de Hubzi, música ambient y cualquier
+  // generación en vuelo — sin esto seguían sonando/corriendo sin pantalla.
+  useEffect(() => {
+    return () => {
+      try {
+        capyVoice.stop();
+      } catch (_) {}
+      try {
+        hubziAmbient.stop(0);
+      } catch (_) {}
+      try {
+        genAbortRef.current?.abort();
+      } catch (_) {}
+      if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current);
+      if (capySpeechTimeoutRef.current) clearTimeout(capySpeechTimeoutRef.current);
     };
   }, []);
 
@@ -426,6 +498,30 @@ export default function ArcadeArena() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFolder?.id, activeIsland?.id]);
 
+  // Micro-pausa anti-fatiga: tras ~25 min de juego activo en un tablero,
+  // Hubzi sugiere respirar. Oferta suave (jamás bloqueo), una vez por sesión.
+  const hasActiveBoard = Object.keys(nodes).length > 0;
+  useEffect(() => {
+    if (!hasActiveBoard || breakOfferedRef.current) return;
+    const t = setTimeout(() => {
+      if (breakOfferedRef.current) return;
+      breakOfferedRef.current = true;
+      setZenOffer({
+        show: true,
+        category: "pausa activa",
+        distortion: "",
+        emotion: "fatiga",
+      });
+      setCapyMood("encouraging");
+      setCapySpeech({
+        text: "Llevas un buen rato concentrado — un respiro de 2 minutos ayuda a que todo se fije mejor. ¿Respiramos juntos?",
+        isVisible: true,
+        mood: "encouraging",
+      });
+    }, 25 * 60 * 1000);
+    return () => clearTimeout(t);
+  }, [hasActiveBoard]);
+
   // Nivel desde el que continuar: del progreso del servidor o del espejo local
   const getResumeLevel = (folder, island = null) => {
     const cap = island?.total_levels || 20;
@@ -441,6 +537,32 @@ export default function ArcadeArena() {
       } catch {}
     }
     return Math.min(cap, Math.max(1, lvl));
+  };
+
+  // Persistencia de victoria UNIFICADA: los 4 botones del modal la llaman
+  // antes de divergir — una victoria de 1★ ya no se pierde al ir al menú,
+  // y repetir/repasar tampoco abandona estrellas ni XP. El merge del backend
+  // es max-wins, así que es seguro llamarla más de una vez por nivel.
+  const persistVictoryProgress = (targetCurrent) => {
+    const earnedStars =
+      victoryStats.accuracy >= 90 ? 3 : victoryStats.accuracy >= 70 ? 2 : 1;
+    const nextStars = {
+      ...levelStars,
+      [currentLevel]: Math.max(levelStars[currentLevel] || 0, earnedStars),
+    };
+    const nextUnlocked =
+      currentLevel < maxLevel
+        ? Math.max(unlockedLevel, currentLevel + 1)
+        : unlockedLevel;
+    setLevelStars(nextStars);
+    if (currentLevel < maxLevel) setUnlockedLevel(nextUnlocked);
+    persistCampaignProgress({
+      level_stars: nextStars,
+      unlocked_level: nextUnlocked,
+      current_level: targetCurrent,
+      xp_gained: playerScore,
+    });
+    return nextUnlocked;
   };
 
   // Guardar progreso: espejo localStorage (invitados/offline) + servidor.
@@ -473,9 +595,26 @@ export default function ArcadeArena() {
         ...progress,
         island_id: activeIsland?.id,
         total_levels: activeIsland?.total_levels,
+        // Día LOCAL del jugador para la racha (el servidor usaría UTC y
+        // partiría sesiones nocturnas contra el día equivocado).
+        study_date: new Date().toLocaleDateString("sv-SE"),
       }),
     }).catch((e) => console.warn("No se pudo guardar el progreso:", e));
   };
+
+  // Auto-cierre de toasts: cada notificación nueva reinicia su timer — los
+  // setTimeout manuales encadenados mataban la notificación NUEVA cuando
+  // expiraba el timer de la anterior.
+  useEffect(() => {
+    if (!successNotif) return;
+    const t = setTimeout(() => setSuccessNotif(null), 5000);
+    return () => clearTimeout(t);
+  }, [successNotif]);
+  useEffect(() => {
+    if (!errorNotif) return;
+    const t = setTimeout(() => setErrorNotif(null), 5500);
+    return () => clearTimeout(t);
+  }, [errorNotif]);
 
   // Snapshot del progreso para guardar al ocultar/salir de la pestaña.
   const progressSnapshotRef = useRef(null);
@@ -535,7 +674,6 @@ export default function ArcadeArena() {
       { method: "DELETE" },
     ).catch((e) => console.warn("No se pudo reiniciar el progreso:", e));
     setSuccessNotif("Campaña reiniciada. ¡De nuevo al Nivel 1!");
-    setTimeout(() => setSuccessNotif(null), 4000);
   };
 
   // Función principal para activar la voz tierna y reacciones de Capibara
@@ -651,7 +789,7 @@ export default function ArcadeArena() {
     setIsThinkingHint(true);
     setCapyMood("thinking");
     setCapySpeech({
-      text: `¡Te escucho! Dijiste: "${transcript}" ... ¡Estoy pensando con todo mi amor para ti! 💭`,
+      text: `¡Te escucho! Dijiste: "${transcript}" ... ¡Estoy pensando con todo mi amor para ti!`,
       isVisible: true,
       mood: "thinking",
     });
@@ -811,6 +949,7 @@ export default function ArcadeArena() {
         setVictoryStats({
           accuracy: accuracyCalc,
           totalQuestions: totalQ,
+          firstTry: Math.max(0, totalQ - failedNodes.length),
           weakNodes: [...weakTopics],
         });
 
@@ -833,10 +972,25 @@ export default function ArcadeArena() {
     const lvlInfo =
       GAME_LEVELS.find((l) => l.level === level) || GAME_LEVELS[0];
 
+    // Separar cartas reales de las TRAMPA antes de cortar: un slice ciego
+    // podía meter una trampa como "carta correcta" o dejar un nodo sin su
+    // match — nivel imposible de terminar (soft-lock).
+    const isTrapCard = (c) =>
+      c.is_distractor ||
+      c.isDistractor ||
+      String(c.id || "").includes("distractor") ||
+      String(c.id || "").includes("trap");
+    const realCards = (boardData.cards || []).filter((c) => !isTrapCard(c));
+    const backendTrapCards = (boardData.cards || []).filter(isTrapCard);
+
     // REGLA ESTRICTA: El Nivel K debe tener exactamente K preguntas (N1 = 1, N2 = 2, N3 = 3 ... N20 = 20)
-    const targetQuestions = Math.min(lvlInfo.questions, Math.max(1, boardData.nodes.length));
+    const targetQuestions = Math.min(
+      lvlInfo.questions,
+      Math.max(1, boardData.nodes.length),
+      Math.max(1, realCards.length),
+    );
     const activeNodes = boardData.nodes.slice(0, targetQuestions);
-    const activeMatchingCards = boardData.cards.slice(0, targetQuestions);
+    const activeMatchingCards = realCards.slice(0, targetQuestions);
 
     setBoardInfo({
       title:
@@ -923,9 +1077,25 @@ export default function ArcadeArena() {
       };
     });
 
-    // REGLA DE CARTAS TRAMPA: A partir del Nivel 3 se inyectan cartas trampa en el mazo
+    // REGLA DE CARTAS TRAMPA: A partir del Nivel 3 se inyectan cartas trampa en el mazo.
+    // Preferir las trampas REALES del backend (conceptos incorrectos del doc)
+    // antes que los placeholders genéricos.
     const levelHasTraps = lvlInfo.hasTraps;
     const requiredTrapCount = levelHasTraps ? lvlInfo.trapCount || 1 : 0;
+    backendTrapCards.slice(0, requiredTrapCount).forEach((c, i) => {
+      processedCards.push({
+        id: c.id || `card_trap_backend_${i + 1}`,
+        name: c.concept_name || c.name || "Afirmación Incorrecta",
+        cost: c.points_multiplier || "1x",
+        type: "dark",
+        sourceType: "document",
+        domain: "trampa",
+        content: c.content || "¡Carta trampa! Esta afirmación no corresponde al tema.",
+        matchesNodeId: null,
+        isDistractor: true,
+        isTrap: true,
+      });
+    });
     const currentDistractorCount = processedCards.filter(
       (c) => c.isDistractor,
     ).length;
@@ -994,6 +1164,20 @@ export default function ArcadeArena() {
     genAbortRef.current = null;
     setIsGeneratingArena(false);
     setGenStage(null);
+    setGenError(null);
+  };
+
+  // Reintenta la última generación con los mismos parámetros (la caché del
+  // backend puede resolverlo al instante si el job previo ya terminó).
+  const handleRetryGeneration = () => {
+    const last = lastGenRef.current;
+    setGenError(null);
+    setIsGeneratingArena(false);
+    if (!last) return;
+    setTimeout(
+      () => loadGameForLevel(last.level, last.folder, last.force, last.island),
+      0,
+    );
   };
 
   // Sondeo del job async del backend → tablero final o error con status_code.
@@ -1033,8 +1217,15 @@ export default function ArcadeArena() {
     const lvlInfo =
       GAME_LEVELS.find((l) => l.level === targetLevel) || GAME_LEVELS[0];
     const topicLabel = targetIsland ? ` · ${targetIsland.name}` : "";
+    lastGenRef.current = {
+      level: targetLevel,
+      folder: targetFolder,
+      island: targetIsland,
+      force,
+    };
     setIsGeneratingArena(true);
     setGenStage("queued");
+    setGenError(null);
     const controller = new AbortController();
     genAbortRef.current = controller;
     setSuccessNotif(
@@ -1068,21 +1259,25 @@ export default function ArcadeArena() {
           setIsGeneratingArena(false);
           setGenStage(null);
           setSuccessNotif(
-            `⚡ Nivel ${targetLevel} listo al instante (análisis previo en memoria).`,
+            `Nivel ${targetLevel} listo al instante (análisis previo en memoria).`,
           );
-          setTimeout(() => setSuccessNotif(null), 3000);
           return true;
         }
       }
     }
 
-    // Únicamente si es la carpeta demo de muestra sin archivos subidos propios
+    // Únicamente si es la carpeta demo de muestra (identificada por su ID fijo;
+    // la carpeta demo lleva administracion.pdf precargado en su lista de docs)
     const isStaticDemoFolder =
-      targetFolder.id === "folder_administracion_default" &&
-      (!targetFolder.documents || targetFolder.documents.length === 0);
+      targetFolder.id === "folder_administracion_default";
 
-    if (isStaticDemoFolder && STATIC_ADMIN_GAME.levels[targetLevel]) {
-      const staticLevelData = STATIC_ADMIN_GAME.levels[targetLevel];
+    if (isStaticDemoFolder && STATIC_ADMIN_GAME.levels) {
+      // La demo solo empaqueta niveles 1-5; para 6-20 se cicla el contenido
+      // estático (la demo es solo la primera impresión — el contenido real
+      // se genera por IA cuando el usuario crea su propia carpeta).
+      const staticLevelData =
+        STATIC_ADMIN_GAME.levels[targetLevel] ??
+        STATIC_ADMIN_GAME.levels[((targetLevel - 1) % 5) + 1];
       const success = applyBoardData(
         staticLevelData,
         targetFolder.name || "Administración General",
@@ -1095,7 +1290,6 @@ export default function ArcadeArena() {
         setSuccessNotif(
           `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) [administracion.pdf demo] listo.`,
         );
-        setTimeout(() => setSuccessNotif(null), 4000);
         return true;
       }
     }
@@ -1115,10 +1309,13 @@ export default function ArcadeArena() {
         boardData = await res.json();
       } else {
         const err = await res.json().catch(() => ({}));
-        setErrorNotif(
-          err.detail || "No se pudieron generar los reactivos del nivel con IA.",
-        );
-        setTimeout(() => setErrorNotif(null), 5000);
+        const msg =
+          err.detail || "No se pudieron generar los reactivos del nivel con IA.";
+        if (res.status === 402) {
+          setErrorNotif(msg);
+        } else {
+          setGenError({ message: msg });
+        }
         return false;
       }
 
@@ -1154,25 +1351,30 @@ export default function ArcadeArena() {
           setSuccessNotif(
             `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) listo.`,
           );
-          setTimeout(() => setSuccessNotif(null), 4000);
           return true;
         }
       }
-      setErrorNotif("El análisis no devolvió reactivos válidos.");
-      setTimeout(() => setErrorNotif(null), 5000);
+      setGenError({ message: "El análisis no devolvió reactivos válidos." });
     } catch (e) {
       if (e.name === "AbortError") return false; // cancelado por el usuario
       console.warn("Error cargando nivel desde el backend:", e);
-      setErrorNotif(
-        e.status === 402
-          ? e.message
-          : "Error al conectarse con el servidor de análisis.",
-      );
-      setTimeout(() => setErrorNotif(null), 5000);
+      if (e.status === 402) {
+        setErrorNotif(e.message);
+      } else {
+        setGenError({
+          message:
+            e.message || "Error al conectarse con el servidor de análisis.",
+        });
+      }
     } finally {
-      if (genAbortRef.current === controller) genAbortRef.current = null;
-      setIsGeneratingArena(false);
-      setGenStage(null);
+      // Solo la generación dueña del ref apaga el estado: si el usuario
+      // canceló y reintentó, el finally de la anterior no debe ocultar el
+      // overlay ni re-habilitar el botón de la nueva en curso.
+      if (genAbortRef.current === controller) {
+        genAbortRef.current = null;
+        setIsGeneratingArena(false);
+        setGenStage(null);
+      }
     }
     return false;
   };
@@ -1225,9 +1427,8 @@ export default function ArcadeArena() {
     setSelectedCardInHand(null);
     setFlyingCard(null);
     setSuccessNotif(
-      "⚡ Tablero reiniciado: Vuelve a intentar este mismo examen.",
+      "Tablero reiniciado: Vuelve a intentar este mismo examen.",
     );
-    setTimeout(() => setSuccessNotif(null), 3000);
   };
 
   // 2B. REGENERAR NUEVAS PREGUNTAS (OPCIÓN B: CONSULTA A GEMINI IA)
@@ -1256,7 +1457,6 @@ export default function ArcadeArena() {
 
     if (targetNode.placedCard) {
       setSuccessNotif(`Este nodo ya tiene su respuesta colocada.`);
-      setTimeout(() => setSuccessNotif(null), 2500);
       return false;
     }
 
@@ -1316,7 +1516,7 @@ export default function ArcadeArena() {
         text: kidMode
           ? `¡Casi! "${card.name}" no era esa. ${pedagogicalHint}`
           : isTrap
-            ? `¡Sorpresa, es una CARTA TRAMPA! ⚡ Se desvanece del mazo. Pista: ${pedagogicalHint}`
+            ? `¡Sorpresa, es una CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
             : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
         isVisible: true,
         mood: isTrap ? "surprised" : "encouraging",
@@ -1325,7 +1525,7 @@ export default function ArcadeArena() {
         kidMode
           ? `"${card.name}" no era. Pista: ${pedagogicalHint}`
           : isTrap
-            ? `⚠️ ¡CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
+            ? `¡CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
             : `"${card.name}" no corresponde a "${targetNode.label}". Pista: ${pedagogicalHint}`,
       );
 
@@ -1354,7 +1554,6 @@ export default function ArcadeArena() {
     setSuccessNotif(
       `¡Excelente! "${card.name}" responde correctamente. +${pointsEarned} pts`,
     );
-    setTimeout(() => setSuccessNotif(null), 3000);
     return true;
   };
 
@@ -1387,7 +1586,6 @@ export default function ArcadeArena() {
       setSuccessNotif(
         `Carta "${card.name}" seleccionada. Toca la casilla correspondiente en el tablero.`,
       );
-      setTimeout(() => setSuccessNotif(null), 3000);
     }
   };
 
@@ -1423,6 +1621,46 @@ export default function ArcadeArena() {
       attemptPlayCard(cardId, matchedNodeId);
     }
   };
+
+  // OVERLAY + TOASTS compartidos: la generación puede lanzarse desde el mapa
+  // (onSelectLevel) o desde la demo de bienvenida — sin esto corría invisible.
+  const generationOverlay = (isGeneratingArena || genError) && (
+    <GenerationOverlay
+      stage={genError ? "error" : genStage}
+      errorMessage={genError?.message}
+      onCancel={handleCancelGeneration}
+      onRetry={genError ? handleRetryGeneration : null}
+    />
+  );
+
+  const notificationToasts = (
+    <AnimatePresence>
+      {successNotif && (
+        <motion.div
+          key="success-notif"
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-600/95 border-2 border-emerald-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(16,185,129,0.35)] max-w-lg"
+        >
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
+          <span>{successNotif}</span>
+        </motion.div>
+      )}
+      {errorNotif && (
+        <motion.div
+          key="error-notif"
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-rose-600/95 border-2 border-rose-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(244,63,94,0.35)] max-w-lg"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>{errorNotif}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   // SI LA PANTALLA DE BIENVENIDA ESTÁ ACTIVA, SE MUESTRA EXCLUSIVAMENTE ELLA (SIN EL TABLERO NI EL JUEGO ABAJO)
   if (isWelcomeScreenVisible) {
@@ -1507,7 +1745,7 @@ export default function ArcadeArena() {
         <AdventureMap
           folderName={
             activeIsland
-              ? `${activeFolder?.name || "Carpeta"} · 🏝️ ${activeIsland.name}`
+              ? `${activeFolder?.name || "Carpeta"} · ${activeIsland.name}`
               : activeFolder?.name || "Mundo de Aprendizaje"
           }
           documentTitle={
@@ -1583,6 +1821,10 @@ export default function ArcadeArena() {
           isOpen={isTutorialOpen}
           onClose={() => setIsTutorialOpen(false)}
         />
+
+        {/* Overlay/toasts: la generación desde el mapa también es visible */}
+        {generationOverlay}
+        {notificationToasts}
       </div>
     );
   }
@@ -1730,37 +1972,10 @@ export default function ArcadeArena() {
       />
 
       {/* OVERLAY DE PROCESAMIENTO PROFUNDO DE DOCUMENTOS CON IA */}
-      {isGeneratingArena && (
-        <GenerationOverlay stage={genStage} onCancel={handleCancelGeneration} />
-      )}
+      {generationOverlay}
 
       {/* TOASTS DE NOTIFICACIÓN — feedback visible de éxito y error */}
-      <AnimatePresence>
-        {successNotif && (
-          <motion.div
-            key="success-notif"
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-600/95 border-2 border-emerald-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(16,185,129,0.35)] max-w-lg"
-          >
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span>{successNotif}</span>
-          </motion.div>
-        )}
-        {errorNotif && (
-          <motion.div
-            key="error-notif"
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-rose-600/95 border-2 border-rose-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(244,63,94,0.35)] max-w-lg"
-          >
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{errorNotif}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {notificationToasts}
 
       {/* 3. MODAL DE PREGUNTA */}
       <QuestionModal
@@ -1876,14 +2091,20 @@ export default function ArcadeArena() {
 
         {/* BOTÓN COLEGIO / INSTITUCIÓN */}
         {currentUser && (
-          <button
-            onClick={() => setIsInstitutionModalOpen(true)}
-            className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
-            title="Hubzy para Colegios: grados, materias y panel docente"
-          >
-            <School className="w-4 h-4 text-emerald-300" />
-            <span className="hidden lg:inline">Colegio</span>
-          </button>
+          <span className="relative inline-flex">
+            <CoachMark id="school">
+              ¿Eres docente? Crea tu colegio, genera códigos de clase y mira el progreso de tus estudiantes aquí.
+            </CoachMark>
+            <button
+              onClick={() => setIsInstitutionModalOpen(true)}
+              className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+              title="Hubzy para Colegios: grados, materias y panel docente"
+              aria-label="Abrir Hubzy para Colegios"
+            >
+              <School className="w-4 h-4 text-emerald-300" />
+              <span className="hidden lg:inline">Colegio</span>
+            </button>
+          </span>
         )}
         {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
         {currentUser ? (
@@ -2156,83 +2377,41 @@ export default function ArcadeArena() {
         streak={streak}
         campaignCompleted={currentLevel === maxLevel}
         weakNodes={victoryStats.weakNodes || []}
+        firstTry={victoryStats.firstTry ?? null}
         masteredConcepts={Object.values(nodes)
           .map((n) => n.placedCard)
           .filter(Boolean)}
         onNextLevel={() => {
           setIsVictoryModalOpen(false);
           setIsLevelTransitioning(false);
-          // Calcular estrellas (1 a 3)
-          const earnedStars =
-            victoryStats.accuracy >= 90
-              ? 3
-              : victoryStats.accuracy >= 70
-                ? 2
-                : 1;
-          const nextStars = {
-            ...levelStars,
-            [currentLevel]: Math.max(levelStars[currentLevel] || 0, earnedStars),
-          };
-          setLevelStars(nextStars);
-          // Desbloquear siguiente nivel si no estaba desbloqueado (hasta el
-          // tope de la campaña: 20 en carpeta, total_levels en una isla)
-          const nextUnlocked =
-            currentLevel < maxLevel
-              ? Math.max(unlockedLevel, currentLevel + 1)
-              : unlockedLevel;
-          const nextCurrent = Math.min(currentLevel + 1, maxLevel);
-          if (currentLevel < maxLevel) {
-            setUnlockedLevel(nextUnlocked);
-            setCurrentLevel((prev) => prev + 1);
-          }
-          // Persistir progreso de campaña (BD + espejo local) + XP del nivel
-          persistCampaignProgress({
-            level_stars: nextStars,
-            unlocked_level: nextUnlocked,
-            current_level: nextCurrent,
-            xp_gained: playerScore,
-          });
+          // Persistir victoria apuntando al nivel siguiente como actual
+          persistVictoryProgress(Math.min(currentLevel + 1, maxLevel));
+          if (currentLevel < maxLevel) setCurrentLevel((prev) => prev + 1);
           // Regresar al mapa de aventura con el nuevo nivel listo
           setIsMapVisible(true);
         }}
         onRetry={() => {
           setIsVictoryModalOpen(false);
           setIsLevelTransitioning(false);
+          // Persistir la victoria actual ANTES de regenerar: las estrellas
+          // y el XP ganados no se abandonan por querer otro intento.
+          persistVictoryProgress(currentLevel);
           handleRestartWithNewQuestions();
         }}
         onGoToMenu={() => {
           setIsVictoryModalOpen(false);
           setIsLevelTransitioning(false);
-          // Si el jugador superó el nivel con al menos 2 estrellas, registrar avance antes de salir
-          const earnedStars =
-            victoryStats.accuracy >= 90 ? 3 : victoryStats.accuracy >= 70 ? 2 : 1;
-          let nextStars = levelStars;
-          let nextUnlocked = unlockedLevel;
-          if (earnedStars >= 2) {
-            nextStars = {
-              ...levelStars,
-              [currentLevel]: Math.max(
-                levelStars[currentLevel] || 0,
-                earnedStars,
-              ),
-            };
-            setLevelStars(nextStars);
-            if (currentLevel < maxLevel) {
-              nextUnlocked = Math.max(unlockedLevel, currentLevel + 1);
-              setUnlockedLevel(nextUnlocked);
-            }
-            persistCampaignProgress({
-              level_stars: nextStars,
-              unlocked_level: nextUnlocked,
-              current_level: nextUnlocked,
-              xp_gained: playerScore,
-            });
-          }
+          // Cualquier victoria (incluso 1★) desbloquea y se registra — antes
+          // solo se guardaba con ≥2★ y el progreso se perdía al salir.
+          persistVictoryProgress(
+            currentLevel < maxLevel ? currentLevel + 1 : currentLevel,
+          );
           setIsMapVisible(true);
         }}
         onReview={() => {
           setIsVictoryModalOpen(false);
           setIsLevelTransitioning(false);
+          persistVictoryProgress(currentLevel);
         }}
       />
 

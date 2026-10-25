@@ -18,7 +18,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.database import db_manager
 from app.core.plans import (
@@ -36,14 +36,15 @@ from app.core.security import (
     utcnow_iso,
 )
 from app.core.session_store import in_memory_study_folders
-from app.routers.arena import _validate_upload, summarize_and_store
+from app.routers.arena import MAX_FILE_SIZE, _validate_upload, summarize_and_store
 from app.routers.institutions import (
     delete_student_progress,
     get_student_progress_doc,
+    in_memory_student_progress,
     save_student_progress,
 )
 from app.schemas.schemas import GameBoardResponse, GenerateBoardRequest
-from app.services.ai_service import ai_service
+from app.services.ai_service import _level_info, ai_service
 from app.services.board_service import generate_board
 from app.services.document_store import (
     folder_query as _folder_query,
@@ -58,6 +59,7 @@ from app.services.document_store import (
 from app.services.job_service import create_job, execute_job, stage_updater
 from app.services.rag_service import rag_service
 from app.services.topic_detector import (
+    _similar,
     detect_document_topics,
     get_island_text,
     rebuild_islands,
@@ -218,33 +220,63 @@ async def create_folder(
     return new_folder
 
 
+# Campos que un doc declarado por cliente puede llevar — jamás contenido
+# extraído o secciones (eso lo produce el pipeline de extracción real).
+_DOC_ALLOWED_KEYS = {"name", "size", "type", "id", "uploaded_at", "pages"}
+
+
 class AddDocsToFolderRequest(BaseModel):
-    documents: list
+    documents: list[dict] = Field(default_factory=list, max_length=20)
 
 
 @router.post("/{folder_id}/documents")
 async def add_documents_to_folder(
     folder_id: str,
     payload: AddDocsToFolderRequest,
+    background_tasks: BackgroundTasks,
     current_user: dict | None = Depends(get_optional_user),
 ):
     folder_doc = await _load_folder(folder_id)
-    if folder_doc:
-        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    if not folder_doc:
+        raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
+    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    effective_plan = (
+        "school" if folder_doc.get("is_school_folder") else get_user_plan(current_user)
+    )
+    enforce_docs_limit(
+        effective_plan,
+        len(folder_doc.get("documents", [])) + len(payload.documents) - 1,
+    )
+
+    clean_docs = [
+        {k: v for k, v in (d or {}).items() if k in _DOC_ALLOWED_KEYS and isinstance(v, (str, int, float, bool))}
+        for d in payload.documents
+    ]
+    clean_docs = [d for d in clean_docs if isinstance(d.get("name"), str) and d["name"].strip()]
+    if not clean_docs:
+        raise HTTPException(status_code=400, detail="No llegaron documentos válidos.")
+
     if db_manager.db is not None:
         try:
-            await db_manager.db["study_folders"].update_one(
+            res = await db_manager.db["study_folders"].update_one(
                 _folder_query(folder_id),
                 {
-                    "$push": {"documents": {"$each": payload.documents}},
+                    "$push": {"documents": {"$each": clean_docs}},
                     "$unset": {
                         "cached_board": "",
                         "cached_boards": "",
+                        "cached_board_hashes": "",
                         "cached_content_hash": "",
                     },
                 },
             )
-            return {"status": "documents_added", "count": len(payload.documents)}
+            if res.matched_count == 0:
+                raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
+            # Detectar temas de cada doc nuevo → reconstruye islas de la carpeta.
+            for d in clean_docs:
+                if d.get("id"):
+                    background_tasks.add_task(detect_topics_and_store, folder_id, d["id"])
+            return {"status": "documents_added", "count": len(clean_docs)}
         except Exception as e:
             logger.error(f"Error agregando documentos a carpeta en MongoDB: {e}")
             raise HTTPException(
@@ -253,9 +285,12 @@ async def add_documents_to_folder(
             ) from e
 
     if folder_id in in_memory_study_folders:
-        in_memory_study_folders[folder_id].setdefault("documents", []).extend(payload.documents)
+        in_memory_study_folders[folder_id].setdefault("documents", []).extend(clean_docs)
         invalidate_folder_game_cache(folder_id)
-        return {"status": "documents_added", "count": len(payload.documents)}
+        for d in clean_docs:
+            if d.get("id"):
+                background_tasks.add_task(detect_topics_and_store, folder_id, d["id"])
+        return {"status": "documents_added", "count": len(clean_docs)}
     return {"status": "acknowledged"}
 
 
@@ -303,6 +338,7 @@ class CampaignProgressRequest(BaseModel):
     xp_gained: int | None = None  # puntos ganados en esta ronda → se acumulan
     island_id: str | None = None  # None = campaña general de la carpeta
     total_levels: int | None = None  # campañas cortas (islas): meta de niveles
+    study_date: str | None = None  # fecha local del cliente 'YYYY-MM-DD' (racha)
 
 
 def _assert_folder_access(current_user: dict | None, folder_doc: dict) -> None:
@@ -355,15 +391,33 @@ def _merge_campaign_progress(prev: dict | None, payload: CampaignProgressRequest
 
     # Streak diario suave (estilo Duolingo sin ansiedad): celebra días
     # seguidos de estudio — solo sube o se reinicia, nunca avisa ni castiga.
-    today = datetime.now(timezone.utc).date().isoformat()
+    # La fecha la manda el cliente (su día local): con UTC fijo, estudiar a
+    # las 23:30 en Bolivia (UTC-4) cruzaba la medianoche UTC a media sesión
+    # y la racha se contaba contra el día equivocado.
+    utc_today = datetime.now(timezone.utc).date()
+    today = utc_today.isoformat()
+    if payload.study_date:
+        try:
+            client_date = datetime.strptime(payload.study_date.strip(), "%Y-%m-%d").date()
+            # Sin fecha futura respecto al servidor (margen: zonas UTC+14).
+            if client_date <= utc_today + timedelta(days=1):
+                today = client_date.isoformat()
+        except ValueError:
+            pass
     last_date = prev.get("last_study_date")
     study_streak = int(prev.get("study_streak") or 0)
     total_days = int(prev.get("total_study_days") or 0)
     if last_date != today:
-        yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+        yesterday = (
+            datetime.strptime(today, "%Y-%m-%d").date() - timedelta(days=1)
+        ).isoformat()
         study_streak = study_streak + 1 if last_date == yesterday else 1
         total_days += 1
         last_date = today
+
+    # La meta de niveles se PERSISTE: sin esto, un guardado posterior sin
+    # total_levels hacía regresar campaign_completed de True a False.
+    total_levels = max(1, min(20, payload.total_levels or prev.get("total_levels") or 20))
 
     return {
         "unlocked_level": unlocked,
@@ -371,7 +425,8 @@ def _merge_campaign_progress(prev: dict | None, payload: CampaignProgressRequest
         "level_stars": stars,
         "levels_completed": completed,
         # Islas con menos de 20 niveles completan su campaña en su propio total
-        "campaign_completed": completed >= max(1, min(20, payload.total_levels or 20)),
+        "campaign_completed": completed >= total_levels,
+        "total_levels": total_levels,
         "total_xp": total_xp,
         "study_streak": study_streak,
         "last_study_date": last_date,
@@ -524,17 +579,23 @@ async def delete_document_from_folder(
                 _folder_query(folder_id),
                 {
                     "$pull": {"documents": {"$or": [{"id": doc_id}, {"name": doc_id}]}},
-                    "$unset": {"cached_board": "", "cached_boards": "", "cached_content_hash": ""},
+                    "$unset": {
+                        "cached_board": "",
+                        "cached_boards": "",
+                        "cached_board_hashes": "",
+                        "cached_content_hash": "",
+                    },
                 },
             )
             logger.info(
                 f"Documento '{doc_id}' eliminado de carpeta '{folder_id}'. Modificados: {result.modified_count}"
             )
-            await rag_service.delete_document_vectors(doc_id)
+            await rag_service.delete_document_vectors(doc_id, folder_id=folder_id)
             # Reconstruir islas: el doc puede ser fuente de alguna (su progreso
             # se conserva si la isla sigue teniendo secciones de otros docs)
             fresh = await _load_folder(folder_id)
             if fresh is not None:
+                prev_islands = fresh.get("islands") or []
                 islands = rebuild_islands(fresh)
                 await db_manager.db["study_folders"].update_one(
                     _folder_query(folder_id),
@@ -547,6 +608,7 @@ async def delete_document_from_folder(
                         }
                     },
                 )
+                await _remap_island_id_refs(folder_id, prev_islands, islands)
             return {"status": "document_deleted", "doc_id": doc_id}
         except Exception as e:
             logger.error(f"Error eliminando documento de carpeta en MongoDB: {e}")
@@ -560,10 +622,14 @@ async def delete_document_from_folder(
             d for d in docs if d.get("id") != doc_id and d.get("name") != doc_id
         ]
         invalidate_folder_game_cache(folder_id)
+        prev_islands = in_memory_study_folders[folder_id].get("islands") or []
         in_memory_study_folders[folder_id]["islands"] = rebuild_islands(
             in_memory_study_folders[folder_id]
         )
-        await rag_service.delete_document_vectors(doc_id)
+        await _remap_island_id_refs(
+            folder_id, prev_islands, in_memory_study_folders[folder_id]["islands"]
+        )
+        await rag_service.delete_document_vectors(doc_id, folder_id=folder_id)
         return {"status": "document_deleted", "doc_id": doc_id}
 
     return {"status": "acknowledged"}
@@ -577,6 +643,19 @@ async def delete_folder(
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
         assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+
+    # Cleanup asociado: vectores RAG + progreso por estudiante (si era
+    # materia escolar). Sin esto quedan datos huérfanos para siempre.
+    await rag_service.delete_folder_vectors(folder_id)
+    if db_manager.db is not None:
+        try:
+            await db_manager.db["student_progress"].delete_many({"folder_id": folder_id})
+        except Exception as e:
+            logger.warning(f"Error limpiando student_progress de {folder_id}: {e}")
+    else:
+        prefix = f"{folder_id}:"
+        for key in [k for k in in_memory_student_progress if k.startswith(prefix)]:
+            in_memory_student_progress.pop(key, None)
 
     if db_manager.db is not None:
         try:
@@ -605,11 +684,18 @@ async def upload_document_to_folder(
     en la carpeta. Indexa chunks en Qdrant (RAG) para búsqueda semántica.
     """
     folder_doc = await _load_folder(folder_id)
-    if folder_doc:
-        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
-        enforce_docs_limit(get_user_plan(current_user), len(folder_doc.get("documents", [])))
+    if not folder_doc:
+        raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
+    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    # Las materias escolares pertenecen a la institución — el plan del docente
+    # no limita su contenido (la licencia por seats lo gobierna).
+    effective_plan = (
+        "school" if folder_doc.get("is_school_folder") else get_user_plan(current_user)
+    )
+    enforce_docs_limit(effective_plan, len(folder_doc.get("documents", [])))
 
-    file_bytes = await file.read()
+    # Lectura acotada: nunca bufferizar más que el límite +1 byte (OOM/DoS).
+    file_bytes = await file.read(MAX_FILE_SIZE + 1)
     filename = file.filename or "archivo"
     _validate_upload(file_bytes, filename)
 
@@ -754,6 +840,7 @@ async def add_sample_document_to_folder(
                     "$unset": {
                         "cached_board": "",
                         "cached_boards": "",
+                        "cached_board_hashes": "",
                         "cached_content_hash": "",
                     },
                 },
@@ -799,13 +886,11 @@ async def add_sample_document_to_folder(
 # dependen de la posición del texto, por eso no se usa RAG top-k aquí).
 GENERATION_TEXT_BUDGET = 150_000
 
-LEVEL_DEFAULTS = {
-    1: (3, "facil"),
-    2: (5, "seminormal"),
-    3: (8, "normal"),
-    4: (15, "semidificil"),
-    5: (20, "dificil"),
-}
+def _level_defaults(level: int) -> tuple[int, str]:
+    """(preguntas, dificultad) por defecto del nivel — derivado de
+    ai_service._level_info para soportar los 20 niveles de campaña."""
+    info = _level_info(level)
+    return info["questions"], info["difficulty"]
 
 
 def _build_generation_text(
@@ -856,7 +941,7 @@ async def _run_folder_generation(
             except Exception as se:
                 logger.debug(f"Actualización de progreso '{stage_name}' omitida: {se}")
 
-    def_qc, def_diff = LEVEL_DEFAULTS.get(level, (3, "facil"))
+    def_qc, def_diff = _level_defaults(level)
     final_qc = question_count if question_count is not None else def_qc
     final_diff = difficulty if difficulty is not None else def_diff
 
@@ -945,11 +1030,19 @@ async def _run_folder_generation(
     if not force:
         await _stage("cache", 20)
         cached_boards_dict = folder_doc.get("cached_boards", {})
-        if lvl_key in cached_boards_dict:
-            logger.info(
-                f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Tablero de '{folder_name}' ({lvl_key}) recuperado de MongoDB."
-            )
-            return GameBoardResponse(**cached_boards_dict[lvl_key])
+        # Hash por nivel: un tablero cacheado solo se sirve si fue generado
+        # sobre EL MISMO contenido (isla + texto + nivel + preguntas + banda).
+        # Docs legacy sin hash registrado caen al check de nodos como antes.
+        board_hashes = folder_doc.get("cached_board_hashes") or {}
+        stored_hash = board_hashes.get(lvl_key)
+        hash_ok = stored_hash is None or stored_hash == folder_content_hash
+        if lvl_key in cached_boards_dict and hash_ok:
+            candidate = cached_boards_dict[lvl_key]
+            if len(candidate.get("nodes", [])) == final_qc:
+                logger.info(
+                    f"⚡ REUTILIZACIÓN INSTANTÁNEA (0 ms, 0 tokens): Tablero de '{folder_name}' ({lvl_key}) recuperado de MongoDB."
+                )
+                return GameBoardResponse(**candidate)
 
         existing_board = folder_doc.get("cached_board")
         # El slot legacy `cached_board` solo es válido para el mismo nivel/isla
@@ -958,6 +1051,7 @@ async def _run_folder_generation(
             existing_board
             and folder_doc.get("cached_board_key") == lvl_key
             and len(existing_board.get("nodes", [])) == final_qc
+            and hash_ok
         ):
             logger.info(
                 f"⚡ REUTILIZACIÓN INSTANTÁNEA: Tablero guardado de '{folder_name}' reutilizado."
@@ -1021,18 +1115,23 @@ async def _run_folder_generation(
     if db_manager.db is not None:
         try:
             lvl_field = f"cached_boards.{lvl_key}"
-            await db_manager.db["study_folders"].update_one(
+            res = await db_manager.db["study_folders"].update_one(
                 _folder_query(folder_id),
                 {
                     "$set": {
                         "cached_board": board_response.model_dump(),
                         "cached_board_key": lvl_key,
                         lvl_field: board_response.model_dump(),
+                        f"cached_board_hashes.{lvl_key}": folder_content_hash,
                         "cached_content_hash": folder_content_hash,
                         "last_analyzed_at": utcnow_iso(),
                     }
                 },
             )
+            if res.matched_count == 0:
+                logger.warning(
+                    f"cached_board de '{folder_id}' no persistió: carpeta eliminada a mitad de la generación."
+                )
             logger.info(
                 f"Análisis guardado en la carpeta '{folder_name}' (Nivel {level}) en MongoDB."
             )
@@ -1042,6 +1141,7 @@ async def _run_folder_generation(
     if folder_id in in_memory_study_folders:
         in_memory_folder = in_memory_study_folders[folder_id]
         in_memory_folder.setdefault("cached_boards", {})[lvl_key] = board_response.model_dump()
+        in_memory_folder.setdefault("cached_board_hashes", {})[lvl_key] = folder_content_hash
         in_memory_folder["cached_board"] = board_response.model_dump()
         in_memory_folder["cached_board_key"] = lvl_key
 
@@ -1056,6 +1156,109 @@ async def _prewarm_level1(folder_id: str, current_user: dict | None) -> None:
         await _run_folder_generation(folder_id, False, 1, None, None, current_user)
     except Exception as e:
         logger.debug(f"Pre-warm nivel 1 para carpeta {folder_id} omitido: {e}")
+
+
+async def _remap_island_id_refs(
+    folder_id: str, prev_islands: list, new_islands: list
+) -> None:
+    """Tras rebuild_islands, re-apunta referencias externas cuando un ID de
+    isla cambió (migración de los legacy isl_1/isl_2 posicionales a los IDs
+    estables por nombre). Cubre: student_progress (_key/island_id),
+    folder.assignment.island_id y claves de cached_boards (`{isl}__level_N`)."""
+    new_ids = {i.get("id") for i in new_islands}
+    taken: set[str] = set()
+    id_map: dict[str, str] = {}
+    for old in prev_islands:
+        oid = old.get("id")
+        if not oid or oid in new_ids:
+            continue
+        for new in new_islands:
+            nid = new.get("id")
+            if nid in taken:
+                continue
+            if _similar(old.get("name", ""), new.get("name", "")):
+                id_map[oid] = nid
+                taken.add(nid)
+                break
+    if not id_map:
+        return
+
+    # 1) student_progress: _key = "folder:uid:island_id" + campo island_id
+    for oid, nid in id_map.items():
+        if db_manager.db is not None:
+            try:
+                cursor = db_manager.db["student_progress"].find(
+                    {"folder_id": folder_id, "island_id": oid}
+                )
+                async for doc in cursor:
+                    await db_manager.db["student_progress"].update_one(
+                        {"_id": doc["_id"]},
+                        {
+                            "$set": {
+                                "island_id": nid,
+                                "_key": doc["_key"][: -len(oid)] + nid,
+                            }
+                        },
+                    )
+            except Exception as e:
+                logger.warning(f"Remap student_progress {oid}→{nid} omitido: {e}")
+        else:
+            suffix = f":{oid}"
+            for key in [
+                k
+                for k in in_memory_student_progress
+                if k.startswith(f"{folder_id}:") and k.endswith(suffix)
+            ]:
+                doc = in_memory_student_progress.pop(key)
+                doc["island_id"] = nid
+                doc["_key"] = key[: -len(suffix)] + f":{nid}"
+                in_memory_student_progress[doc["_key"]] = doc
+
+    # 2) assignment.island_id + claves de cached_boards en el propio folder
+    folder = await _load_folder(folder_id)
+    if not folder:
+        return
+    sets: dict = {}
+    assign_iid = (folder.get("assignment") or {}).get("island_id")
+    if assign_iid in id_map:
+        sets["assignment.island_id"] = id_map[assign_iid]
+    boards = folder.get("cached_boards")
+    if isinstance(boards, dict):
+        new_boards, changed = {}, False
+        for k, v in boards.items():
+            nk = k
+            for oid, nid in id_map.items():
+                if k.startswith(f"{oid}__"):
+                    nk = f"{nid}__" + k[len(oid) + 2 :]
+                    changed = True
+                    break
+            new_boards[nk] = v
+        if changed:
+            sets["cached_boards"] = new_boards
+            cbk = folder.get("cached_board_key")
+            if isinstance(cbk, str):
+                for oid, nid in id_map.items():
+                    if cbk.startswith(f"{oid}__"):
+                        sets["cached_board_key"] = f"{nid}__" + cbk[len(oid) + 2 :]
+                        break
+    if not sets:
+        return
+    if db_manager.db is not None:
+        try:
+            await db_manager.db["study_folders"].update_one(
+                _folder_query(folder_id), {"$set": sets}
+            )
+        except Exception as e:
+            logger.warning(f"Remap de cached_boards/assignment omitido: {e}")
+    elif folder_id in in_memory_study_folders:
+        fdoc = in_memory_study_folders[folder_id]
+        if "cached_boards" in sets:
+            fdoc["cached_boards"] = sets["cached_boards"]
+        if "cached_board_key" in sets:
+            fdoc["cached_board_key"] = sets["cached_board_key"]
+        if "assignment.island_id" in sets:
+            fdoc.setdefault("assignment", {})["island_id"] = sets["assignment.island_id"]
+    logger.info(f"🔄 Islas de '{folder_id}' re-mapeadas: {id_map}")
 
 
 async def detect_topics_and_store(folder_id: str, doc_id: str) -> None:
@@ -1097,6 +1300,7 @@ async def detect_topics_and_store(folder_id: str, doc_id: str) -> None:
         folder_doc = await _load_folder(folder_id)
         if not folder_doc:
             return
+        prev_islands = folder_doc.get("islands") or []
         islands = rebuild_islands(folder_doc)
         if db_manager.db is not None:
             await db_manager.db["study_folders"].update_one(
@@ -1112,6 +1316,7 @@ async def detect_topics_and_store(folder_id: str, doc_id: str) -> None:
             )
         elif folder_id in in_memory_study_folders:
             in_memory_study_folders[folder_id]["islands"] = islands
+        await _remap_island_id_refs(folder_id, prev_islands, islands)
         logger.info(
             f"🏝️ Islas de '{folder_id}' reconstruidas: {len(islands)} → "
             f"{[i['name'] for i in islands]}"
@@ -1162,8 +1367,15 @@ async def generate_game_from_folder(
     en background — el frontend consulta GET /api/v1/jobs/{id} para progreso
     real por etapas (reading → generating → saving → done).
     """
-    plan = get_user_plan(current_user)
-    question_count = enforce_question_limit(plan, question_count)
+    # La carpeta gobierna el plan efectivo: en materias escolares la licencia
+    # institucional paga — el plan personal del estudiante no limita el juego.
+    folder_doc = await _load_folder(folder_id)
+    effective_plan = (
+        "school"
+        if (folder_doc or {}).get("is_school_folder")
+        else get_user_plan(current_user)
+    )
+    question_count = enforce_question_limit(effective_plan, question_count)
 
     if async_mode:
         uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
@@ -1211,8 +1423,8 @@ async def generate_game_from_folder(
 
 
 class FolderAskRequest(BaseModel):
-    question: str
-    top_k: int | None = 5
+    question: str = Field(..., max_length=4000)
+    top_k: int | None = Field(default=5, ge=1, le=20)
 
 
 @router.post("/{folder_id}/ask")

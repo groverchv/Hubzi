@@ -124,7 +124,39 @@ class RagService:
             logger.warning(f"Error indexando documento en Qdrant: {e}")
             return 0
 
-    async def delete_document_vectors(self, doc_id: str):
+    async def delete_document_vectors(self, doc_id: str, folder_id: str | None = None):
+        """Elimina los chunks de un doc. `folder_id` es OBLIGATORIO en la
+        práctica: el doc_id incluye el content_hash, así que el mismo archivo
+        subido a dos carpetas comparte doc_id — filtrar solo por doc_id
+        borraría los vectores de la OTRA carpeta."""
+        if not self.available:
+            return
+        conditions = [
+            qdrant_models.FieldCondition(
+                key="doc_id",
+                match=qdrant_models.MatchValue(value=doc_id),
+            )
+        ]
+        if folder_id:
+            conditions.append(
+                qdrant_models.FieldCondition(
+                    key="folder_id",
+                    match=qdrant_models.MatchValue(value=folder_id),
+                )
+            )
+        try:
+            await asyncio.to_thread(
+                db_manager.qdrant_client.delete,
+                collection_name=db_manager.qdrant_collection,
+                points_selector=qdrant_models.FilterSelector(
+                    filter=qdrant_models.Filter(must=conditions)
+                ),
+            )
+        except Exception as e:
+            logger.warning(f"Error eliminando vectores de {doc_id}: {e}")
+
+    async def delete_folder_vectors(self, folder_id: str):
+        """Elimina TODOS los chunks de una carpeta (al borrarla completa)."""
         if not self.available:
             return
         try:
@@ -135,15 +167,15 @@ class RagService:
                     filter=qdrant_models.Filter(
                         must=[
                             qdrant_models.FieldCondition(
-                                key="doc_id",
-                                match=qdrant_models.MatchValue(value=doc_id),
+                                key="folder_id",
+                                match=qdrant_models.MatchValue(value=folder_id),
                             )
                         ]
                     )
                 ),
             )
         except Exception as e:
-            logger.warning(f"Error eliminando vectores de {doc_id}: {e}")
+            logger.warning(f"Error eliminando vectores de carpeta {folder_id}: {e}")
 
     async def search(self, folder_id: str, query: str, top_k: int = 5) -> list[dict[str, Any]]:
         """Búsqueda semántica limitada a una carpeta (aislamiento por usuario vía folder_id)."""

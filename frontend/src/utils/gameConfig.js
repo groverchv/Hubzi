@@ -10,7 +10,7 @@ export const GAME_LEVELS = Array.from({ length: 20 }, (_, i) => {
   let diffLabel = "Iniciación";
   if (lvl >= 16) {
     difficulty = "dificil";
-    diffLabel = isBoss ? "👑 JEFE FINAL" : "Maestro";
+    diffLabel = isBoss ? "JEFE FINAL" : "Maestro";
   } else if (lvl >= 11) {
     difficulty = "semidificil";
     diffLabel = "Avanzado";

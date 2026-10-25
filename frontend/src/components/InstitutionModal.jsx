@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import {
   School,
   GraduationCap,
@@ -13,6 +14,12 @@ import {
   X,
   Loader2,
   KeyRound,
+  Palmtree,
+  Star,
+  CheckCircle2,
+  FileText,
+  AlertTriangle,
+  Pin,
 } from "lucide-react";
 import { fetchWithAuth } from "../lib/api";
 
@@ -24,12 +31,14 @@ import { fetchWithAuth } from "../lib/api";
  *  Privacidad: el panel docente muestra SOLO métricas pedagógicas.
  */
 export default function InstitutionModal({ isOpen, onClose }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [instData, setInstData] = useState(null); // {institution, grades, role}
   const [view, setView] = useState("home"); // home | dashboard
   const [dashboard, setDashboard] = useState(null);
+  const [dashLoading, setDashLoading] = useState(false);
   const [dashGrade, setDashGrade] = useState(null);
   const [schoolName, setSchoolName] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -226,7 +235,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "No se pudo asignar la tarea.");
-      setNotice("📌 Tarea asignada — tus estudiantes la verán en su baúl de carpetas.");
+      setNotice(t("school.assign_notice"));
       setAssignGrade(null);
     } catch (e) {
       setError(e.message);
@@ -324,28 +333,37 @@ export default function InstitutionModal({ isOpen, onClose }) {
   const printReport = (r) => {
     const win = window.open("", "_blank", "width=720,height=900");
     if (!win) return;
+    // La ventana comparte el origen — escapar todo lo interpolado (nombres
+    // de estudiante/institución/materia vienen del usuario y del LLM).
+    const esc = (v) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     const rows = (r.student.subjects || [])
       .map(
         (s) => `
-      <tr><td style="font-weight:700">${s.subject}</td>
+      <tr><td style="font-weight:700">${esc(s.subject)}</td>
       <td>${(s.islands || [])
         .map(
           (i) =>
-            `${i.island_name}: Nivel ${i.current_level}/${i.total_levels} · ★${i.stars}${i.completed ? " ✓" : ""}`,
+            `${esc(i.island_name)}: Nivel ${i.current_level}/${i.total_levels} · ★${i.stars}${i.completed ? " ✓" : ""}`,
         )
         .join("<br>") || "—"}</td>
       <td>${s.folder_progress ? `Nivel ${s.folder_progress.current_level || 1} · ${s.folder_progress.total_xp || 0} XP` : "Sin actividad"}</td></tr>`,
       )
       .join("");
     win.document.write(`<!doctype html><html><head><meta charset="utf-8">
-      <title>Reporte — ${r.student.username}</title>
+      <title>Reporte — ${esc(r.student.username)}</title>
       <style>body{font-family:system-ui,Arial;padding:32px;color:#0f172a}
       h1{font-size:20px} h2{font-size:13px;color:#475569;font-weight:600;margin:4px 0 20px}
       table{width:100%;border-collapse:collapse;font-size:13px}
       td{border:1px solid #cbd5e1;padding:8px;vertical-align:top}
       .foot{margin-top:24px;font-size:11px;color:#64748b}</style></head><body>
-      <h1>🏫 ${r.institution.name} — Reporte de aprendizaje</h1>
-      <h2>Estudiante: <b>${r.student.username}</b> · Grado: ${r.grade.name} · Generado: ${new Date(r.generated_at).toLocaleDateString("es-ES")}</h2>
+      <h1>${esc(r.institution.name)} — Reporte de aprendizaje</h1>
+      <h2>Estudiante: <b>${esc(r.student.username)}</b> · Grado: ${esc(r.grade.name)} · Generado: ${new Date(r.generated_at).toLocaleDateString("es-ES")}</h2>
       <table><tr style="background:#f1f5f9"><td>Materia</td><td>Islas / temas</td><td>Progreso general</td></tr>${rows}</table>
       <p class="foot">Hubzy Escuelas — métricas pedagógicas de juego (niveles, estrellas, XP). Sin contenido emocional ni conversaciones.</p>
       </body></html>`);
@@ -355,8 +373,11 @@ export default function InstitutionModal({ isOpen, onClose }) {
   };
 
   const openDashboard = async (grade) => {
-    setBusy(true);
+    setDashLoading(true);
     setError(null);
+    setDashboard(null);
+    setDashGrade(grade);
+    setView("dashboard"); // el esqueleto se muestra mientras llega la data
     try {
       const res = await fetchWithAuth(
         `/api/v1/institutions/grades/${grade.id}/dashboard`,
@@ -364,13 +385,32 @@ export default function InstitutionModal({ isOpen, onClose }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "No se pudo cargar el panel.");
       setDashboard(data);
-      setDashGrade(grade);
-      setView("dashboard");
     } catch (e) {
       setError(e.message);
+      setView("home");
     } finally {
-      setBusy(false);
+      setDashLoading(false);
     }
+  };
+
+  // Prioridad docente: primero quien más necesita atención
+  // (sin actividad > inactivo 7+ días > islas sin superar con 0★).
+  const studentAlertScore = (s) => {
+    const subjects = s.subjects || [];
+    const noActivity = subjects.every(
+      (x) => (x.islands || []).length === 0 && !x.folder_progress,
+    );
+    let stale = false;
+    let zeroStars = 0;
+    for (const sub of subjects) {
+      for (const isl of sub.islands || []) {
+        if (!isl.completed && (isl.stars || 0) === 0) zeroStars += 1;
+        const lp = isl.last_played_at || sub.folder_progress?.last_played_at;
+        if (lp && Date.now() - new Date(lp).getTime() > 7 * 86400000)
+          stale = true;
+      }
+    }
+    return (noActivity ? 4 : 0) + (stale ? 2 : 0) + Math.min(zeroStars, 3);
   };
 
   if (!isOpen) return null;
@@ -380,7 +420,12 @@ export default function InstitutionModal({ isOpen, onClose }) {
   const isStaff = role === "admin" || role === "teacher";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md select-none font-sans">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md select-none font-sans"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("school.title")}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -403,21 +448,22 @@ export default function InstitutionModal({ isOpen, onClose }) {
             <div>
               <h2 className="text-lg font-black uppercase tracking-wide">
                 {view === "dashboard"
-                  ? `Panel — ${dashGrade?.name || "Grado"}`
+                  ? t("school.panel_title", { grade: dashGrade?.name || "—" })
                   : inst
                     ? inst.name
-                    : "Hubzy para Colegios"}
+                    : t("school.title")}
               </h2>
               <p className="text-[11px] text-slate-400 font-bold">
-                {role === "admin" && "Rol: Administrador"}
-                {role === "teacher" && "Rol: Docente"}
-                {role === "student" && "Rol: Estudiante"}
-                {!inst && "Grados → Materias → Temas (islas) en un clic"}
+                {role === "admin" && t("school.role_admin")}
+                {role === "teacher" && t("school.role_teacher")}
+                {role === "student" && t("school.role_student")}
+                {!inst && t("school.subtitle")}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
+            aria-label={t("school.close_dialog")}
             className="p-2 rounded-2xl bg-[#122443] hover:bg-rose-900/70 border-2 border-[#1e3a6c] text-slate-300 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -440,36 +486,68 @@ export default function InstitutionModal({ isOpen, onClose }) {
         <div className="p-5 overflow-y-auto flex-1 space-y-4">
           {loading ? (
             <div className="py-14 flex items-center justify-center gap-2 text-slate-400 font-bold text-sm">
-              <Loader2 className="w-5 h-5 animate-spin" /> Cargando…
+              <Loader2 className="w-5 h-5 animate-spin" /> {t("common.loading")}
             </div>
-          ) : view === "dashboard" && dashboard ? (
+          ) : view === "dashboard" ? (
             /* ============ PANEL DOCENTE ============ */
+            dashLoading || !dashboard ? (
+              /* Esqueleto mientras carga el panel */
+              <div className="space-y-3 animate-pulse" aria-busy="true">
+                <div className="h-14 rounded-2xl bg-[#122443] border-2 border-[#1e3a6c]" />
+                {[...Array(4)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-20 rounded-2xl bg-[#122443] border-2 border-[#1e3a6c]"
+                  />
+                ))}
+                <p className="text-center text-xs text-slate-500 font-bold">
+                  {t("school.dash_loading")}
+                </p>
+              </div>
+            ) : (
             <>
               {(dashboard.weak_topics || []).length > 0 && (
                 <div className="p-3.5 rounded-2xl bg-amber-950/40 border-2 border-amber-500/40">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-amber-300 mb-2">
-                    📌 Temas que el curso debe reforzar
+                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-amber-300 mb-2">
+                    <Pin className="w-3 h-3" />
+                    {t("school.weak_topics")}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {dashboard.weak_topics.slice(0, 8).map((t, i) => (
+                    {dashboard.weak_topics.slice(0, 8).map((topic, i) => (
                       <span
                         key={i}
                         className="px-2 py-0.5 rounded-lg bg-[#0a162b] border border-amber-500/30 text-[10px] font-bold text-amber-200"
                       >
-                        {t.topic} · {t.students} alumno{t.students !== 1 && "s"}
+                        {topic.topic} · {topic.students}{" "}
+                        {topic.students !== 1
+                          ? t("school.students_other")
+                          : t("school.students_one")}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
               {dashboard.students.length === 0 ? (
-                <p className="text-center text-sm text-slate-400 font-bold py-8">
-                  Aún no hay estudiantes matriculados. Comparte el código de
-                  clase <span className="text-cyan-300">{dashGrade?.join_code}</span>.
-                </p>
+                <div className="py-10 px-4 rounded-3xl border-2 border-dashed border-slate-700 bg-[#141d2c]/60 text-center flex flex-col items-center gap-3">
+                  <GraduationCap className="w-10 h-10 text-slate-600" />
+                  <p className="text-sm text-slate-300 font-bold max-w-xs">
+                    {t("school.no_students")}
+                  </p>
+                  <button
+                    onClick={() => copy(dashGrade?.join_code, `dash_${dashGrade?.id}`)}
+                    className="px-4 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border-2 border-cyan-500/50 font-mono font-black text-cyan-300 text-sm tracking-widest transition-all cursor-pointer"
+                  >
+                    {copied === `dash_${dashGrade?.id}` ? t("school.copied") : dashGrade?.join_code}
+                  </button>
+                  <p className="text-[10px] text-slate-500">
+                    {t("school.copy_hint")}
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {dashboard.students.map((s) => (
+                  {[...dashboard.students]
+                    .sort((a, b) => studentAlertScore(b) - studentAlertScore(a))
+                    .map((s) => (
                     <div
                       key={s.student_id}
                       className="rounded-2xl bg-[#122443] border-2 border-[#1e3a6c] p-3.5"
@@ -479,18 +557,28 @@ export default function InstitutionModal({ isOpen, onClose }) {
                         <span className="font-black text-sm text-white">
                           {s.username}
                         </span>
+                        {studentAlertScore(s) >= 2 && (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/40 text-[9px] font-black text-amber-300 uppercase"
+                            title={t("school.needs_followup_title")}
+                          >
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            {t("school.needs_followup")}
+                          </span>
+                        )}
                         <button
                           onClick={() => openReport(dashGrade, s.student_id)}
                           disabled={busy}
                           className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#0a162b] hover:bg-[#1a335e] border border-[#1e3a6c] text-[10px] font-black text-slate-300 uppercase cursor-pointer disabled:opacity-50"
-                          title="Reporte imprimible para padres/docencia"
+                          title={t("school.report_title")}
                         >
-                          📄 Reporte
+                          <FileText className="w-3 h-3" />
+                          {t("school.report_btn")}
                         </button>
                       </div>
                       {s.subjects.every((x) => x.islands.length === 0 && !x.folder_progress) ? (
                         <p className="text-[11px] text-slate-500 font-bold">
-                          Sin actividad todavía
+                          {t("school.no_activity")}
                         </p>
                       ) : (
                         <div className="space-y-1.5">
@@ -500,9 +588,10 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 {sub.subject}
                               </span>
                               {sub.folder_progress && (
-                                <span className="ml-2 text-amber-300 font-bold">
+                                <span className="ml-2 inline-flex items-center gap-1 text-amber-300 font-bold">
                                   Nivel {sub.folder_progress.current_level || 1}
-                                  {" · ★"}
+                                  {" · "}
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                                   {Object.values(
                                     sub.folder_progress.level_stars || {},
                                   ).reduce((a, b) => a + b, 0)}
@@ -515,17 +604,20 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                   key={isl.island_id}
                                   className="mt-1 ml-3 flex items-center gap-2 text-slate-400"
                                 >
-                                  <span className="text-[10px]">🏝️</span>
+                                  <Palmtree className="w-3.5 h-3.5 text-cyan-400/80 shrink-0" />
                                   <span className="font-bold">{isl.island_name}</span>
                                   <span className="text-slate-500">·</span>
                                   <span>
-                                    N{isl.current_level}/{isl.total_levels}
+                                    {t("school.level_fmt", {
+                                      current: isl.current_level,
+                                      total: isl.total_levels,
+                                    })}
                                   </span>
-                                  <span className="text-amber-400">★{isl.stars}</span>
+                                  <span className="inline-flex items-center gap-0.5 text-amber-400">
+                                    <Star className="w-3 h-3 fill-amber-400" />{isl.stars}
+                                  </span>
                                   {isl.completed && (
-                                    <span className="text-emerald-400 font-black">
-                                      ✓
-                                    </span>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                                   )}
                                 </div>
                               ))}
@@ -538,22 +630,22 @@ export default function InstitutionModal({ isOpen, onClose }) {
                 </div>
               )}
             </>
+            )
           ) : !inst ? (
             /* ============ SIN INSTITUCIÓN ============ */
             <>
               <div className="p-4 rounded-2xl bg-[#122443] border-2 border-[#1e3a6c]">
                 <h3 className="font-black text-sm uppercase tracking-wide text-[#FFB400] mb-1.5 flex items-center gap-2">
-                  <School className="w-4 h-4" /> Crear mi colegio
+                  <School className="w-4 h-4" /> {t("school.create_school_title")}
                 </h3>
                 <p className="text-[11px] text-slate-400 font-bold mb-3">
-                  Serás el administrador: podrás crear grados, invitar docentes
-                  y ver el progreso pedagógico de cada curso.
+                  {t("school.create_school_desc")}
                 </p>
                 <div className="flex gap-2">
                   <input
                     value={schoolName}
                     onChange={(e) => setSchoolName(e.target.value)}
-                    placeholder='Ej: "Colegio San Andrés"'
+                    placeholder={t("school.create_school_ph")}
                     className="flex-1 rounded-xl bg-[#0a162b] border-2 border-[#1e3a6c] px-3 py-2 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:border-[#FFB400]"
                   />
                   <button
@@ -561,23 +653,22 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     disabled={busy || schoolName.trim().length < 3}
                     className="px-4 py-2 rounded-xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-b-4 border-b-[#D45B00] font-black text-xs uppercase cursor-pointer disabled:opacity-50"
                   >
-                    Crear
+                    {t("school.create_btn")}
                   </button>
                 </div>
               </div>
               <div className="p-4 rounded-2xl bg-[#122443] border-2 border-dashed border-[#2b3f5f]">
                 <h3 className="font-black text-sm uppercase tracking-wide text-cyan-300 mb-1.5 flex items-center gap-2">
-                  <KeyRound className="w-4 h-4" /> Tengo un código de clase
+                  <KeyRound className="w-4 h-4" /> {t("school.join_code_title")}
                 </h3>
                 <p className="text-[11px] text-slate-400 font-bold mb-3">
-                  Estudiantes: pide a tu docente el código del grado
-                  (HUBZY-XXXXX). Docentes: usa el código PROF- de tu colegio.
+                  {t("school.join_code_desc")}
                 </p>
                 <div className="flex gap-2">
                   <input
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder="HUBZY-XXXXX o PROF-XXXXX"
+                    placeholder={t("school.join_code_ph")}
                     className="flex-1 rounded-xl bg-[#0a162b] border-2 border-[#1e3a6c] px-3 py-2 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 tracking-widest"
                   />
                   <button
@@ -585,7 +676,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     disabled={busy || !joinCode.trim()}
                     className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 border-b-4 border-b-cyan-800 font-black text-xs uppercase cursor-pointer disabled:opacity-50"
                   >
-                    Unirme
+                    {t("school.join_btn")}
                   </button>
                 </div>
               </div>
@@ -599,23 +690,30 @@ export default function InstitutionModal({ isOpen, onClose }) {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-[10px] font-black uppercase text-slate-400">
-                        Licencia institucional
+                        {t("school.license_label")}
                       </p>
                       <p className="text-xs font-bold text-white">
                         {inst.subscription?.status === "active" ? (
                           <>
-                            <span className="text-emerald-400">● Activa</span> —{" "}
-                            {inst.subscription.seats} estudiantes/mes
+                            <span className="text-emerald-400">
+                              {t("school.license_active")}
+                            </span>{" "}
+                            —{" "}
+                            {t("school.license_active_fmt", {
+                              seats: inst.subscription.seats,
+                            })}
                           </>
                         ) : (
                           <>
-                            <span className="text-amber-400">● Trial</span> — gratis
-                            hasta 30 estudiantes
+                            <span className="text-amber-400">
+                              {t("school.license_trial")}
+                            </span>{" "}
+                            — {t("school.license_trial_fmt")}
                           </>
                         )}
                       </p>
                       <p className="text-[10px] text-slate-500 font-bold mt-0.5">
-                        Matriculados:{" "}
+                        {t("school.enrolled_label")}:{" "}
                         {(instData?.grades || []).reduce(
                           (a, g) => a + (g.student_count ?? (g.student_ids || []).length),
                           0,
@@ -630,15 +728,15 @@ export default function InstitutionModal({ isOpen, onClose }) {
                           value={seatsInput}
                           onChange={(e) => setSeatsInput(e.target.value)}
                           className="w-16 rounded-lg bg-[#0a162b] border border-[#1e3a6c] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-emerald-400"
-                          title="Estudiantes licenciados (mín. 30)"
+                          title={t("school.seats_title")}
                         />
                         <button
                           onClick={handleSchoolCheckout}
                           disabled={busy}
                           className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-emerald-950 border-b-2 border-b-emerald-700 text-[10px] font-black uppercase cursor-pointer disabled:opacity-50"
-                          title="$1 USD por estudiante/mes"
+                          title={t("school.pay_title")}
                         >
-                          Pagar
+                          {t("school.pay_btn")}
                         </button>
                       </div>
                     )}
@@ -651,7 +749,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                 <div className="p-3.5 rounded-2xl bg-[#122443] border-2 border-[#1e3a6c] flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase text-slate-400">
-                      Código para docentes
+                      {t("school.teacher_code_label")}
                     </p>
                     <p className="font-black text-cyan-300 tracking-widest">
                       {inst.teacher_code}
@@ -660,7 +758,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                   <button
                     onClick={() => copy(inst.teacher_code, "prof")}
                     className="p-2 rounded-xl bg-[#0a162b] hover:bg-[#1a335e] border border-[#1e3a6c] cursor-pointer"
-                    title="Copiar código"
+                    title={t("school.copy_title")}
                   >
                     {copied === "prof" ? (
                       <Check className="w-4 h-4 text-emerald-400" />
@@ -677,7 +775,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                   <input
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder="Otro código de clase…"
+                    placeholder={t("school.join_another_ph")}
                     className="flex-1 rounded-xl bg-[#0a162b] border-2 border-[#1e3a6c] px-3 py-2 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 tracking-widest"
                   />
                   <button
@@ -685,7 +783,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     disabled={busy || !joinCode.trim()}
                     className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 font-black text-[11px] uppercase cursor-pointer disabled:opacity-50"
                   >
-                    Unirme
+                    {t("school.join_btn")}
                   </button>
                 </div>
               )}
@@ -693,13 +791,13 @@ export default function InstitutionModal({ isOpen, onClose }) {
               {/* Lista de grados */}
               <div>
                 <h3 className="font-black text-xs uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#FFB400]" /> Grados y paralelos
+                  <Users className="w-4 h-4 text-[#FFB400]" /> {t("school.grades_title")}
                 </h3>
                 {(instData?.grades || []).length === 0 ? (
                   <p className="text-xs text-slate-500 font-bold py-3">
                     {isStaff
-                      ? "Crea el primer grado: ej. “1ro Primaria A”, “5to Secundaria B”…"
-                      : "Aún no hay grados disponibles."}
+                      ? t("school.grades_empty_staff")
+                      : t("school.grades_empty_student")}
                   </p>
                 ) : (
                   <div className="space-y-2.5">
@@ -716,11 +814,13 @@ export default function InstitutionModal({ isOpen, onClose }) {
                             </span>
                             <span className="text-[10px] font-bold text-slate-400 shrink-0">
                               {g.student_count ?? (g.student_ids || []).length}{" "}
-                              alumno
-                              {(g.student_count ?? (g.student_ids || []).length) !== 1 &&
-                                "s"}{" "}
-                              · {(g.folder_ids || []).length} materia
-                              {(g.folder_ids || []).length !== 1 && "s"}
+                              {(g.student_count ?? (g.student_ids || []).length) !== 1
+                                ? t("school.students_other")
+                                : t("school.students_one")}{" "}
+                              · {(g.folder_ids || []).length}{" "}
+                              {(g.folder_ids || []).length !== 1
+                                ? t("school.subjects_other")
+                                : t("school.subjects_one")}
                             </span>
                           </div>
                           {isStaff && (
@@ -728,7 +828,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                               <button
                                 onClick={() => copy(g.join_code, g.id)}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0a162b] hover:bg-[#1a335e] border border-[#1e3a6c] text-[10px] font-black text-cyan-300 tracking-wider cursor-pointer"
-                                title="Código de clase para estudiantes"
+                                title={t("school.join_code_title")}
                               >
                                 {copied === g.id ? (
                                   <Check className="w-3 h-3 text-emerald-400" />
@@ -742,7 +842,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 disabled={busy}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/50 text-[10px] font-black text-emerald-300 uppercase cursor-pointer disabled:opacity-50"
                               >
-                                <BarChart3 className="w-3 h-3" /> Panel
+                                <BarChart3 className="w-3 h-3" /> {t("school.panel_btn")}
                               </button>
                               <button
                                 onClick={() => toggleAssign(g)}
@@ -750,11 +850,12 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/50 text-[10px] font-black text-amber-300 uppercase cursor-pointer disabled:opacity-50"
                                 title={
                                   (g.folder_ids || []).length === 0
-                                    ? "Crea una materia primero"
-                                    : "Asignar una isla/materia como tarea"
+                                    ? t("school.assign_no_subject")
+                                    : t("school.assign_title_attr")
                                 }
                               >
-                                📌 Tarea
+                                <Pin className="w-3 h-3" />
+                                {t("school.assign_btn")}
                               </button>
                               <button
                                 onClick={() => {
@@ -766,9 +867,9 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 }}
                                 disabled={busy}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 border border-cyan-500/50 text-[10px] font-black text-cyan-300 uppercase cursor-pointer disabled:opacity-50"
-                                title="Matricular varios estudiantes de golpe (CSV)"
+                                title={t("school.csv_title")}
                               >
-                                <Users className="w-3 h-3" /> CSV
+                                <Users className="w-3 h-3" /> {t("school.csv_btn")}
                               </button>
                             </div>
                           )}
@@ -778,39 +879,38 @@ export default function InstitutionModal({ isOpen, onClose }) {
                         {isStaff && enrollGrade === g.id && (
                           <div className="mt-2.5 p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/40 space-y-2">
                             <p className="text-[10px] font-black uppercase text-cyan-300">
-                              Matrícula masiva — una línea por estudiante
+                              {t("school.bulk_title")}
                             </p>
                             <textarea
                               value={enrollText}
                               onChange={(e) => setEnrollText(e.target.value)}
                               rows={4}
-                              placeholder={"Ana Pérez, 15\nLuis Rojas, 15\nMaría Sol, 16, miClave123"}
+                              placeholder={t("school.bulk_ph")}
                               className="w-full rounded-lg bg-[#0a162b] border border-[#1e3a6c] px-2.5 py-2 text-[11px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 font-mono"
                             />
                             <p className="text-[10px] text-slate-500 font-bold">
-                              Formato: nombre[, edad][, contraseña] — si omites la
-                              contraseña se genera una temporal.
+                              {t("school.bulk_format")}
                             </p>
                             <div className="flex gap-2 justify-end">
                               <button
                                 onClick={() => setEnrollGrade(null)}
                                 className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-400 hover:text-white cursor-pointer"
                               >
-                                Cerrar
+                                {t("school.close_btn")}
                               </button>
                               <button
                                 onClick={() => handleBulkEnroll(g)}
                                 disabled={busy || !enrollText.trim()}
                                 className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 border-b-2 border-b-cyan-800 text-[10px] font-black uppercase cursor-pointer disabled:opacity-50"
                               >
-                                Matricular
+                                {t("school.enroll_btn")}
                               </button>
                             </div>
                             {enrollResult && (
                               <div className="max-h-36 overflow-y-auto rounded-lg bg-[#0a162b] border border-emerald-500/40 p-2 space-y-1">
                                 <div className="flex items-center justify-between">
                                   <p className="text-[10px] font-black text-emerald-300 uppercase">
-                                    Credenciales generadas
+                                    {t("school.creds_title")}
                                   </p>
                                   <button
                                     onClick={() =>
@@ -826,7 +926,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                     }
                                     className="text-[10px] font-black text-cyan-300 hover:text-cyan-100 cursor-pointer"
                                   >
-                                    {copied === "csv" ? "✓ Copiado" : "Copiar todo"}
+                                    {copied === "csv" ? t("school.copied") : t("school.copy_all")}
                                   </button>
                                 </div>
                                 {enrollResult.map((c, i) => (
@@ -849,7 +949,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                   [g.id]: e.target.value,
                                 }))
                               }
-                              placeholder="Nueva materia: Sociales, Mates…"
+                              placeholder={t("school.new_subject_ph")}
                               className="flex-1 rounded-lg bg-[#0a162b] border border-[#1e3a6c] px-2.5 py-1.5 text-[11px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400"
                             />
                             <button
@@ -857,7 +957,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                               disabled={busy || (newSubject[g.id] || "").trim().length < 2}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#FF7A00] hover:bg-[#ff8c1a] border-b-2 border-b-[#D45B00] text-[10px] font-black uppercase cursor-pointer disabled:opacity-50"
                             >
-                              <Plus className="w-3 h-3" /> Materia
+                              <Plus className="w-3 h-3" /> {t("school.subject_btn")}
                             </button>
                           </div>
                         )}
@@ -866,7 +966,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                         {isStaff && assignGrade === g.id && (
                           <div className="mt-2.5 p-3 rounded-xl bg-amber-950/30 border border-amber-500/40 space-y-2">
                             <p className="text-[10px] font-black uppercase text-amber-300">
-                              Asignar repaso al grado
+                              {t("school.assign_panel_title")}
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                               <select
@@ -880,7 +980,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 }
                                 className="rounded-lg bg-[#0a162b] border border-[#1e3a6c] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-amber-400"
                               >
-                                <option value="">Materia…</option>
+                                <option value="">{t("school.subject_opt")}</option>
                                 {(teacherFolders || [])
                                   .filter((f) => (g.folder_ids || []).includes(f.id))
                                   .map((f) => (
@@ -899,14 +999,14 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 }
                                 className="rounded-lg bg-[#0a162b] border border-[#1e3a6c] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-amber-400"
                               >
-                                <option value="">Toda la materia</option>
+                                <option value="">{t("school.all_subject_opt")}</option>
                                 {(
                                   (teacherFolders || []).find(
                                     (f) => f.id === assignForm.folder_id,
                                   )?.islands || []
                                 ).map((isl) => (
                                   <option key={isl.id} value={isl.id}>
-                                    🏝️ {isl.name}
+                                    {isl.name}
                                   </option>
                                 ))}
                               </select>
@@ -920,7 +1020,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                     title: e.target.value,
                                   }))
                                 }
-                                placeholder='Ej: "Repasar para el viernes"'
+                                placeholder={t("school.assign_ph")}
                                 className="flex-1 rounded-lg bg-[#0a162b] border border-[#1e3a6c] px-2 py-1.5 text-[11px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
                               />
                               <input
@@ -940,14 +1040,15 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 onClick={() => setAssignGrade(null)}
                                 className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-400 hover:text-white cursor-pointer"
                               >
-                                Cancelar
+                                {t("common.cancel")}
                               </button>
                               <button
                                 onClick={() => handleAssign(g)}
                                 disabled={busy || !assignForm.folder_id}
-                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-amber-950 border-b-2 border-b-amber-700 text-[10px] font-black uppercase cursor-pointer disabled:opacity-50"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-amber-950 border-b-2 border-b-amber-700 text-[10px] font-black uppercase cursor-pointer disabled:opacity-50"
                               >
-                                Asignar 📌
+                                <Pin className="w-3 h-3" />
+                                {t("school.assign_submit")}
                               </button>
                             </div>
                           </div>
@@ -962,13 +1063,13 @@ export default function InstitutionModal({ isOpen, onClose }) {
               {isStaff && (
                 <div className="p-3.5 rounded-2xl bg-[#122443] border-2 border-dashed border-[#2b3f5f]">
                   <p className="text-[10px] font-black uppercase text-slate-400 mb-2 flex items-center gap-1.5">
-                    <Plus className="w-3.5 h-3.5" /> Nuevo grado o paralelo
+                    <Plus className="w-3.5 h-3.5" /> {t("school.new_grade_label")}
                   </p>
                   <div className="flex gap-2">
                     <input
                       value={newGradeName}
                       onChange={(e) => setNewGradeName(e.target.value)}
-                      placeholder='Ej: "4to Secundaria A"'
+                      placeholder={t("school.new_grade_ph")}
                       className="flex-1 rounded-xl bg-[#0a162b] border-2 border-[#1e3a6c] px-3 py-2 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-[#FFB400]"
                     />
                     <button
@@ -976,7 +1077,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                       disabled={busy || newGradeName.trim().length < 2}
                       className="px-4 py-2 rounded-xl bg-[#FFB400] hover:bg-[#ffbf1a] text-[#122443] border-b-4 border-b-[#D48800] font-black text-xs uppercase cursor-pointer disabled:opacity-50"
                     >
-                      Crear grado
+                      {t("school.new_grade_btn")}
                     </button>
                   </div>
                 </div>
@@ -984,8 +1085,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
               <p className="text-[10px] text-slate-500 font-bold text-center pt-1">
                 <BookOpen className="w-3.5 h-3.5 inline mr-1" />
-                Las materias aparecen en el baúl de carpetas de tus estudiantes.
-                Sube el material y las islas-temas se generan solas.
+                {t("school.footer_note")}
               </p>
             </>
           )}

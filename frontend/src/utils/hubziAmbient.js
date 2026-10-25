@@ -348,6 +348,14 @@ class HubziAmbientEngine {
     } else {
       await this.start();
     }
+    // Persistir la decisión entre sesiones: sin esto, el autoStart del próximo
+    // montaje re-encendía la música que el usuario acababa de apagar.
+    try {
+      localStorage.setItem(
+        'hubzy_ambient_pref',
+        this.isPlaying ? 'on' : 'off',
+      );
+    } catch (_) { }
   }
 
   /**
@@ -361,6 +369,11 @@ class HubziAmbientEngine {
   autoStart() {
     if (this._autoStartArmed || this.isPlaying || typeof window === 'undefined')
       return () => {};
+    // Si el usuario apagó la música explícitamente, su decisión sobrevive al
+    // reload — el autoStart solo corre para quien nunca la tocó.
+    try {
+      if (localStorage.getItem('hubzy_ambient_pref') === 'off') return () => {};
+    } catch (_) { }
     this._autoStartArmed = true;
     void this.start();
 

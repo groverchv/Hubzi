@@ -15,7 +15,11 @@ import {
   Heart,
   AlertTriangle,
   Zap,
+  Brain,
+  PartyPopper,
+  Star,
 } from "lucide-react";
+import CoachMark from "./CoachMark";
 import capyFallback from "../assets/mascots/capy_escolar_nino_m.webp";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
@@ -389,10 +393,10 @@ export default function CapyCompanion({
             {/* OVERLAY DANCING: notas musicales */}
             {capyMood === "dancing" && (
               <div className="absolute inset-0 pointer-events-none z-20">
-                {["♪", "♫", "♩", "♬"].map((note, i) => (
+                {[Music, Music2, Music, Music2].map((NoteIcon, i) => (
                   <motion.span
                     key={i}
-                    className="absolute text-purple-300 font-bold text-xs"
+                    className="absolute"
                     style={{ left: `${15 + i * 20}%`, top: "10%" }}
                     animate={{
                       y: [0, -30],
@@ -405,7 +409,7 @@ export default function CapyCompanion({
                       delay: i * 0.25,
                     }}
                   >
-                    {note}
+                    <NoteIcon className="w-3 h-3 text-purple-300" />
                   </motion.span>
                 ))}
                 <div className="absolute inset-0 bg-gradient-to-t from-purple-950/50 via-transparent to-transparent" />
@@ -415,10 +419,10 @@ export default function CapyCompanion({
             {/* OVERLAY CELEBRATING: estrellas y destellos */}
             {capyMood === "celebrating" && (
               <div className="absolute inset-0 pointer-events-none z-20">
-                {["⭐", "✨", "🌟", "💫", "⚡"].map((star, i) => (
+                {[Star, Sparkles, Star, Sparkles, Zap].map((StarIcon, i) => (
                   <motion.span
                     key={i}
-                    className="absolute text-sm"
+                    className="absolute"
                     style={{
                       left: `${5 + i * 18}%`,
                       top: `${10 + (i % 3) * 15}%`,
@@ -435,7 +439,7 @@ export default function CapyCompanion({
                       delay: i * 0.16,
                     }}
                   >
-                    {star}
+                    <StarIcon className="w-3.5 h-3.5 text-amber-300 fill-amber-300/60" />
                   </motion.span>
                 ))}
                 <div className="absolute inset-0 bg-gradient-to-t from-amber-950/40 via-transparent to-transparent" />
@@ -445,10 +449,10 @@ export default function CapyCompanion({
             {/* OVERLAY LOVE: corazones flotando */}
             {capyMood === "love" && (
               <div className="absolute inset-0 pointer-events-none z-20">
-                {["❤️", "💙", "💕", "🥰", "💖"].map((heart, i) => (
+                {["text-rose-400", "text-sky-400", "text-rose-300", "text-pink-300", "text-rose-500"].map((heartColor, i) => (
                   <motion.span
                     key={i}
-                    className="absolute text-xs"
+                    className="absolute"
                     style={{ left: `${8 + i * 18}%`, bottom: "5%" }}
                     animate={{
                       y: [0, -50],
@@ -462,7 +466,7 @@ export default function CapyCompanion({
                       delay: i * 0.32,
                     }}
                   >
-                    {heart}
+                    <Heart className={`w-3 h-3 ${heartColor} fill-current`} />
                   </motion.span>
                 ))}
                 <div className="absolute inset-0 bg-gradient-to-t from-rose-950/40 via-transparent to-transparent" />
@@ -510,9 +514,7 @@ export default function CapyCompanion({
                     }}
                   />
                 ))}
-                <span className="absolute top-2 right-2 text-xs text-cyan-300">
-                  💭
-                </span>
+                <Brain className="absolute top-2 right-2 w-3.5 h-3.5 text-cyan-300" />
               </div>
             )}
 
@@ -520,11 +522,11 @@ export default function CapyCompanion({
             {capyMood === "surprised" && (
               <div className="absolute inset-0 pointer-events-none z-20">
                 <motion.span
-                  className="absolute top-2 left-1/2 -translate-x-1/2 text-lg"
+                  className="absolute top-2 left-1/2 -translate-x-1/2"
                   animate={{ scale: [0.8, 1.4, 0.8], opacity: [0.7, 1, 0.7] }}
                   transition={{ repeat: Infinity, duration: 0.6 }}
                 >
-                  😲
+                  <Zap className="w-5 h-5 text-indigo-300" />
                 </motion.span>
                 {[...Array(4)].map((_, i) => (
                   <motion.div
@@ -650,11 +652,13 @@ export default function CapyCompanion({
                   </>
                 ) : capyMood === "dancing" ? (
                   <>
-                    <span className="text-[9px]">🎵</span> HUBZY MOTIVADO
+                    <Music className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />{" "}
+                    HUBZY MOTIVADO
                   </>
                 ) : capyMood === "celebrating" ? (
                   <>
-                    <span className="text-[9px]">🎉</span> HUBZY CELEBRA
+                    <PartyPopper className="w-2.5 h-2.5 text-amber-400 animate-pulse" />{" "}
+                    HUBZY CELEBRA
                   </>
                 ) : capyMood === "love" ? (
                   <>
@@ -668,7 +672,8 @@ export default function CapyCompanion({
                   </>
                 ) : capyMood === "thinking" ? (
                   <>
-                    <span className="text-[9px]">💭</span> HUBZY PENSANDO
+                    <Brain className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />{" "}
+                    HUBZY PENSANDO
                   </>
                 ) : capyMood === "surprised" ? (
                   <>
@@ -690,6 +695,10 @@ export default function CapyCompanion({
             </div>
 
             {/* Botón Micrófono para hablar por voz con Hubzi */}
+            <span className="relative inline-flex">
+              <CoachMark id="mic" position="top">
+                Puedes hablarme como a un amigo — pídeme pistas, cuéntame cómo vas o pregúntale a tus apuntes.
+              </CoachMark>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -707,6 +716,9 @@ export default function CapyCompanion({
                   ? "Detener micrófono"
                   : "Habla por micrófono con Hubzi para pedirle apoyo o pistas"
               }
+              aria-label={
+                isListening ? "Detener micrófono" : "Hablar con Hubzi por micrófono"
+              }
             >
               {isListening ? (
                 <MicOff className="w-3 h-3 text-white" />
@@ -714,6 +726,7 @@ export default function CapyCompanion({
                 <Mic className="w-3 h-3 text-cyan-300" />
               )}
             </button>
+            </span>
 
             {/* Botón Silenciar / Activar Voz Tierna */}
             <button

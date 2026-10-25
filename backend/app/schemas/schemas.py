@@ -71,7 +71,7 @@ class GenerateBoardRequest(BaseModel):
     text: str = Field(
         ..., min_length=15, description="Texto denso de estudio o fragmento de PDF a procesar"
     )
-    level: int = Field(default=1, ge=1, le=5, description="Nivel de dificultad (1 a 5)")
+    level: int = Field(default=1, ge=1, le=20, description="Nivel de dificultad (1 a 20)")
     question_count: int = Field(
         default=3, ge=1, le=30, description="Número de preguntas/nodos a generar"
     )

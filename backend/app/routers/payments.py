@@ -143,7 +143,9 @@ async def create_checkout_session(
 
 
 @router.get("/verify-session/{session_id}")
+@limiter.limit("30/minute")
 async def verify_payment_session(
+    request: Request,
     session_id: str,
     current_user: dict = Depends(get_current_user),
 ):
@@ -158,7 +160,9 @@ async def verify_payment_session(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error al verificar pago: {e!s}"
         ) from e
 
-    is_paid = session.payment_status == "paid" or session.status == "complete"
+    # "complete" con payment_status "unpaid" ocurre con métodos asíncronos —
+    # solo "paid"/"no_payment_required" significan dinero confirmado.
+    is_paid = session.payment_status in ("paid", "no_payment_required")
     session_user = session.client_reference_id or (session.metadata or {}).get("user_id")
     uid = str(current_user.get("id") or current_user.get("_id"))
     meta = session.metadata or {}
@@ -234,9 +238,15 @@ async def stripe_webhook(request: Request):
     etype = event["type"]
     data = event["data"]["object"]
 
-    if etype == "checkout.session.completed":
+    if etype in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         meta = data.get("metadata") or {}
-        if meta.get("kind") == "school":
+        # En métodos asíncronos 'completed' llega con payment_status 'unpaid':
+        # el fulfillment real es async_payment_succeeded. Sin pago confirmado,
+        # no se activa nada.
+        paid = data.get("payment_status") in ("paid", "no_payment_required")
+        if not paid:
+            logger.info("Checkout completado sin pago confirmado; se espera async_payment_succeeded.")
+        elif meta.get("kind") == "school":
             inst_id = meta.get("institution_id") or data.get("client_reference_id")
             if inst_id:
                 await _activate_school_subscription(

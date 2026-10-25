@@ -21,7 +21,12 @@ from app.core.session_store import in_memory_study_folders
 
 logger = logging.getLogger("hubzy.document_store")
 
-_CACHE_FIELDS = ("cached_board", "cached_boards", "cached_content_hash")
+_CACHE_FIELDS = (
+    "cached_board",
+    "cached_boards",
+    "cached_board_hashes",
+    "cached_content_hash",
+)
 
 
 def folder_query(folder_id: str) -> dict:

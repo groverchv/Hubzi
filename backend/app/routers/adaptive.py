@@ -26,7 +26,7 @@ class AttemptRequest(BaseModel):
 class NextRequest(BaseModel):
     domain: str
     topic: str
-    current_level: int = Field(default=1, ge=1, le=5)
+    current_level: int = Field(default=1, ge=1, le=20)
     streak: int = Field(default=0)
 
 
@@ -56,12 +56,12 @@ async def suggest_next(payload: NextRequest, current_user: dict = Depends(get_cu
     """
     uid = str(current_user.get("id") or current_user.get("_id"))
     band = current_user.get("age_band") or band_for_age(current_user.get("age"))
-    p = get_mastery(uid, payload.domain, payload.topic, band)
+    p = await get_mastery(uid, payload.domain, payload.topic, band)
     rec = recommend_next(p, payload.streak)
     return {
         "p_mastery": round(p, 3),
         "current_level": payload.current_level,
-        "suggested_level": max(1, min(5, payload.current_level + rec["difficulty_delta"])),
+        "suggested_level": max(1, min(20, payload.current_level + rec["difficulty_delta"])),
         **rec,
         "band_config": {
             "questions_per_level": get_band(band).get("questions_per_level"),

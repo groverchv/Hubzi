@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 
@@ -25,10 +27,28 @@ EDGE_VOICE_FEMALE = "es-ES-ElviraNeural"  # Femenina cálida y dulce
 EDGE_VOICE_MALE = "es-ES-AlvaroNeural"  # Masculina serena y empática
 
 
+# Reintentar ElevenLabs cada hora: la cuota se renueva y el latch permanente
+# anterior dejaba el servicio muerto en Edge-TTS para siempre tras un 429.
+_ELEVENLABS_QUOTA_COOLDOWN_S = 3600
+
+
 class VoiceService:
     def __init__(self):
         self.api_key = settings.ELEVENLABS_API_KEY
-        self.elevenlabs_quota_exceeded = False
+        self._elevenlabs_quota_exceeded_at: float | None = None
+
+    @property
+    def elevenlabs_quota_exceeded(self) -> bool:
+        if self._elevenlabs_quota_exceeded_at is None:
+            return False
+        if (time.time() - self._elevenlabs_quota_exceeded_at) > _ELEVENLABS_QUOTA_COOLDOWN_S:
+            self._elevenlabs_quota_exceeded_at = None
+            logger.info("Reintentando ElevenLabs tras cooldown de cuota.")
+            return False
+        return True
+
+    def _mark_quota_exceeded(self) -> None:
+        self._elevenlabs_quota_exceeded_at = time.time()
 
     def determine_voice_gender(
         self, voice_gender: str | None = None, user_gender: str | None = None
@@ -66,8 +86,6 @@ class VoiceService:
         Genera audio MP3 mediante ElevenLabs o Edge-TTS modulando prosodia y ternura
         según el nivel de estrés o perfil terapéutico del estudiante.
         """
-        import asyncio
-
         target_gender = self.determine_voice_gender(voice_gender, user_gender)
 
         # 1. Calibración de velocidad y estabilidad según estrés y perfil
@@ -163,11 +181,17 @@ class VoiceService:
             pitch_str = "+3Hz" if voice == EDGE_VOICE_FEMALE else "-2Hz"
 
             communicate = edge_tts.Communicate(text, voice=voice, rate=rate_str, pitch=pitch_str)
-            audio_buf = bytearray()
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_buf.extend(chunk["data"])
-            return bytes(audio_buf)
+
+            async def _collect() -> bytes:
+                buf = bytearray()
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        buf.extend(chunk["data"])
+                return bytes(buf)
+
+            # El stream de Edge-TTS no tiene timeout propio: una conexión
+            # colgada con Microsoft dejaba el request vivo para siempre.
+            return await asyncio.wait_for(_collect(), timeout=8.0)
         except Exception as e:
             logger.error(f"Error en Edge-TTS: {e}")
             return None
@@ -182,7 +206,7 @@ class VoiceService:
             "xi-api-key": self.api_key.strip(),
         }
         try:
-            req = urllib.request.Request(  # noqa: S310 -- URL fija de la API de ElevenLabs (https)
+            req = urllib.request.Request(
                 url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
             )
             with urllib.request.urlopen(req, timeout=3.5) as response:  # noqa: S310 -- request construido arriba con URL fija https
@@ -193,9 +217,9 @@ class VoiceService:
             err_body = e.read().decode("utf-8", errors="ignore")
             if e.code == 401 and "quota_exceeded" in err_body:
                 logger.warning(
-                    "Cuota de ElevenLabs agotada. Activando Edge-TTS Neural instantáneo permanentemente."
+                    "Cuota de ElevenLabs agotada. Edge-TTS durante ~1h (se reintenta tras cooldown)."
                 )
-                self.elevenlabs_quota_exceeded = True
+                self._mark_quota_exceeded()
             else:
                 logger.error(f"Error HTTP ElevenLabs ({v_id}): {e.code} - {err_body}")
             return None

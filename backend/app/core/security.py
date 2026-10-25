@@ -201,16 +201,26 @@ async def get_optional_user(
 def resolve_effective_user_id(user: dict | None, requested_user_id: str | None) -> str:
     """
     Regla anti-IDOR: si hay sesión autenticada, el user_id SIEMPRE sale del token.
-    Sin sesión (invitado), se acepta el user_id del cliente o 'default_user'.
+    Sin sesión, el invitado opera en el pool compartido 'default_user' — el cliente
+    no puede reclamar un user_id ajeno (eso sería un IDOR anónimo).
     """
     if user:
         return str(user.get("id") or user.get("_id"))
-    return requested_user_id or "default_user"
+    if requested_user_id in ("guest", "default_user"):
+        return requested_user_id
+    return "default_user"
 
 
 def assert_can_access_user_resource(user: dict | None, resource_owner_id: str | None):
-    """Con sesión activa, un usuario solo puede tocar recursos propios o de invitados."""
+    """Con sesión activa, un usuario solo puede tocar recursos propios o del pool
+    de invitados. Sin sesión, el invitado solo toca ese pool — jamás recursos de
+    usuarios registrados o docentes."""
     if not user:
+        if resource_owner_id and resource_owner_id not in ("default_user", "guest"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Necesitas una cuenta para acceder a este recurso.",
+            )
         return
     uid = str(user.get("id") or user.get("_id"))
     if resource_owner_id and resource_owner_id not in (uid, "default_user"):

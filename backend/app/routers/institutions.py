@@ -201,8 +201,10 @@ async def _list_institution_grades(inst_id: str) -> list[dict]:
 
 
 def _can_manage(user: dict | None, inst: dict) -> bool:
+    # El rol es GLOBAL del usuario — NO otorga poder sobre instituciones
+    # ajenas (cross-tenant). Solo la membresía explícita admin_ids cuenta.
     uid = _uid(user)
-    return bool(uid and (uid in (inst.get("admin_ids") or []) or user.get("role") == "admin"))
+    return bool(uid and uid in (inst.get("admin_ids") or []))
 
 
 def _can_teach(user: dict | None, inst: dict, grade: dict | None = None) -> bool:
@@ -214,7 +216,7 @@ def _can_teach(user: dict | None, inst: dict, grade: dict | None = None) -> bool
     teachers = set(inst.get("teacher_ids") or [])
     if grade:
         teachers |= set(grade.get("teacher_ids") or [])
-    return uid in teachers or user.get("role") in ("teacher", "admin")
+    return uid in teachers
 
 
 def _serialize_inst(inst: dict, for_student: bool = False) -> dict:
@@ -325,8 +327,10 @@ async def create_institution(
         "created_at": utcnow_iso(),
     }
     await _save_institution(inst)
+    # El plan "school" lo activa el checkout Stripe — el plan PERSONAL del
+    # usuario no cambia (las carpetas escolares no consumen su cuota).
     await _update_user_membership(
-        uid, {"institution_id": inst["id"], "role": "admin", "plan": "school"}
+        uid, {"institution_id": inst["id"], "role": "admin"}
     )
     logger.info(f"🏫 Institución '{name}' creada por {uid}")
     return {"institution": _serialize_inst(inst)}
@@ -362,19 +366,45 @@ async def join_by_code(
         grade = grades_all[0]
         gid = grade.get("id") or str(grade.get("_id"))
         students = set(grade.get("student_ids") or [])
-        # Enforcement de licencia: trial gratuito hasta MIN_SEATS; con
-        # suscripción activa el tope son los seats pagados. Solo cuenta
-        # matrículas nuevas (re-unirse al mismo grado siempre funciona).
-        if uid not in students:
+        already_member = uid in students
+
+        # Matrícula atómica: $addToSet elimina duplicados y la carrera entre
+        # dos joins concurrentes. Después se re-cuenta la licencia y si la
+        # institución quedó por encima del tope se hace rollback ($pull).
+        if not already_member:
+            grade_query = (
+                {"_id": ObjectId(gid)} if ObjectId.is_valid(gid) else {"id": gid}
+            )
+            if db_manager.db is not None:
+                res = await db_manager.db["grades"].update_one(
+                    {**grade_query, "student_ids": {"$ne": uid}},
+                    {"$addToSet": {"student_ids": uid}},
+                )
+                if res.matched_count == 0:
+                    already_member = True  # join concurrente ya lo añadió
+            else:
+                grade["student_ids"] = sorted(students | {uid})
+                await _save_grade(grade)
+
             inst_doc = await _get_institution(grade["institution_id"])
             sub = (inst_doc or {}).get("subscription") or {}
+            # Trial gratuito hasta MIN_SEATS; con suscripción activa el tope
+            # son los seats pagados. Re-unirse nunca consume licencia.
             seat_limit = (
                 int(sub.get("seats") or MIN_SEATS)
                 if sub.get("status") == "active"
                 else MIN_SEATS
             )
             enrolled = await _count_enrolled_students(grade["institution_id"])
-            if enrolled >= seat_limit:
+            if not already_member and enrolled > seat_limit:
+                # Rollback: el seat excede la licencia → deshacer el $addToSet
+                if db_manager.db is not None:
+                    await db_manager.db["grades"].update_one(
+                        grade_query, {"$pull": {"student_ids": uid}}
+                    )
+                else:
+                    grade["student_ids"] = sorted(students)
+                    await _save_grade(grade)
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
                     detail=(
@@ -382,9 +412,7 @@ async def join_by_code(
                         "estudiantes. Pide a tu dirección ampliar la licencia."
                     ),
                 )
-        students.add(uid)
-        grade["student_ids"] = sorted(students)
-        await _save_grade(grade)
+            grade = await _get_grade(gid) or grade
 
         user_doc = await _get_user(uid) or {}
         grade_ids = set(user_doc.get("grade_ids") or [])
@@ -394,7 +422,6 @@ async def join_by_code(
             {
                 "institution_id": grade["institution_id"],
                 "role": "student",
-                "plan": "school",
                 "grade_ids": sorted(grade_ids),
             },
         )
@@ -420,7 +447,7 @@ async def join_by_code(
         await _save_institution(inst)
         await _update_user_membership(
             uid,
-            {"institution_id": inst["id"], "role": "teacher", "plan": "school"},
+            {"institution_id": inst["id"], "role": "teacher"},
         )
         return {"role": "teacher", "institution": _serialize_inst(inst)}
 
@@ -626,6 +653,14 @@ async def assign_activity(
     if not inst or not _can_teach(current_user, inst, grade):
         raise HTTPException(status_code=403, detail="Solo docentes del grado asignan tareas.")
 
+    # La tarea solo puede apuntar a una materia del propio grado — nunca a
+    # una carpeta ajena (la asignación se escribe en el doc de la carpeta).
+    if payload.folder_id not in (grade.get("folder_ids") or []):
+        raise HTTPException(
+            status_code=400,
+            detail="Esa materia no pertenece a este grado.",
+        )
+
     assignment = {
         "folder_id": payload.folder_id,
         "island_id": payload.island_id,
@@ -799,19 +834,21 @@ async def bulk_enroll_students(
             continue
         # Correo sintético interno (los menores no necesitan email real)
         email = (
-            f"alumno.{_slug(uname)}.{secrets.token_hex(2)}."
+            f"alumno.{_slug(uname)}.{secrets.token_hex(4)}."
             f"{inst_suffix}@hubzy.school"
         )
         password = (row.password or secrets.token_urlsafe(6))[:64]
         uid = _new_id()
+        # La edad es opcional en el CSV — sin edad usamos 12 (banda neutral
+        # de secundaria) para que el login y el perfil nunca reciban None.
+        age_val = row.age if isinstance(row.age, int) and 4 <= row.age <= 120 else 12
         user_doc = {
             "id": uid,
             "email": email,
             "password_hash": hash_password(password),
             "username": uname,
-            "age": row.age,
-            "age_band": band_for_age(row.age),
-            "plan": "school",
+            "age": age_val,
+            "age_band": band_for_age(age_val),
             "role": "student",
             "institution_id": inst["id"],
             "grade_ids": [gid],
@@ -820,9 +857,21 @@ async def bulk_enroll_students(
             "created_at": utcnow_iso(),
         }
         if db_manager.db is not None:
-            await db_manager.db["users"].insert_one(
-                {**user_doc, "_id": ObjectId(uid)}
-            )
+            try:
+                await db_manager.db["users"].insert_one(
+                    {**user_doc, "_id": ObjectId(uid)}
+                )
+            except Exception:
+                # Colisión de email sintético u otro fallo de inserción:
+                # reintenta una vez con sufijo nuevo antes de rendirse.
+                email = (
+                    f"alumno.{_slug(uname)}.{secrets.token_hex(4)}."
+                    f"{inst_suffix}@hubzy.school"
+                )
+                user_doc["email"] = email
+                await db_manager.db["users"].insert_one(
+                    {**user_doc, "_id": ObjectId(uid)}
+                )
         else:
             in_memory_auth_users[email] = user_doc
         students_set.add(uid)

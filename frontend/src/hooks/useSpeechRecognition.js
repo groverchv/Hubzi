@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const LISTEN_GREETINGS = [
   "¡Soy todo oídos! Pregúntame lo que quieras, estoy aquí para ti 💙",
@@ -15,6 +15,23 @@ const LISTEN_GREETINGS = [
 export function useSpeechRecognition({ onTranscript, onFeedback }) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
+
+  // Al desmontar, soltar el micrófono: un recognition vivo seguía escuchando
+  // (y capturando audio) con el componente ya fuera de pantalla.
+  useEffect(() => {
+    return () => {
+      try {
+        if (recognitionRef.current) {
+          recognitionRef.current.onstart = null;
+          recognitionRef.current.onresult = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.onend = null;
+          recognitionRef.current.stop();
+          recognitionRef.current = null;
+        }
+      } catch (_) {}
+    };
+  }, []);
 
   const toggleMicrophone = () => {
     if (isListening) {

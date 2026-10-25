@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, RotateCcw, RefreshCw, Dices } from "lucide-react";
+import { X, RotateCcw, RefreshCw, Dices, Zap, Sparkles } from "lucide-react";
 
 /**
  * Modal de opciones de reinicio: repetir el mismo examen (instantáneo)
@@ -59,8 +59,8 @@ export default function RestartOptionsModal({
                   <div className="w-9 h-9 rounded-xl bg-[#48C838]/20 border border-[#48C838]/50 flex items-center justify-center">
                     <RefreshCw className="w-5 h-5 text-[#48C838] group-hover:rotate-180 transition-transform duration-500" />
                   </div>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#48C838]/20 text-[#48C838] border border-[#48C838]/40">
-                    ⚡ Instantáneo
+                  <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#48C838]/20 text-[#48C838] border border-[#48C838]/40">
+                    <Zap className="w-2.5 h-2.5" /> Instantáneo
                   </span>
                 </div>
                 <div>
@@ -83,8 +83,8 @@ export default function RestartOptionsModal({
                   <div className="w-9 h-9 rounded-xl bg-[#FFB400]/20 border border-[#FFB400]/50 flex items-center justify-center">
                     <Dices className="w-5 h-5 text-[#FFB400] group-hover:rotate-12 transition-transform" />
                   </div>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#FFB400]/20 text-[#FFB400] border border-[#FFB400]/40">
-                    ✨ IA Gemini
+                  <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-[#FFB400]/20 text-[#FFB400] border border-[#FFB400]/40">
+                    <Sparkles className="w-2.5 h-2.5" /> IA Gemini
                   </span>
                 </div>
                 <div>

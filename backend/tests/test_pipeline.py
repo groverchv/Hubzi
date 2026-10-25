@@ -96,14 +96,13 @@ def _create_folder_with_math_doc(client, headers):
     res = client.post("/api/v1/folders", json={"name": "Mates"}, headers=headers)
     assert res.status_code == 201
     folder_id = res.json()["id"]
-    res = client.post(
-        f"/api/v1/folders/{folder_id}/documents",
-        json={
-            "documents": [{"id": "doc_math_1", "name": "mates.txt", "extracted_text": MATH_TEXT}]
-        },
-        headers=headers,
+    # Sembrar el doc con texto directo en el store — el endpoint /documents ya
+    # NO acepta extracted_text del cliente (mass-assignment cerrado); el texto
+    # real solo llega vía upload-document + pipeline de extracción.
+    _patch_folder(
+        folder_id,
+        {"documents": [{"id": "doc_math_1", "name": "mates.txt", "extracted_text": MATH_TEXT}]},
     )
-    assert res.status_code == 200
     return folder_id
 
 

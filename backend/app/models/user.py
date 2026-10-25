@@ -1,8 +1,16 @@
 from pydantic import BaseModel, Field
 
+_USERNAME_PATTERN = r"^[A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ ._'-]+$"
+
 
 class UserRegisterRequest(BaseModel):
-    username: str = Field(..., min_length=2, max_length=50, description="Nombre de usuario o apodo")
+    username: str = Field(
+        ...,
+        min_length=2,
+        max_length=50,
+        pattern=_USERNAME_PATTERN,
+        description="Nombre de usuario o apodo",
+    )
     gender: str = Field(..., description="Género: 'masculino' | 'femenino' | 'otro'")
     age: int = Field(..., ge=4, le=120, description="Edad del estudiante")
     avatar: str | None = "capy_fan"
@@ -16,7 +24,13 @@ class UserRegisterRequest(BaseModel):
 class UserAuthRegisterRequest(BaseModel):
     email: str = Field(..., description="Correo electrónico del usuario")
     password: str = Field(..., min_length=6, description="Contraseña de al menos 6 caracteres")
-    username: str = Field(..., min_length=2, max_length=50, description="Nombre o apodo")
+    username: str = Field(
+        ...,
+        min_length=2,
+        max_length=50,
+        pattern=_USERNAME_PATTERN,
+        description="Nombre o apodo",
+    )
     gender: str = Field(..., description="Género: 'masculino' | 'femenino' | 'otro'")
     age: int = Field(..., ge=4, le=120, description="Edad del estudiante")
     avatar: str | None = "capy_fan"

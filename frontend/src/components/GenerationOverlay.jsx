@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { XCircle } from 'lucide-react';
+import { XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 
 /**
  * Overlay de generación de tablero.
@@ -29,8 +29,9 @@ const STAGE_LABELS = {
 
 const STEP_MS = 2600;
 
-export default function GenerationOverlay({ stage = null, onCancel = null }) {
+export default function GenerationOverlay({ stage = null, errorMessage = null, onCancel = null, onRetry = null }) {
   const [step, setStep] = useState(0);
+  const isError = stage === 'error';
 
   useEffect(() => {
     if (stage) return; // con etapa real no rotamos fases cosméticas
@@ -46,9 +47,24 @@ export default function GenerationOverlay({ stage = null, onCancel = null }) {
     : ((step + 1) / GENERATION_STEPS.length) * 100;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md">
-      <div className="flex flex-col items-center max-w-md w-full mx-4 p-8 bg-slate-900/90 border border-cyan-500/40 rounded-2xl shadow-[0_0_50px_rgba(6,182,212,0.25)]">
-        <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-5" />
+    <div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md"
+      role="status"
+      aria-live="polite"
+      aria-label={isError ? 'Error generando el nivel' : 'Generando nivel'}
+    >
+      <div className={`flex flex-col items-center max-w-md w-full mx-4 p-8 bg-slate-900/90 border rounded-2xl ${
+        isError
+          ? 'border-rose-500/50 shadow-[0_0_50px_rgba(244,63,94,0.25)]'
+          : 'border-cyan-500/40 shadow-[0_0_50px_rgba(6,182,212,0.25)]'
+      }`}>
+        {isError ? (
+          <div className="w-16 h-16 rounded-full bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-center mb-5">
+            <AlertTriangle className="w-8 h-8 text-rose-400" />
+          </div>
+        ) : (
+          <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-5" />
+        )}
 
         <AnimatePresence mode="wait">
           <motion.h3
@@ -66,27 +82,44 @@ export default function GenerationOverlay({ stage = null, onCancel = null }) {
         {/* Barra de progreso por fases */}
         <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-4">
           <motion.div
-            className="h-full bg-cyan-400 rounded-full"
+            className={`h-full rounded-full ${isError ? 'bg-rose-400' : 'bg-cyan-400'}`}
             initial={{ width: '5%' }}
             animate={{ width: `${progressPct}%` }}
             transition={{ duration: 0.4 }}
           />
         </div>
 
-        <p className="text-[11px] text-slate-400 mt-1 text-center leading-relaxed">
-          Esto puede tardar unos segundos. Las matemáticas y la física se
-          generan al instante; los demás dominios usan IA.
-        </p>
-
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            className="mt-5 flex items-center gap-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95"
-          >
-            <XCircle className="w-4 h-4" />
-            Cancelar
-          </button>
+        {isError ? (
+          <p className="text-[12px] text-rose-200/90 mt-1 text-center leading-relaxed font-semibold">
+            {errorMessage || 'La generación no se completó. Puedes reintentar sin perder tu progreso.'}
+          </p>
+        ) : (
+          <p className="text-[11px] text-slate-400 mt-1 text-center leading-relaxed">
+            Esto puede tardar unos segundos. Las matemáticas y la física se
+            generan al instante; los demás dominios usan IA.
+          </p>
         )}
+
+        <div className="mt-5 flex items-center gap-3">
+          {isError && onRetry && (
+            <button
+              onClick={onRetry}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-500/90 hover:bg-emerald-400 border border-emerald-400/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#065f46]"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reintentar
+            </button>
+          )}
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+            >
+              <XCircle className="w-4 h-4" />
+              {isError ? 'Cerrar' : 'Cancelar'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

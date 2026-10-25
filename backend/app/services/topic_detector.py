@@ -14,6 +14,7 @@ Estrategia en 3 capas:
   C) Último recurso: isla única "General" (comportamiento actual).
 """
 
+import hashlib
 import json
 import logging
 import re
@@ -132,6 +133,21 @@ def _merge_tiny_sections(sections: list[dict]) -> list[dict]:
 
 def _name_key(name: str) -> str:
     return re.sub(r"[^a-záéíóúñ0-9 ]", "", (name or "").lower()).strip()
+
+
+def island_id_for_name(name: str) -> str:
+    """ID ESTABLE de isla: deriva del nombre, no de la posición.
+
+    Los IDs posicionales (isl_1, isl_2) se re-asignaban al tema equivocado
+    cuando el orden de islas cambiaba al añadir/quitar documentos, y todo lo
+    que referencia un island_id (progreso por estudiante, asignaciones,
+    claves de cached_boards) terminaba apuntando a otra isla. El slug+hash
+    del nombre normalizado es determinista: mismo tema → mismo ID, siempre.
+    """
+    key = _name_key(name) or "tema"
+    slug = re.sub(r"\s+", "_", key)[:28].strip("_") or "tema"
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:4]
+    return f"isl_{slug}_{digest}"
 
 
 def _similar(a: str, b: str) -> bool:
@@ -288,9 +304,16 @@ def rebuild_islands(folder_doc: dict) -> list[dict]:
     graveyard = dict(folder_doc.get("_island_progress_graveyard") or {})
 
     islands = []
-    for i, g in enumerate(groups, start=1):
+    taken_ids: set[str] = set()
+    for g in groups:
+        iid = island_id_for_name(g["name"])
+        n = 2
+        while iid in taken_ids:  # dos temas distintos con slug idéntico
+            iid = f"{island_id_for_name(g['name'])}_{n}"
+            n += 1
+        taken_ids.add(iid)
         island = {
-            "id": f"isl_{i}",
+            "id": iid,
             "name": g["name"],
             "source_doc_ids": sorted({s["doc_id"] for s in g["sections"] if s["doc_id"]}),
             "sections": g["sections"],  # rangos exactos → get_island_text sin re-derivar

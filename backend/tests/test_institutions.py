@@ -83,7 +83,7 @@ def _bootstrap_school(client):
 
 
 def test_create_institution_and_grade(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, inst, grade, folder = _bootstrap_school(client)
     assert inst["name"] == "Colegio Test"
     assert inst["teacher_code"].startswith("PROF-")
     assert grade["join_code"].startswith("HUBZY-")
@@ -92,8 +92,8 @@ def test_create_institution_and_grade(client):
 
 
 def test_student_joins_grade_and_sees_materia(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
-    h_stu, stu = _register(client, "alumno")
+    _h_admin, _inst, grade, folder = _bootstrap_school(client)
+    h_stu, _stu = _register(client, "alumno")
 
     # Matrícula por código del grado
     res = client.post(
@@ -123,7 +123,7 @@ def test_join_invalid_code_404(client):
 
 
 def test_student_cannot_mutate_school_folder(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, _inst, grade, folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alumno3")
     client.post(
         "/api/v1/institutions/join",
@@ -141,7 +141,7 @@ def test_student_cannot_mutate_school_folder(client):
 
 
 def test_school_folder_progress_is_per_student(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, _inst, grade, folder = _bootstrap_school(client)
     h_a, _ = _register(client, "alum_a")
     h_b, _ = _register(client, "alum_b")
     for h in (h_a, h_b):
@@ -178,7 +178,7 @@ def test_school_folder_progress_is_per_student(client):
 
 
 def test_teacher_dashboard_and_weak_topics(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, _inst, grade, folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alum_c")
     client.post(
         "/api/v1/institutions/join",
@@ -204,7 +204,7 @@ def test_teacher_dashboard_and_weak_topics(client):
 
 
 def test_student_cannot_see_dashboard(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, _inst, grade, _folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alum_d")
     client.post(
         "/api/v1/institutions/join",
@@ -219,7 +219,7 @@ def test_student_cannot_see_dashboard(client):
 
 
 def test_teacher_joins_with_prof_code(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, inst, _grade, _folder = _bootstrap_school(client)
     h_t, _ = _register(client, "profe")
     res = client.post(
         "/api/v1/institutions/join",
@@ -231,7 +231,7 @@ def test_teacher_joins_with_prof_code(client):
 
 
 def test_mine_returns_institution_for_member(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, inst, grade, _folder = _bootstrap_school(client)
     res = client.get("/api/v1/institutions/mine", headers=h_admin)
     assert res.status_code == 200
     data = res.json()
@@ -243,7 +243,7 @@ def test_mine_returns_institution_for_member(client):
 def test_student_responses_hide_teacher_code_and_roster(client):
     """Privacidad: un estudiante NO recibe teacher_code (elevaría a docente)
     ni la lista de IDs de sus compañeros."""
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, _inst, grade, _folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alum_priv")
     res = client.post(
         "/api/v1/institutions/join",
@@ -267,7 +267,7 @@ def test_student_responses_hide_teacher_code_and_roster(client):
 def test_assign_task_visible_to_student_and_read_only(client):
     """Docente asigna isla/materia → el badge 📌 aparece en el baúl del
     estudiante. El estudiante NO puede asignar ni regenerar con force."""
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, _inst, grade, folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alum_t")
     client.post(
         "/api/v1/institutions/join",
@@ -306,7 +306,7 @@ def test_student_cannot_force_regenerate_school_board(client):
     """force=true gasta LLM: en carpetas escolares es privilegio del docente.
     El guard reduce force→False antes de tocar caché — el endpoint igual
     debe responder 4xx por falta de docs, pero jamás encolar regeneración."""
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    _h_admin, _inst, grade, folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alum_f")
     client.post(
         "/api/v1/institutions/join",
@@ -326,7 +326,7 @@ def test_student_cannot_force_regenerate_school_board(client):
 def test_bulk_enroll_creates_working_credentials(client):
     """Matrícula masiva: el docente pega nombres → cuentas gestionadas que
     pueden loguear y ver las materias del grado."""
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, _inst, grade, folder = _bootstrap_school(client)
 
     res = client.post(
         f"/api/v1/institutions/grades/{grade['id']}/students/bulk",
@@ -365,7 +365,7 @@ def test_bulk_enroll_creates_working_credentials(client):
 
 
 def test_bulk_enroll_respects_roles_and_seats(client, monkeypatch):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, _inst, grade, _folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alumno_bulk")
     client.post(
         "/api/v1/institutions/join",
@@ -394,7 +394,7 @@ def test_bulk_enroll_respects_roles_and_seats(client, monkeypatch):
 
 
 def test_student_report_teacher_only(client):
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, _inst, grade, folder = _bootstrap_school(client)
     h_stu, stu = _register(client, "alum_rep")
     client.post(
         "/api/v1/institutions/join",
@@ -441,7 +441,7 @@ def test_student_report_teacher_only(client):
 def test_school_checkout_permissions(client):
     """El checkout institucional valida rol admin y mínimo de seats ANTES de
     tocar Stripe (por eso es testeable sin claves)."""
-    h_admin, inst, grade, folder = _bootstrap_school(client)
+    h_admin, inst, grade, _folder = _bootstrap_school(client)
     h_stu, _ = _register(client, "alumno_pay")
     client.post(
         "/api/v1/institutions/join",

@@ -44,10 +44,14 @@ def _key(user_id: str, domain: str, topic: str) -> str:
     return f"{user_id}:{domain}:{topic}"
 
 
-def get_mastery(user_id: str, domain: str, topic: str, band_key: str = "scholar") -> float:
-    """P(dominio) actual de la habilidad — p_init si no hay historial."""
+async def get_mastery(user_id: str, domain: str, topic: str, band_key: str = "scholar") -> float:
+    """P(dominio) actual de la habilidad — p_init si no hay historial.
+
+    Async porque lee MongoDB de verdad: la versión sync solo consultaba la
+    memoria y con Mongo activo SIEMPRE devolvía p_init — el motor adaptativo
+    quedaba mudo en producción (recomendaciones congeladas en los priors)."""
     params = BKT_PARAMS.get(band_key, BKT_PARAMS["scholar"])
-    doc = _MEM_MASTERY.get(_key(user_id, domain, topic))
+    doc = await _load_mastery_doc(user_id, domain, topic)
     if doc:
         return doc["p_know"]
     return params["p_init"]

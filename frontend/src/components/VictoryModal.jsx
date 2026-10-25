@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Trophy, 
   Sparkles, 
@@ -10,7 +10,10 @@ import {
   Star,
   Target,
   Zap,
-  BookOpen
+  BookOpen,
+  Crown,
+  AlertTriangle,
+  Map
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import capyEscolar from '../assets/mascots/capy_escolar_nino_m.webp';
@@ -24,10 +27,10 @@ export default function VictoryModal({
   campaignCompleted = false,
   weakNodes = [],
   masteredConcepts = [],
+  firstTry = null,
   onNextLevel,
   onRetry,
-  onGoToMenu,
-  onReview
+  onGoToMenu
 }) {
   const [showSummary, setShowSummary] = React.useState(false);
   React.useEffect(() => {
@@ -39,7 +42,7 @@ export default function VictoryModal({
           origin: { y: 0.6 },
           colors: ['#FF7A00', '#48C838', '#FFB400', '#1C8FE8']
         });
-      } catch (_) {}
+      } catch {}
     }
   }, [isOpen, campaignCompleted]);
 
@@ -48,7 +51,12 @@ export default function VictoryModal({
   const stars = accuracy >= 90 ? 3 : accuracy >= 70 ? 2 : 1;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none font-sans">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md select-none font-sans"
+      role="dialog"
+      aria-modal="true"
+      aria-label={campaignCompleted ? 'Campaña completada' : `Nivel ${level} superado`}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.88, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -62,9 +70,11 @@ export default function VictoryModal({
 
         {/* Badge superior Arcade */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] mb-3">
-          <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />
+          {campaignCompleted
+            ? <Crown className="w-4 h-4 text-[#FFB400] animate-bounce" />
+            : <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />}
           <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider">
-            {campaignCompleted ? '👑 ¡Jefe Final Derrotado!' : `¡Nivel ${level} Superado!`}
+            {campaignCompleted ? '¡Jefe Final Derrotado!' : `¡Nivel ${level} Superado!`}
           </span>
         </div>
 
@@ -101,14 +111,14 @@ export default function VictoryModal({
         </div>
 
         {/* Indicador de Desbloqueo (Mínimo 2 estrellas) */}
-        <div className={`w-full py-1.5 px-3 rounded-xl text-xs font-black uppercase tracking-wide mb-4 ${
+        <div className={`w-full py-1.5 px-3 rounded-xl text-xs font-black uppercase tracking-wide mb-4 flex items-center justify-center gap-1.5 ${
           stars >= 2 
             ? 'bg-emerald-950/80 border border-emerald-500/60 text-emerald-300' 
             : 'bg-rose-950/80 border border-rose-500/60 text-rose-300'
         }`}>
           {stars >= 2 
-            ? '🎉 ¡Nivel Superado! (Mínimo 2★ conseguidas)' 
-            : '⚠️ Necesitas mínimo 2★ para desbloquear el siguiente nivel'}
+            ? <><CheckCircle2 className="w-4 h-4" /> ¡Nivel Superado! (Mínimo 2<Star className="w-3 h-3 inline-block fill-current align-[-1px]" /> conseguidas)</>
+            : <><AlertTriangle className="w-4 h-4" /> Necesitas mínimo 2<Star className="w-3 h-3 inline-block fill-current align-[-1px]" /> para desbloquear el siguiente nivel</>}
         </div>
 
         {/* Estadísticas de la Ronda */}
@@ -138,6 +148,15 @@ export default function VictoryModal({
           </div>
         </div>
 
+        {/* Lo que dominaste a la primera — métrica positiva antes que el error */}
+        {firstTry !== null && totalQuestions > 0 && (
+          <p className="w-full text-left text-[11px] font-bold text-emerald-300/90 -mt-1 mb-3 flex items-center gap-1.5">
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            Dominaste {firstTry} de {totalQuestions} reactivos a la primera
+            {firstTry === totalQuestions ? ' — ¡perfecto!' : ''}
+          </p>
+        )}
+
         {/* Temas por repasar — cierra el loop pedagógico con honestidad */}
         {weakNodes.length > 0 && (
           <div className="w-full p-3 rounded-2xl bg-amber-950/40 border-2 border-amber-500/40 mb-4 text-left">
@@ -155,7 +174,7 @@ export default function VictoryModal({
               ))}
             </div>
             <p className="text-[9px] text-slate-400 mt-1.5">
-              Re-juega este nivel para dominarlos al 100%.
+              Re-juega este nivel para dominarlos — te lo recordaré en tu próximo repaso.
             </p>
           </div>
         )}
@@ -179,12 +198,12 @@ export default function VictoryModal({
                 onClick={() => {
                   try {
                     localStorage.setItem('hubzy_last_stress_score', item.val);
-                  } catch (_) {}
+                  } catch {}
                 }}
                 className="flex-1 py-1.5 px-1 rounded-xl bg-[#122443] hover:bg-[#FFB400] hover:text-[#122443] border border-[#1e3a6c] text-[10px] font-black transition-all cursor-pointer text-slate-200"
                 title={item.label}
               >
-                {item.val}★
+                <span className="inline-flex items-center gap-0.5">{item.val}<Star className="w-2.5 h-2.5 fill-current" /></span>
               </button>
             ))}
           </div>
@@ -228,7 +247,7 @@ export default function VictoryModal({
                       <span className="text-[11px] font-black text-[#48C838] uppercase">
                         {item.name || item.concept_name || item.label}
                       </span>
-                      <span className="text-[9px] font-mono text-cyan-300">✓ Dominado</span>
+                      <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-cyan-300"><CheckCircle2 className="w-2.5 h-2.5" /> Dominado</span>
                     </div>
                     {item.content && (
                       <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
@@ -260,7 +279,8 @@ export default function VictoryModal({
                 onClick={onGoToMenu}
                 className="flex-1 py-3 px-3 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-1 active:shadow-none"
               >
-                <span>🗺️ Menú / Mapa</span>
+                <Map className="w-4 h-4" />
+                <span>Menú / Mapa</span>
               </button>
             )}
           </div>

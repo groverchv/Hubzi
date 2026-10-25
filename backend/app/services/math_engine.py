@@ -15,9 +15,25 @@ explicar exactamente por qué ese error es común.
 
 import logging
 import random
+import threading
 from fractions import Fraction
 
 from app.core.age_bands import get_band
+
+# Los generadores internos usan el `random` global (61 call sites). Para que un
+# seed sea determinista SIN contaminar el RNG compartido entre peticiones
+# concurrentes: lock + guardar/restaurar el estado global solo en llamadas seeded.
+_SEED_LOCK = threading.Lock()
+
+
+def _run_seeded(seed: int, fn):
+    state = random.getstate()
+    with _SEED_LOCK:
+        random.seed(seed)
+        try:
+            return fn()
+        finally:
+            random.setstate(state)
 
 logger = logging.getLogger("hubzy.math_engine")
 
@@ -499,7 +515,11 @@ def generate_math_problems(
     filtrados a los que la banda de edad puede abordar.
     """
     if seed is not None:
-        random.seed(seed)
+        return _run_seeded(seed, lambda: _generate(topics, band_key, level, count))
+    return _generate(topics, band_key, level, count)
+
+
+def _generate(topics: list, band_key: str, level: int, count: int) -> list:
     band = get_band(band_key)
     allowed = [
         t

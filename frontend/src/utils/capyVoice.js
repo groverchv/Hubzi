@@ -14,6 +14,11 @@
 
 import { fetchWithAuth } from '../lib/api';
 
+// Los emojis del texto visible se quitan antes del TTS: Edge-TTS/speechSynthesis
+// los pronunciarían como "emoji corazón azul" y arruinarían la voz de Hubzi.
+const EMOJI_RE = /\p{Extended_Pictographic}|\u{FE0F}|[\u{2190}-\u{21FF}]/gu;
+const stripEmojiForTTS = (s) => s.replace(EMOJI_RE, ' ').replace(/\s{2,}/g, ' ').trim();
+
 class CapyVoiceEngine {
   constructor() {
     this.currentAudio = null;
@@ -44,6 +49,14 @@ class CapyVoiceEngine {
   }
 
   stop() {
+    // Invalidar TODAS las peticiones en vuelo: sin esto, un fetch abortado
+    // caía al catch, veía el mismo requestId y continuaba al fallback del
+    // navegador — la voz "fantasma" sonaba DESPUÉS de silenciar/cancelar.
+    this.currentRequestId += 1;
+    if (this.fetchTimeout) {
+      try { clearTimeout(this.fetchTimeout); } catch (_) {}
+      this.fetchTimeout = null;
+    }
     if (this.abortController) {
       try { this.abortController.abort(); } catch (_) {}
       this.abortController = null;
@@ -57,6 +70,7 @@ class CapyVoiceEngine {
       } catch (_) {}
       this.currentAudio = null;
     }
+    this.currentUtterance = null;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try { window.speechSynthesis.cancel(); } catch (_) {}
     }
@@ -82,8 +96,9 @@ class CapyVoiceEngine {
    */
   async speak(text, options = {}) {
     if (!text || this.isMuted) return;
-    const requestId = ++this.currentRequestId;
+    const ttsText = stripEmojiForTTS(text) || text;
     this.stop();
+    const requestId = ++this.currentRequestId;
     this.markSpoken(text);
     this.isSpeaking = true;
     this._notify({ isSpeaking: true, text, mood: options.mood || 'talking' });
@@ -101,7 +116,7 @@ class CapyVoiceEngine {
       }
     }
 
-    const cacheKey = `${text.trim()}_${options.profile || (options.mood === 'zen' ? 'zen' : 'loving')}_${voiceGender}`;
+    const cacheKey = `${ttsText.trim()}_${options.profile || (options.mood === 'zen' ? 'zen' : 'loving')}_${voiceGender}`;
 
     // 1. Si ya está en caché de audio en memoria, reproducir al instante (0ms latencia)
     if (this.audioCache.has(cacheKey)) {
@@ -131,9 +146,10 @@ class CapyVoiceEngine {
 
     // 2. Solicitar al backend local (/api/v1/voice/speak con Edge-TTS neural de alta fidelidad)
     this.abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => {
+    this.fetchTimeout = setTimeout(() => {
       try { this.abortController?.abort(); } catch (_) {}
     }, 4000);
+    const fetchTimeout = this.fetchTimeout;
 
     try {
       const response = await fetchWithAuth('/api/v1/voice/speak', {
@@ -141,7 +157,7 @@ class CapyVoiceEngine {
         headers: { 'Content-Type': 'application/json' },
         signal: this.abortController.signal,
         body: JSON.stringify({
-          text,
+          text: ttsText,
           profile: options.profile || (options.mood === 'zen' ? 'zen' : 'loving_psychologist'),
           stress_level: options.stress_level !== undefined ? options.stress_level : null,
           voice_gender: voiceGender,
@@ -182,7 +198,7 @@ class CapyVoiceEngine {
     }
 
     // 3. Fallback secundario: síntesis nativa del navegador (si el sistema tiene voces instaladas)
-    this._speakBrowserFallback(text, options, voiceGender, requestId);
+    this._speakBrowserFallback(ttsText, options, voiceGender, requestId);
   }
 
   _speakBrowserFallback(text, options, voiceGender, requestId) {

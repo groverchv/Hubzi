@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.config import settings
 from app.core.database import db_manager
@@ -31,6 +32,9 @@ logger = logging.getLogger("hubzy.main")
 async def lifespan(app: FastAPI):
     logger.info("Iniciando conexiones con MongoDB y Qdrant...")
     await db_manager.connect()
+    from app.services.job_service import recover_interrupted_jobs
+
+    await recover_interrupted_jobs()
     yield
     await db_manager.close()
 
@@ -62,6 +66,8 @@ app.state.limiter = limiter
 limiter.enabled = settings.RATE_LIMIT_ENABLED
 if settings.RATE_LIMIT_ENABLED:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # Sin este middleware los default_limits no aplican a rutas sin decorador.
+    app.add_middleware(SlowAPIMiddleware)
 
 # CORS restringido a orígenes conocidos (nunca "*" con credenciales)
 app.add_middleware(

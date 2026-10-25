@@ -85,6 +85,77 @@ LEVEL_DESCRIPTIONS = {
 }
 
 
+# La campaña tiene 20 niveles: 4 rondas sobre los 5 sectores del documento.
+# Los niveles 6-20 derivan del sector correspondiente (round-robin) con más
+# preguntas, repaso intersectorial y dificultad ascendente.
+CAMPAIGN_MAX_LEVEL = 20
+
+_DIFFICULTY_RANK = ["facil", "seminormal", "normal", "semidificil", "dificil"]
+
+_ROUND_NAMES = {1: "", 2: " · Ronda II", 3: " · Ronda III", 4: " · Ronda IV"}
+
+
+def _level_info(level: int) -> dict:
+    """Info pedagógica del nivel. 1-5 son canónicos; 6-20 derivan del sector
+    del nivel ((level-1)%5)+1 en la ronda (level-1)//5 + 1, con +preguntas
+    por ronda (+4·(r-1)) y dificultad que sube un escalón por ronda a partir
+    de la III (cap en 'dificil'). El jefe final (20) exige síntesis total."""
+    if level in LEVEL_DESCRIPTIONS:
+        return LEVEL_DESCRIPTIONS[level]
+
+    lvl = max(1, min(CAMPAIGN_MAX_LEVEL, int(level or 1)))
+    sector = ((lvl - 1) % 5) + 1
+    round_n = (lvl - 1) // 5 + 1
+    base = LEVEL_DESCRIPTIONS[sector]
+
+    diff_rank = _DIFFICULTY_RANK.index(base["difficulty"])
+    diff_rank = min(len(_DIFFICULTY_RANK) - 1, diff_rank + max(0, round_n - 2))
+    difficulty = _DIFFICULTY_RANK[diff_rank]
+    if lvl >= 16:
+        difficulty = "dificil"
+
+    questions = min(30, base["questions"] + 4 * (round_n - 1))
+    name = f"{base['name']}{_ROUND_NAMES.get(round_n, '')}"
+
+    if lvl == CAMPAIGN_MAX_LEVEL:
+        guideline = (
+            "NIVEL 20 - JEFE FINAL · MAESTRÍA TOTAL: evalúa el DOMINIO INTEGRAL del documento "
+            "completo. Preguntas de síntesis que exijan conectar sectores distantes, "
+            "comparar conceptos, inferir consecuencias y demostrar dominio holístico. "
+            "Es el examen de graduación de la campaña: riguroso pero siempre justo."
+        )
+        doc_sector = "Documento COMPLETO (0% al 100%): integración total de todos los sectores."
+    elif round_n == 2:
+        guideline = (
+            f"{base['guideline']} "
+            "RONDA II - CONSOLIDACIÓN: revisita el mismo sector con enfoque distinto — "
+            "pregunta por matices, excepciones y detalles que la primera pasada no cubrió."
+        )
+        doc_sector = base["doc_sector"]
+    elif round_n == 3:
+        guideline = (
+            f"{base['guideline']} "
+            "RONDA III - DOMINIO: exige conectar este sector con los demás — "
+            "comparaciones, relaciones causa-efecto entre secciones y transferencia de conceptos."
+        )
+        doc_sector = base["doc_sector"] + " + vínculos con el resto del documento."
+    else:
+        guideline = (
+            f"{base['guideline']} "
+            "RONDA IV - MAESTRÍA: síntesis del sector en contexto global del documento — "
+            "preguntas de juicio crítico, aplicación a casos nuevos y argumentación."
+        )
+        doc_sector = base["doc_sector"] + " + integración con sectores adyacentes."
+
+    return {
+        "name": name,
+        "questions": questions,
+        "difficulty": difficulty,
+        "doc_sector": doc_sector,
+        "guideline": guideline,
+    }
+
+
 # Directivas de audiencia por banda de edad — se inyectan en el prompt
 _AUDIENCE_DIRECTIVES = {
     "sprout": (
@@ -136,7 +207,7 @@ def build_system_instruction(
 ) -> str:
     """Construye las instrucciones dinámicas de Gemini/Groq con exclusión estricta de conceptos previos y cobertura sectorizada."""
     distractor_count = max(1, round(question_count * 0.30))
-    lvl_info = LEVEL_DESCRIPTIONS.get(level, LEVEL_DESCRIPTIONS[1])
+    lvl_info = _level_info(level)
     guideline = lvl_info["guideline"]
     doc_sector = lvl_info.get("doc_sector", "Todo el documento")
 
@@ -165,9 +236,9 @@ Los siguientes conceptos ya fueron aprendidos y superados por el estudiante en n
 
     return f"""
 Eres un evaluador pedagógico de élite universitaria encargado de diseñar simulacros de examen profesionales en Hubzy.
-Tu objetivo es que el estudiante domine y asimile el 100% DEL DOCUMENTO ACADÉMICO a través de sus 5 niveles progresivos.
+Tu objetivo es que el estudiante domine y asimile el 100% DEL DOCUMENTO ACADÉMICO a través de sus {CAMPAIGN_MAX_LEVEL} niveles progresivos.
 
-🎯 ZONA PRIORITARIA DEL DOCUMENTO PARA ESTE NIVEL ({level}/5):
+🎯 ZONA PRIORITARIA DEL DOCUMENTO PARA ESTE NIVEL ({level}/{CAMPAIGN_MAX_LEVEL}):
 {doc_sector}
 
 {guideline}
@@ -323,7 +394,7 @@ class AIService:
                 f"\n\n🚨 INSTRUCCIÓN DE REINICIO DE PARTIDA (RONDA #{variation_seed}):\n"
                 f"- El usuario ha reiniciado la partida. ESTÁ TERMINANTEMENTE PROHIBIDO repetir preguntas anteriores.\n"
                 f"- Formula exactamente {question_count} preguntas y conceptos clave COMPLETAMENTE DIFERENTES basados en otras secciones, definiciones o fórmulas del texto.\n"
-                f"- Respeta con exactitud la dificultad '{difficulty}' (Nivel {level}/5)."
+                f"- Respeta con exactitud la dificultad '{difficulty}' (Nivel {level}/{CAMPAIGN_MAX_LEVEL})."
             )
 
         prompt = (
@@ -619,8 +690,18 @@ class AIService:
                 docx_text = "\n".join(full_paragraphs).strip()
                 if len(docx_text) >= 20:
                     return docx_text
+                raise RuntimeError(
+                    f"El documento Word '{filename}' no contiene texto legible. "
+                    "¿Es un archivo .docx real? Convierte a PDF si es un formato antiguo."
+                )
+            except RuntimeError:
+                raise
             except Exception as docx_err:
                 logger.warning(f"Error procesando .docx '{filename}': {docx_err}")
+                raise RuntimeError(
+                    f"No se pudo leer el documento Word '{filename}': está dañado "
+                    "o no es un .docx válido. Prueba exportándolo de nuevo o como PDF."
+                ) from docx_err
 
         # 2. IMÁGENES
         image_mimes = {
@@ -635,14 +716,27 @@ class AIService:
                 logger.info(f"Procesando imagen '{filename}' con OCR Multimodal ({mime})...")
                 return self.extract_text_multimodal_ocr(file_bytes, mime)
 
-        # 3. TEXTO PLANO
+        # 3. TEXTO PLANO — latin-1 nunca falla, así que un binario con nombre
+        # .txt decodificaría a basura que terminaría indexada en Qdrant y
+        # alimentando al LLM. Sniff: >10% de caracteres de control → no es texto.
+        def _looks_binary(t: str) -> bool:
+            if not t:
+                return False
+            sample = t[:2000]
+            ctrl = sum(1 for c in sample if ord(c) < 32 and c not in "\n\r\t")
+            return ctrl / len(sample) > 0.10
+
         try:
-            return file_bytes.decode("utf-8").strip()
+            decoded = file_bytes.decode("utf-8").strip()
         except UnicodeDecodeError:
             try:
-                return file_bytes.decode("latin-1").strip()
+                decoded = file_bytes.decode("latin-1").strip()
             except Exception:
                 return ""
+        if _looks_binary(decoded):
+            logger.warning(f"'{filename}' decodifica pero parece binario — descartado.")
+            return ""
+        return decoded
 
     def summarize_document(self, text: str, max_chars: int = 1500) -> str:
         """
@@ -909,7 +1003,7 @@ class AIService:
                     sys_instruction = (
                         "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
                         "Tu objetivo es reducir la ansiedad ante exámenes y optimizar el rendimiento del estudiante.\n"
-                        f"NIVEL COGNITIVO: Nivel {level}/5. Enfoque: {psy_desc}\n"
+                        f"NIVEL COGNITIVO: Nivel {level}/{CAMPAIGN_MAX_LEVEL}. Enfoque: {psy_desc}\n"
                         f"SITUACIÓN: {sit_desc}\n"
                         f"TEMA DE ESTUDIO: '{theme or 'Materia'}'\n"
                         f"{avoid_clause}\n"
@@ -947,7 +1041,7 @@ class AIService:
             sys_instruction = (
                 "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
                 "Tu objetivo es reducir la ansiedad ante exámenes y optimizar el rendimiento del estudiante.\n"
-                f"NIVEL COGNITIVO: Nivel {level}/5. Enfoque: {psy_desc}\n"
+                f"NIVEL COGNITIVO: Nivel {level}/{CAMPAIGN_MAX_LEVEL}. Enfoque: {psy_desc}\n"
                 f"SITUACIÓN: {sit_desc}\n"
                 f"TEMA DE ESTUDIO: '{theme or 'Materia'}'\n"
                 f"{avoid_clause}\n"

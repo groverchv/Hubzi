@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     # Seguridad / Entorno
     ENVIRONMENT: str = "development"  # development | staging | production
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    ADMIN_EMAILS: str = ""  # lista separada por comas — acceso a dataset de IA
     FRONTEND_URL: str = "http://localhost:5173"
     SENTRY_DSN: str | None = None
     RATE_LIMIT_ENABLED: bool = True

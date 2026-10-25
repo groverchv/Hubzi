@@ -43,7 +43,7 @@ def assign_voice_gender(gender: str, voice_preference: str | None = None) -> str
 
 
 def _to_profile(user_id: str, doc: dict) -> UserProfileResponse:
-    age = doc.get("age", 20)
+    age = doc.get("age") or 20  # legacy docs con age=None no rompen el perfil
     return UserProfileResponse(
         id=user_id,
         email=doc.get("email"),

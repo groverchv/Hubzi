@@ -1,0 +1,83 @@
+# docker-compose.prod.yml — despliegue de producción (EC2/AWS)
+# Uso: docker compose -f docker-compose.prod.yml --env-file backend/.env up -d --build
+#
+# Diferencias vs docker-compose.yml (dev):
+#  - Sin bind mounts de código (imagen inmutable, lo que se testea es lo que corre)
+#  - Mongo y Qdrant NO publican puertos al host (solo red interna)
+#  - Mongo con autenticación y volumen nombrado
+#  - Healthchecks en los 4 servicios; el backend no arranca hasta que la BD esté sana
+#  - Frontend = build estático servido por nginx en el puerto 80 (+ proxy /api y /ws)
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: hubzy-mongodb
+    restart: always
+    # SIN "ports:" — la BD nunca se expone fuera de la red interna de compose.
+    volumes:
+      - mongodb_storage:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-hubzy}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Define MONGO_ROOT_PASSWORD en backend/.env}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: hubzy-qdrant
+    restart: always
+    # SIN "ports:" — solo accesible desde el backend.
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hubzy-backend
+    restart: always
+    env_file:
+      - path: ./backend/.env
+        required: true
+    environment:
+      # Estas vars sobrescriben backend/.env (red interna de compose)
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-hubzy}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DB_NAME:-hubzy_db}?authSource=admin
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-hubzy_db}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      ENVIRONMENT: production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    # Sin puerto publicado: nginx es la única puerta de entrada.
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hubzy-frontend
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_storage:
+  qdrant_storage:

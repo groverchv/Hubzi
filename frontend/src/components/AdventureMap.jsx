@@ -9,9 +9,10 @@ import {
   HelpCircle,
   Crown,
   Skull,
-  ShieldAlert,
   Swords,
   RotateCcw,
+  Flame,
+  X,
 } from "lucide-react";
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 
@@ -27,7 +28,6 @@ export default function AdventureMap({
   folderName = "Mundo de Aprendizaje",
   documentTitle = "Tema de Estudio",
   levels = [],
-  currentLevel = 1,
   unlockedLevel = 1,
   levelStars = {},
   onSelectLevel,
@@ -85,6 +85,9 @@ export default function AdventureMap({
         scrollContainerRef.current.scrollTop = Math.max(0, activeCoord.y - 350);
       }
     }
+    // levelCoords es derivado estable de props; incluirlo re-dispararía
+    // el scroll en cada render del mapa.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [unlockedLevel]);
 
   const handleNodeClick = (lvl) => {
@@ -151,7 +154,7 @@ export default function AdventureMap({
               className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-400/50 text-[10px] font-black text-orange-300"
               title={`${studyStreak} días seguidos estudiando`}
             >
-              🔥 {studyStreak} días seguidos
+              <Flame className="w-3 h-3 text-orange-400" /> {studyStreak} días seguidos
             </span>
           )}
         </div>
@@ -304,7 +307,7 @@ export default function AdventureMap({
                   <div className="absolute -top-9 flex flex-col items-center text-[#FFB400] animate-bounce z-10">
                     <Crown className="w-8 h-8 fill-[#FFB400] drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                     <span className="text-[9px] font-black uppercase text-amber-300 bg-black/80 px-2 py-0.5 rounded-full border border-amber-400 -mt-1 shadow-md whitespace-nowrap">
-                      👑 JEFE FINAL
+                      JEFE FINAL
                     </span>
                   </div>
                 )}
@@ -400,8 +403,9 @@ export default function AdventureMap({
               <button
                 onClick={() => setSelectedLevelModal(null)}
                 className="absolute top-3 right-3 p-1.5 rounded-xl bg-[#0a162b] hover:bg-[#1a335e] border border-[#1e3a6c] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Cerrar detalle de nivel"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
 
               {/* Icono de Nivel / Jefe */}
@@ -447,9 +451,8 @@ export default function AdventureMap({
 
               {/* Alerta de Requisito de 2 Estrellas */}
               <div className="w-full py-1 px-2.5 rounded-xl bg-amber-950/70 border border-amber-500/50 text-amber-300 text-[9.5px] font-bold flex items-center justify-center gap-1 mb-4">
-                <span>
-                  ⭐ Mínimo 2 estrellas para desbloquear el siguiente nivel
-                </span>
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                <span>Mínimo 2 estrellas para desbloquear el siguiente nivel</span>
               </div>
 
               {/* Estadísticas del Nivel */}
