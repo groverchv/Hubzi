@@ -464,7 +464,28 @@ def test_island_progress_endpoint_isolated(client):
     assert res.status_code == 404
 
 
-def test_island_generate_uses_only_island_text(client):
+def test_island_generate_uses_only_island_text(client, monkeypatch):
+    # Sin API keys de LLM en CI: se mockea generate_board y se captura el
+    # texto que recibe — así se verifica de verdad que solo viaja el texto
+    # de la isla elegida (aislamiento, que es lo que nombra al test).
+    import app.routers.folders as folders_router
+    from app.schemas.schemas import CardSchema, GameBoardResponse, NodeSchema
+
+    captured: dict = {}
+
+    async def _fake_board(request, **_kwargs):
+        captured["text"] = request.text
+        return GameBoardResponse(
+            id_tablero="tablero_test",
+            title="Tablero de prueba",
+            nodes=[
+                NodeSchema(id="n1", correct_card_id="c1", description="pista del nodo")
+            ],
+            cards=[CardSchema(id="c1", concept_name="Feudalismo", content="sistema")],
+        )
+
+    monkeypatch.setattr(folders_router, "generate_board", _fake_board)
+
     headers, _ = _register(client, "gen_isla")
     res = client.post("/api/v1/folders", json={"name": "Sociales"}, headers=headers)
     folder_id = res.json()["id"]
@@ -489,6 +510,12 @@ def test_island_generate_uses_only_island_text(client):
     assert res.status_code == 200, res.text
     board = res.json()
     assert board.get("nodes")
+
+    # Aislamiento real: el texto enviado a generación es solo el de la isla
+    # "Edad Media" — no contiene contenido de las otras secciones del doc.
+    assert "Edad Media" in captured["text"]
+    assert "Ilustración" not in captured["text"]
+    assert "Renacimiento" not in captured["text"]
     # El cache quedó bajo clave de isla
     folder = _folder_doc(folder_id)
     assert f"{island['id']}__level_1" in folder.get("cached_boards", {})
