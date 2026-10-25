@@ -4,15 +4,23 @@
 # Diferencias vs docker-compose.yml (dev):
 #  - Sin bind mounts de código (imagen inmutable, lo que se testea es lo que corre)
 #  - Mongo y Qdrant NO publican puertos al host (solo red interna)
-#  - Mongo con autenticación y volumen nombrado
-#  - Healthchecks en los 4 servicios; el backend no arranca hasta que la BD esté sana
+#  - Healthchecks; el backend no arranca hasta que sus deps internas estén sanas
 #  - Frontend = build estático servido por nginx en el puerto 80 (+ proxy /api y /ws)
+#
+# Base de datos — DOS caminos:
+#  · MongoDB Atlas (default): pon MONGODB_URI=mongodb+srv://... en backend/.env
+#    y el servicio `mongodb` simplemente no arranca (profile local-db).
+#  · Mongo auto-hospedado: docker compose -f docker-compose.prod.yml \
+#      --env-file backend/.env --profile local-db up -d --build
+#    (requiere MONGO_ROOT_PASSWORD y MONGODB_URI apuntando a mongodb:27017)
 
 services:
   mongodb:
     image: mongo:7.0
     container_name: hubzy-mongodb
     restart: always
+    profiles:
+      - local-db
     # SIN "ports:" — la BD nunca se expone fuera de la red interna de compose.
     volumes:
       - mongodb_storage:/data/db
@@ -52,8 +60,8 @@ services:
       - path: ./backend/.env
         required: true
     environment:
-      # Estas vars sobrescriben backend/.env (red interna de compose)
-      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-hubzy}:${MONGO_ROOT_PASSWORD}@mongodb:27017/${MONGODB_DB_NAME:-hubzy_db}?authSource=admin
+      # MONGODB_URI llega por env_file (Atlas SRV o mongodb://... del
+      # contenedor local-db). Estas vars solo apuntan a la red interna.
       MONGODB_DB_NAME: ${MONGODB_DB_NAME:-hubzy_db}
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
@@ -61,6 +69,7 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+        required: false
       qdrant:
         condition: service_healthy
     # Sin puerto publicado: nginx es la única puerta de entrada.

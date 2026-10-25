@@ -38,6 +38,28 @@ Variables **obligatorias** en `backend/.env` para producción:
 | `ADMIN_EMAILS` | emails con acceso a `/ai/training-dataset` |
 | `SMTP_*` | para emails de verificación/reset (o SES — ver abajo) |
 
+## 3b. Base de datos: Atlas (recomendado) o contenedor
+
+**Opción A — MongoDB Atlas** (gestionado, backups incluidos):
+
+1. Crea el cluster en [cloud.mongodb.com](https://cloud.mongodb.com) (M0 gratis sirve para empezar; M10+ para producción).
+2. **Database Access** → crea un usuario app **con privilegio `readWrite` sobre `hubzy_db` solamente** — NO uses el usuario `Atlas Admin` que Atlas crea por defecto: si la app se compromete, admin total de la cuenta.
+3. **Network Access** → añade la **Elastic IP del EC2** como `x.x.x.x/32`. Tu IP de casa solo sirve para probar desde tu máquina. Evita `0.0.0.0/0` salvo demo temporal.
+4. Connect → Drivers → Python → copia el SRV y ponlo en `backend/.env`:
+   ```
+   MONGODB_URI=mongodb+srv://APPUSER:PASS@hubzi.xxxxx.mongodb.net/hubzy_db?retryWrites=true&w=majority
+   ```
+   (si la contraseña tiene `@`, `:` o `#`, URL-encodea: `%40`, `%3A`, `%23`)
+5. Los índices (incluidos los únicos de `student_progress` y `skill_mastery`) los crea la app sola al conectar.
+
+**Opción B — Mongo en el propio EC2** (más barato, tú lo operas):
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file backend/.env --profile local-db up -d --build
+```
+
+con `MONGODB_URI=mongodb://hubzy:TU_PASS@mongodb:27017/hubzy_db?authSource=admin` y `MONGO_ROOT_PASSWORD=TU_PASS` en `.env`. El volumen `mongodb_storage` + snapshots EBS son tu backup.
+
 ## 4. Levantar
 
 ```bash
@@ -81,7 +103,7 @@ En Stripe Dashboard → Developers → Webhooks → Add endpoint:
 - **Backups**: snapshot EBS programado del volumen raíz cubre `mongodb_storage` y `qdrant_storage`. Para algo más fino: `docker exec hubzy-mongodb mongodump --archive` cron → S3.
 - **Un solo worker** de uvicorn a propósito: los jobs de generación y cachés viven en memoria del proceso. Para escalar a más réplicas hace falta migrar jobs a cola persistente (Redis/SQS) — limitación documentada en `job_service.py`.
 - **Rate limiter** corre en memoria por defecto; con varias réplicas usar `RATE_LIMIT_STORAGE_URI=redis://...`.
-- **Mongo/Qdrant gestionados**: si prefieres no operar la BD, apunta `MONGODB_URI` a DocumentDB/Atlas y `QDRANT_URL`+`QDRANT_API_KEY` a Qdrant Cloud, y elimina esos servicios del compose.
+- **Mongo/Qdrant gestionados**: con Atlas, `MONGODB_URI` en `.env` ya apunta fuera y el contenedor mongo ni arranca (profile `local-db`). Igual para Qdrant Cloud (`QDRANT_URL`+`QDRANT_API_KEY`) — quita el servicio `qdrant` del compose si lo usas.
 
 ## 9. Actualizar
 
