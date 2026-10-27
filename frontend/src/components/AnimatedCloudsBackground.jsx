@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useLowPower } from '../utils/lowPower';
 
 // Generador de nubes con formas orgánicas estilo cartoon / AWS Card Clash
 const CLOUDS_CONFIG = [
@@ -19,10 +20,14 @@ const CLOUDS_CONFIG = [
 ];
 
 export default function AnimatedCloudsBackground() {
+  // Modo ligero: 8 nubes animadas = GPU intensivo en gama baja → no renderizar
+  const lowPower = useLowPower();
   // Accesibilidad: respeta prefers-reduced-motion (usuarios con ansiedad/sensibilidad vestibular)
   const prefersReducedMotion =
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  if (lowPower) return null;
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">

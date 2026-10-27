@@ -1,9 +1,12 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
 import LandingPage from './pages/LandingPage';
 import AnimatedCloudsBackground from './components/AnimatedCloudsBackground';
+import RotatePhoneOverlay from './components/RotatePhoneOverlay';
 import { CrisisProvider } from './lib/crisis.jsx';
 import { useAuthStore } from './store/authStore';
+import { useLowPower } from './utils/lowPower';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Code-splitting: las páginas pesadas se cargan bajo demanda por ruta
@@ -34,10 +37,13 @@ function RequireUser({ children }) {
 }
 
 function App() {
+  const lowPower = useLowPower();
   return (
+    <MotionConfig reducedMotion={lowPower ? 'always' : 'user'}>
     <CrisisProvider>
       <ErrorBoundary>
       <BrowserRouter>
+        <RotatePhoneOverlay />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -69,6 +75,7 @@ function App() {
       </BrowserRouter>
       </ErrorBoundary>
     </CrisisProvider>
+    </MotionConfig>
   );
 }
 

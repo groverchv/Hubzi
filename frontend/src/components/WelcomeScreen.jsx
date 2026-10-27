@@ -24,6 +24,7 @@ import capyMascot from '../assets/mascots/capy_escolar_nino_m.webp';
 import confetti from 'canvas-confetti';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { lobbyAmbient } from '../utils/lobbyAmbient';
+import { isLowPower } from '../utils/lowPower';
 
 export default function WelcomeScreen({
   onContinue,
@@ -86,7 +87,7 @@ export default function WelcomeScreen({
     if (res.triggered) {
       if (res.outcome === 'accepted') {
         try {
-          confetti({ particleCount: 90, spread: 65, origin: { y: 0.6 } });
+          if (!isLowPower()) confetti({ particleCount: 90, spread: 65, origin: { y: 0.6 } });
         } catch {}
         setToastMessage('¡Hubzy instalada con éxito en tu equipo!');
         setIsInstallModalOpen(false);

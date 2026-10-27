@@ -52,6 +52,7 @@ import { analyzeIntentLocally } from "../utils/localNlp";
 import { getDynamicLayout } from "../utils/boardLayout";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { bandForAge, getBand } from "../utils/ageConfig";
+import { lockLandscape } from "../utils/orientation";
 
 export default function ArcadeArena() {
   const { reportCrisis } = useCrisis();
@@ -60,6 +61,11 @@ export default function ArcadeArena() {
   const [unlockedLevel, setUnlockedLevel] = useState(1);
   const [levelStars, setLevelStars] = useState({ 1: 0 });
   const [isMapVisible, setIsMapVisible] = useState(false);
+  // El juego se diseñó para horizontal: pedir lock cuando el mapa abre
+  // (manifest ya lo fuerza en PWA; esto cubre navegadores Android).
+  useEffect(() => {
+    if (isMapVisible) lockLandscape();
+  }, [isMapVisible]);
   const [isLevelTransitioning, setIsLevelTransitioning] = useState(false);
   const [isRestartOptionsModalOpen, setIsRestartOptionsModalOpen] =
     useState(false);

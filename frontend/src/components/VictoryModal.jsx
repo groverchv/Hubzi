@@ -16,6 +16,7 @@ import {
   Map
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { isLowPower } from '../utils/lowPower';
 import capyEscolar from '../assets/mascots/capy_escolar_nino_m.webp';
 
 export default function VictoryModal({
@@ -34,7 +35,7 @@ export default function VictoryModal({
 }) {
   const [showSummary, setShowSummary] = React.useState(false);
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isLowPower()) {
       try {
         confetti({
           particleCount: campaignCompleted ? 220 : 80,

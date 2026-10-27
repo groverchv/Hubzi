@@ -208,6 +208,94 @@ body::after {
 
 
 
+/* === MODO LIGERO (low-power) — dispositivos de gama baja ===
+   Se activa vía utils/lowPower.js (cores/memoria bajos o prefers-reduced-motion).
+   Apaga los efectos más caros de GPU/CPU; la jugabilidad no cambia. */
+
+/* Nubes fullscreen con blur(12px) = el mayor costo de GPU del fondo */
+html.low-power body::before,
+html.low-power body::after {
+  display: none;
+}
+
+/* Backdrop blur compone toda la pantalla en cada frame */
+html.low-power * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Tablero isométrico 3D → plano (transform/perspective cuestan capas) */
+html.low-power .table-3d,
+html.low-power .isometric-board-container {
+  transform: none !important;
+  perspective: none !important;
+}
+
+/* Drop shadows grandes sobre assets/texto */
+html.low-power .drop-shadow-2xl,
+html.low-power .drop-shadow-xl {
+  filter: none !important;
+}
+
+/* === OVERLAY "GIRA TU TELÉFONO" ===
+   iOS Safari no respeta orientation.lock ni el manifest → bloqueo amable. */
+.rotate-overlay {
+  display: none;
+}
+
+@media (orientation: portrait) and (pointer: coarse) and (max-width: 899px) {
+  .rotate-overlay {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #0a162b 0%, #122443 100%);
+    color: #fff;
+    font-family: 'Fredoka', 'Nunito', sans-serif;
+  }
+  .rotate-overlay-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 32px;
+    text-align: center;
+  }
+  .rotate-overlay-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 96px;
+    height: 96px;
+    border-radius: 28px;
+    background: rgba(255, 180, 0, 0.12);
+    border: 3px solid #FFB400;
+    color: #FFB400;
+    animation: rotateHint 2.2s ease-in-out infinite;
+  }
+  .rotate-overlay-title {
+    font-size: 22px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #FFB400;
+    margin: 0;
+  }
+  .rotate-overlay-sub {
+    font-size: 14px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin: 0;
+  }
+}
+
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(90deg); }
+}
+
 /* Accesibilidad: usuarios con sensibilidad al movimiento (vestibular) —
    apaga animaciones/transiciones decorativas. La app sigue 100% funcional. */
 @media (prefers-reduced-motion: reduce) {

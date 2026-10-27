@@ -8,8 +8,12 @@
  * Síntesis procedural pura con Web Audio API: cero archivos pesados, latencia cero y sonido armónico cristalino.
  */
 
+import { watchVisibility } from './audioLifecycle';
+import { isLowPower } from './lowPower';
+
 class LobbyAmbientEngine {
   constructor() {
+    watchVisibility(() => this.ctx);
     this.ctx = null;
     this.masterGain = null;
     this.reverbNode = null;
@@ -214,6 +218,12 @@ class LobbyAmbientEngine {
 
   async start() {
     if (this.isPlaying) return;
+    // Modo ligero: sin música de lobby (CPU ahorrado para el juego)
+    if (isLowPower()) {
+      this.isPlaying = true;
+      this._notify();
+      return;
+    }
     if (this.isMuted) {
       this.isPlaying = true;
       this._notify();

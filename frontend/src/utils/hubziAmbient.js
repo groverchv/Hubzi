@@ -13,8 +13,12 @@
  * - Control de volumen con fade in/out suave
  */
 
+import { watchVisibility } from './audioLifecycle';
+import { isLowPower } from './lowPower';
+
 class HubziAmbientEngine {
   constructor() {
+    watchVisibility(() => this.ctx);
     this.ctx = null;
     this.masterGain = null;
     this.reverbNode = null;
@@ -272,6 +276,10 @@ class HubziAmbientEngine {
 
   async start() {
     if (this.isPlaying) return;
+    // Modo ligero: sin audio ambiental — los osciladores + convolver
+    // consumen CPU constante en gama baja. Se omite sin marcar isPlaying
+    // para que un cambio de modo posterior sí inicie el audio.
+    if (isLowPower()) return;
     if (!this._init()) return;
     await this._resume();
     // Autoplay policy: sin gesto del usuario el ctx queda 'suspended' y
