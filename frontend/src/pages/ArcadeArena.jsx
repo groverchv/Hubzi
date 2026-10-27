@@ -1995,10 +1995,10 @@ export default function ArcadeArena() {
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 400, damping: 18 }}
-          className="absolute top-16 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[#0a162b]/90 border-2 border-[#FF7A00]/70 shadow-[0_4px_0_#050a13] pointer-events-none"
+          className="absolute top-16 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[var(--color-arcade-navy-dark)]/90 border-2 border-[var(--color-arcade-orange)]/70 shadow-[0_4px_0_var(--color-arcade-ink)] pointer-events-none"
           title="Aciertos consecutivos"
         >
-          <Flame className="w-4 h-4 text-[#FF7A00] fill-current" />
+          <Flame className="w-4 h-4 text-[var(--color-arcade-orange)] fill-current" />
           <span className="text-sm font-black text-white">x{streak}</span>
         </motion.div>
       )}
@@ -2008,10 +2008,10 @@ export default function ArcadeArena() {
         {/* BOTÓN VOLVER AL MAPA DE NIVELES */}
         <button
           onClick={() => setIsMapVisible(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#48C838] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#28871E] active:translate-y-1 active:shadow-none cursor-pointer"
+          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-green)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:translate-y-1 active:shadow-none cursor-pointer"
           title="Ver Mapa de Aventura y Niveles"
         >
-          <Compass className="w-4 h-4 text-[#48C838]" />
+          <Compass className="w-4 h-4 text-[var(--color-arcade-green)]" />
           <span className="hidden sm:inline">Mapa</span>
         </button>
 
@@ -2021,30 +2021,30 @@ export default function ArcadeArena() {
             setIsFolderModalOpen(false);
             setIsWelcomeScreenVisible(true);
           }}
-          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer"
           title="Volver a la pantalla de bienvenida / Menú de Inicio"
         >
-          <Home className="w-4 h-4 text-[#FFB400]" />
+          <Home className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
           <span className="hidden sm:inline">Menú</span>
         </button>
 
         {/* BOTÓN CÓMO JUGAR / TUTORIAL (ESTILO CARD CLASH PLAY TUTORIAL) */}
         <button
           onClick={() => setIsTutorialOpen(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#FF7A00] active:translate-y-1 active:shadow-none cursor-pointer"
+          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none cursor-pointer"
           title="Ver tutorial rápido de cómo jugar"
         >
-          <BookOpen className="w-4 h-4 text-[#FFB400]" />
+          <BookOpen className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
           <span className="hidden lg:inline">Tutorial</span>
         </button>
 
         {/* BOTÓN CARPETAS / MATERIALES */}
         <button
           onClick={() => setIsFolderModalOpen(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer"
           title="Abrir baúl de carpetas y subir nuevos documentos"
         >
-          <FolderIcon className="w-4 h-4 text-[#45B1E8]" />
+          <FolderIcon className="w-4 h-4 text-[var(--color-arcade-cyan)]" />
           <span className="hidden lg:inline">Carpetas</span>
         </button>
 
@@ -2056,7 +2056,7 @@ export default function ArcadeArena() {
             </CoachMark>
             <button
               onClick={() => setIsInstitutionModalOpen(true)}
-              className="px-3.5 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer"
+              className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer"
               title="Hubzy para Colegios: grados, materias y panel docente"
               aria-label="Abrir Hubzy para Colegios"
             >
@@ -2067,10 +2067,10 @@ export default function ArcadeArena() {
         )}
         {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
         {currentUser ? (
-          <div className="flex items-center gap-1 bg-[#122443] border-3 border-[#0a162b] rounded-2xl p-1 shadow-[0_4px_0_#050a13]">
+          <div className="flex items-center gap-1 bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] rounded-2xl p-1 shadow-[0_4px_0_var(--color-arcade-ink)]">
             <button
               onClick={() => setIsUserModalOpen(true)}
-              className="px-2.5 py-1 text-white text-xs font-black transition-all flex items-center gap-2 hover:bg-[#1a335e] rounded-xl cursor-pointer group"
+              className="px-2.5 py-1 text-white text-xs font-black transition-all flex items-center gap-2 hover:bg-[var(--color-arcade-navy-hover)] rounded-xl cursor-pointer group"
               title="Configurar perfil de usuario, edad y voz de Hubzi"
             >
               <UserIcon
@@ -2100,7 +2100,7 @@ export default function ArcadeArena() {
         ) : (
           <button
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-4 py-2 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-3 border-[#0a162b] border-b-4 text-white font-black text-xs uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_#FF7A00] active:translate-y-1 active:shadow-none cursor-pointer"
+            className="px-4 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-4 text-white font-black text-xs uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none cursor-pointer"
             title="Iniciar sesión o registrarse con correo y contraseña"
           >
             <LogInIcon className="w-4 h-4 text-amber-400" />
@@ -2111,7 +2111,7 @@ export default function ArcadeArena() {
         {/* BOTÓN REINICIAR (ESTILO CARD CLASH CON VERDE ESMERALDA Y BORDE GRUESO) */}
         <button
           onClick={handleRestartWithNewQuestions}
-          className="px-3.5 py-2 rounded-2xl bg-[#48C838] hover:bg-[#3bb82b] border-2 border-[#67dc59] border-b-4 border-b-[#28871e] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_#122443] active:translate-y-1 active:shadow-none cursor-pointer"
+          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-4 border-b-[var(--color-arcade-green-shadow)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-navy)] active:translate-y-1 active:shadow-none cursor-pointer"
           title="Reiniciar partida y generar un nuevo conjunto de preguntas de este documento"
         >
           <RotateCcw className="w-4 h-4 text-white" />
@@ -2129,11 +2129,11 @@ export default function ArcadeArena() {
             GAME_LEVELS.find((l) => l.level === currentLevel) || GAME_LEVELS[0];
           return (
             <div
-              className="flex items-center gap-1.5 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]"
+              className="flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
               title={`Nivel ${currentLevel} de 20: ${lvlInfo.name}`}
             >
-              <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />
-              <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider">
+              <Trophy className="w-4 h-4 text-[var(--color-arcade-yellow)] animate-bounce" />
+              <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider">
                 NIVEL {currentLevel}/20:
               </span>
               <span className="text-xs font-black text-white uppercase tracking-wide">
@@ -2144,10 +2144,10 @@ export default function ArcadeArena() {
         })()}
 
         <div
-          className="flex items-center gap-2 bg-[#122443] border-2 border-[#1e3a6c] border-b-3 border-b-[#0a162b] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_#050a13]"
+          className="flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
           title="Progreso del Circuito"
         >
-          <span className="text-[10px] font-black uppercase text-[#48C838] tracking-wider">
+          <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
             Progreso:
           </span>
           <span className="text-sm font-black text-white">
@@ -2223,10 +2223,10 @@ export default function ArcadeArena() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="w-full max-w-xl bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border-4 border-[#122443] shadow-[0_20px_40px_rgba(18,36,67,0.2),0_10px_0_#122443] flex flex-col items-center text-center relative overflow-hidden"
+            className="w-full max-w-xl bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border-4 border-[var(--color-arcade-navy)] shadow-[0_20px_40px_rgba(18,36,67,0.2),0_10px_0_var(--color-arcade-navy)] flex flex-col items-center text-center relative overflow-hidden"
           >
             {/* Cabecera / Banner estilizado */}
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 border-3 border-[#122443] flex items-center justify-center text-white mb-4 shadow-[0_6px_0_#122443]">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-white mb-4 shadow-[0_6px_0_var(--color-arcade-navy)]">
               <Sparkles className="w-9 h-9 animate-bounce text-white drop-shadow" />
             </div>
 
@@ -2234,7 +2234,7 @@ export default function ArcadeArena() {
               Hubzy
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-[#122443] tracking-wide uppercase mb-2">
+            <h2 className="text-2xl sm:text-3xl font-black text-[var(--color-arcade-navy)] tracking-wide uppercase mb-2">
               ¡Aún no has iniciado tu partida!
             </h2>
             <p className="text-slate-600 font-medium text-sm sm:text-base max-w-md mb-6 leading-relaxed">
@@ -2245,7 +2245,7 @@ export default function ArcadeArena() {
             {/* Pasos requeridos con diseño arcade */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-left">
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[#122443] text-white text-xs font-black flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[var(--color-arcade-navy)] text-white text-xs font-black flex items-center justify-center">
                   1
                 </span>
                 <span className="font-bold text-xs text-slate-800 uppercase">
@@ -2256,7 +2256,7 @@ export default function ArcadeArena() {
                 </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[#FF7A00] text-white text-xs font-black flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[var(--color-arcade-orange)] text-white text-xs font-black flex items-center justify-center">
                   2
                 </span>
                 <span className="font-bold text-xs text-slate-800 uppercase">
@@ -2267,7 +2267,7 @@ export default function ArcadeArena() {
                 </span>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[#48C838] text-white text-xs font-black flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[var(--color-arcade-green)] text-white text-xs font-black flex items-center justify-center">
                   3
                 </span>
                 <span className="font-bold text-xs text-slate-800 uppercase">

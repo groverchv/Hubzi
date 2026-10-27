@@ -64,7 +64,7 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
                     active
-                      ? 'bg-[#122443] text-white border-amber-400/80 shadow-[0_2px_8px_rgba(255,180,0,0.25)]'
+                      ? 'bg-[var(--color-arcade-navy)] text-white border-amber-400/80 shadow-[0_2px_8px_rgba(255,180,0,0.25)]'
                       : 'bg-slate-900/40 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
@@ -85,17 +85,17 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
                 <p className="text-[11px] text-slate-400 mt-0.5">Última actualización: Octubre 2026. Al usar Hubzy, aceptas los siguientes términos:</p>
               </div>
               
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-amber-300 mb-0.5 text-xs">1. Objeto del Servicio</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Hubzy es un entorno web de gamificación y microaprendizaje para estudiantes. Transforma apuntes y documentos en circuitos interactivos de preguntas y cartas conceptuales para afianzar el conocimiento de forma amigable y sin estrés.</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-amber-300 mb-0.5 text-xs">2. Propiedad Intelectual de tus Documentos</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Tus apuntes, diapositivas y textos siguen siendo 100% de tu propiedad. Hubzy no vende, no comercializa ni reclama derechos de autor sobre el material académico que subes a tu cuenta personal.</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-amber-300 mb-0.5 text-xs">3. Uso Responsable</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">El usuario se compromete a no subir contenido ilícito, programas maliciosos ni material protegido que no tenga autorización de utilizar con fines de estudio personal.</p>
               </div>
@@ -109,17 +109,17 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
                 <p className="text-[11px] text-slate-400 mt-0.5">Tu privacidad es fundamental. Cumplimos con estándares de protección de datos (RGPD / CCPA):</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-emerald-300 mb-0.5 text-xs">1. Qué Datos Recopilamos</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Únicamente recopilamos los datos estrictamente necesarios para tu experiencia de estudio: nombre o apodo, correo electrónico para inicio de sesión, y preferencias opcionales de voz para Hubzi.</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-emerald-300 mb-0.5 text-xs">2. Cero Venta de Información</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Bajo ninguna circunstancia vendemos ni compartimos tus datos personales ni tus documentos con anunciantes ni entidades externas.</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-emerald-300 mb-0.5 text-xs">3. Seguridad de Almacenamiento</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Tus carpetas de estudio están aisladas por tu ID de usuario en bases de datos protegidas con cifrado en reposo y en tránsito (HTTPS / TLS).</p>
               </div>
@@ -133,17 +133,17 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
                 <p className="text-[11px] text-slate-400 mt-0.5">Transparencia absoluta en transacciones procesadas mediante <strong>Stripe</strong>:</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-cyan-300 mb-0.5 text-xs">1. Suscripción Plan PRO ($2.99 USD / mes)</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Acceso ilimitado a análisis de documentos extensos, OCR multimodal, modos de juego avanzados y voz personalizada de Hubzi.</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-cyan-300 mb-0.5 text-xs">2. Cancelación Inmediata con un Clic</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Puedes cancelar tu suscripción en cualquier momento desde tu perfil o el portal de Stripe. No hay contratos forzosos ni penalizaciones. Mantienes tu acceso hasta el final del periodo facturado.</p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90">
                 <h4 className="font-bold text-cyan-300 mb-0.5 text-xs">3. Garantía de Reembolso de 7 Días</h4>
                 <p className="text-[11.5px] leading-relaxed text-slate-300">Si durante los primeros 7 días experimentas cualquier falla técnica o el servicio no cumple con tus expectativas, contáctanos a soporte para un reembolso del 100%.</p>
               </div>
@@ -157,7 +157,7 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
                 <p className="text-[11px] text-slate-400 mt-0.5">Usamos exclusivamente almacenamiento local esencial (`localStorage`) y cookies técnicas:</p>
               </div>
               
-              <div className="p-3 rounded-xl bg-[#0d1627] border border-slate-800/90 space-y-2">
+              <div className="p-3 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90 space-y-2">
                 <div className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 shrink-0" />
                   <p className="text-[11.5px]"><strong className="text-white">Cookies de Sesión:</strong> Para mantenerte autenticado de forma segura sin pedir login en cada pantalla.</p>
@@ -181,7 +181,7 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
                 <p className="text-[11px] text-slate-400 mt-0.5">Datos de contacto y transparencia institucional:</p>
               </div>
               
-              <div className="p-3.5 rounded-xl bg-[#0d1627] border border-slate-800/90 space-y-1.5 text-[11.5px]">
+              <div className="p-3.5 rounded-xl bg-[var(--color-arcade-navy-deep)] border border-slate-800/90 space-y-1.5 text-[11.5px]">
                 <p><strong className="text-white">Plataforma:</strong> Hubzy (Proyecto SynapseHub)</p>
                 <p><strong className="text-white">Operador:</strong> Grover Choquevillca & Equipo SynapseHub</p>
                 <p><strong className="text-white">Contacto de Soporte:</strong> contacto@hubzy.app</p>
@@ -197,7 +197,7 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
           <span>Hubzy © {new Date().getFullYear()} · Todos los derechos reservados.</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-b-3 border-[#D45B00] text-white font-black text-xs uppercase tracking-wider shadow-md active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+            className="px-4 py-1.5 rounded-xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-b-3 border-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wider shadow-md active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
           >
             Entendido
           </button>

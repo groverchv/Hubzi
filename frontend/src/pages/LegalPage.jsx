@@ -9,7 +9,7 @@ import { ArrowLeft, Scale, ShieldCheck, Baby } from 'lucide-react';
  */
 const CONTENT = {
   terminos: {
-    icon: <Scale className="w-8 h-8 text-[#FFB400]" />,
+    icon: <Scale className="w-8 h-8 text-[var(--color-arcade-yellow)]" />,
     title: 'Términos de Servicio',
     sections: [
       {
@@ -39,7 +39,7 @@ const CONTENT = {
     ],
   },
   privacidad: {
-    icon: <ShieldCheck className="w-8 h-8 text-[#48C838]" />,
+    icon: <ShieldCheck className="w-8 h-8 text-[var(--color-arcade-green)]" />,
     title: 'Política de Privacidad',
     sections: [
       {
@@ -73,7 +73,7 @@ const CONTENT = {
 export default function LegalPage({ type = 'terminos' }) {
   const c = CONTENT[type] || CONTENT.terminos;
   return (
-    <div className="min-h-screen bg-[#0a162b] text-white font-sans">
+    <div className="min-h-screen bg-[var(--color-arcade-navy-dark)] text-white font-sans">
       <div className="max-w-2xl mx-auto px-5 py-10">
         <Link
           to="/"
@@ -83,7 +83,7 @@ export default function LegalPage({ type = 'terminos' }) {
         </Link>
 
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-[#122443] border-3 border-[#0a162b] flex items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] flex items-center justify-center">
             {c.icon}
           </div>
           <div>
@@ -94,8 +94,8 @@ export default function LegalPage({ type = 'terminos' }) {
 
         <div className="space-y-6">
           {c.sections.map((s) => (
-            <section key={s.h} className="p-5 rounded-2xl bg-[#122443] border-2 border-[#1e3a6c]">
-              <h2 className="text-sm font-black text-[#FFB400] uppercase tracking-wide mb-2">{s.h}</h2>
+            <section key={s.h} className="p-5 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]">
+              <h2 className="text-sm font-black text-[var(--color-arcade-yellow)] uppercase tracking-wide mb-2">{s.h}</h2>
               <p className="text-sm text-slate-300 leading-relaxed">{s.p}</p>
             </section>
           ))}

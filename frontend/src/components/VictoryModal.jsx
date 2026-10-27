@@ -41,6 +41,7 @@ export default function VictoryModal({
           particleCount: campaignCompleted ? 220 : 80,
           spread: campaignCompleted ? 110 : 70,
           origin: { y: 0.6 },
+          // canvas fillStyle no resuelve var() — hex literales requeridos
           colors: ['#FF7A00', '#48C838', '#FFB400', '#1C8FE8']
         });
       } catch {}
@@ -63,18 +64,18 @@ export default function VictoryModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.88, y: 30 }}
         transition={{ type: 'spring', stiffness: 320, damping: 25 }}
-        className="relative w-full max-w-md rounded-3xl bg-[#122443] border-4 border-[#0a162b] p-6 sm:p-7 text-white shadow-[0_16px_0_#050a13,0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-hidden"
+        className="relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-hidden"
       >
         {/* Glow de fondo */}
-        <div className="absolute -top-16 -right-16 w-44 h-44 bg-[#FFB400]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-[#48C838]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-44 h-44 bg-[var(--color-arcade-yellow)]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-[var(--color-arcade-green)]/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Badge superior Arcade */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] mb-3">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] mb-3">
           {campaignCompleted
-            ? <Crown className="w-4 h-4 text-[#FFB400] animate-bounce" />
-            : <Trophy className="w-4 h-4 text-[#FFB400] animate-bounce" />}
-          <span className="text-[10px] font-black uppercase text-[#FFB400] tracking-wider">
+            ? <Crown className="w-4 h-4 text-[var(--color-arcade-yellow)] animate-bounce" />
+            : <Trophy className="w-4 h-4 text-[var(--color-arcade-yellow)] animate-bounce" />}
+          <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider">
             {campaignCompleted ? '¡Jefe Final Derrotado!' : `¡Nivel ${level} Superado!`}
           </span>
         </div>
@@ -101,8 +102,8 @@ export default function VictoryModal({
                 transition={{ delay: starIdx * 0.15, type: 'spring', stiffness: 400 }}
                 className={`p-2 rounded-2xl border-3 shadow-md ${
                   isEarned
-                    ? 'bg-[#FFB400] border-[#0a162b] text-[#122443] shadow-[0_4px_0_#D48800]'
-                    : 'bg-[#0a162b] border-[#1e3a6c] text-slate-600'
+                    ? 'bg-[var(--color-arcade-yellow)] border-[var(--color-arcade-navy-dark)] text-[var(--color-arcade-navy)] shadow-[0_4px_0_var(--color-arcade-yellow-shadow)]'
+                    : 'bg-[var(--color-arcade-navy-dark)] border-[var(--color-arcade-navy-light)] text-slate-600'
                 }`}
               >
                 <Star className={`w-8 h-8 ${isEarned ? 'fill-current stroke-[2]' : 'stroke-[1.5]'}`} />
@@ -123,18 +124,18 @@ export default function VictoryModal({
         </div>
 
         {/* Estadísticas de la Ronda */}
-        <div className="grid grid-cols-3 gap-2.5 w-full p-3 rounded-2xl bg-[#0a162b] border-3 border-[#1e3a6c] mb-5">
+        <div className="grid grid-cols-3 gap-2.5 w-full p-3 rounded-2xl bg-[var(--color-arcade-navy-dark)] border-3 border-[var(--color-arcade-navy-light)] mb-5">
           <div className="flex flex-col items-center">
             <div className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400">
-              <Target className="w-3.5 h-3.5 text-[#45B1E8]" />
+              <Target className="w-3.5 h-3.5 text-[var(--color-arcade-cyan)]" />
               <span>Precisión</span>
             </div>
-            <span className="text-lg font-black text-[#48C838] mt-0.5">{accuracy}%</span>
+            <span className="text-lg font-black text-[var(--color-arcade-green)] mt-0.5">{accuracy}%</span>
           </div>
 
-          <div className="flex flex-col items-center border-x-2 border-[#1e3a6c]">
+          <div className="flex flex-col items-center border-x-2 border-[var(--color-arcade-navy-light)]">
             <div className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#FF7A00]" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-arcade-orange)]" />
               <span>Reactivos</span>
             </div>
             <span className="text-lg font-black text-white mt-0.5">{totalQuestions}</span>
@@ -142,10 +143,10 @@ export default function VictoryModal({
 
           <div className="flex flex-col items-center">
             <div className="flex items-center gap-1 text-[10px] font-black uppercase text-slate-400">
-              <Flame className="w-3.5 h-3.5 text-[#FFB400]" />
+              <Flame className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
               <span>Racha</span>
             </div>
-            <span className="text-lg font-black text-[#FFB400] mt-0.5">X{streak}</span>
+            <span className="text-lg font-black text-[var(--color-arcade-yellow)] mt-0.5">X{streak}</span>
           </div>
         </div>
 
@@ -168,7 +169,7 @@ export default function VictoryModal({
               {weakNodes.slice(0, 6).map((label, i) => (
                 <span
                   key={i}
-                  className="px-2 py-0.5 rounded-lg bg-[#0a162b] border border-amber-500/30 text-[10px] font-bold text-amber-200"
+                  className="px-2 py-0.5 rounded-lg bg-[var(--color-arcade-navy-dark)] border border-amber-500/30 text-[10px] font-bold text-amber-200"
                 >
                   {label}
                 </span>
@@ -181,7 +182,7 @@ export default function VictoryModal({
         )}
 
         {/* Micro-evaluación de Alivio Emocional / Estrés (KPI Central del MVP) */}
-        <div className="w-full p-3 rounded-2xl bg-[#0a162b] border-2 border-[#1e3a6c] mb-4 text-center">
+        <div className="w-full p-3 rounded-2xl bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] mb-4 text-center">
           <p className="text-[11px] font-black uppercase tracking-wide text-cyan-300 mb-2">
             ¿Cómo sientes tu nivel de calma tras esta ronda?
           </p>
@@ -201,7 +202,7 @@ export default function VictoryModal({
                     localStorage.setItem('hubzy_last_stress_score', item.val);
                   } catch {}
                 }}
-                className="flex-1 py-1.5 px-1 rounded-xl bg-[#122443] hover:bg-[#FFB400] hover:text-[#122443] border border-[#1e3a6c] text-[10px] font-black transition-all cursor-pointer text-slate-200"
+                className="flex-1 py-1.5 px-1 rounded-xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-yellow)] hover:text-[var(--color-arcade-navy)] border border-[var(--color-arcade-navy-light)] text-[10px] font-black transition-all cursor-pointer text-slate-200"
                 title={item.label}
               >
                 <span className="inline-flex items-center gap-0.5">{item.val}<Star className="w-2.5 h-2.5 fill-current" /></span>
@@ -211,13 +212,13 @@ export default function VictoryModal({
         </div>
 
         {/* Mensaje de Capibara Acompañante */}
-        <div className="flex items-center gap-3 w-full p-3 rounded-2xl bg-[#1a335e]/60 border-2 border-[#1e3a6c] mb-3 text-left">
-          <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-[#FFB400] shrink-0 bg-[#0a162b]">
+        <div className="flex items-center gap-3 w-full p-3 rounded-2xl bg-[var(--color-arcade-navy-hover)]/60 border-2 border-[var(--color-arcade-navy-light)] mb-3 text-left">
+          <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-[var(--color-arcade-yellow)] shrink-0 bg-[var(--color-arcade-navy-dark)]">
             <img src={capyEscolar} alt="Hubzi" className="w-full h-full object-cover" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase text-[#FFB400] tracking-wide flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-[#FFB400]" /> Hubzi dice:
+            <p className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wide flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-[var(--color-arcade-yellow)]" /> Hubzi dice:
             </p>
             <p className="text-xs text-slate-200 font-bold leading-tight mt-0.5">
               "{stars === 3 ? '¡Increíble retención! Estás dominando este tema con soltura.' : '¡Buen progreso! Cada ronda afianza mejor los conceptos en tu mente.'}"
@@ -231,21 +232,21 @@ export default function VictoryModal({
             <button
               type="button"
               onClick={() => setShowSummary(prev => !prev)}
-              className="w-full py-2 px-3 rounded-xl bg-[#0a162b] hover:bg-[#152747] border border-[#1e3a6c] text-[11px] font-black text-[#FFB400] uppercase tracking-wider flex items-center justify-between cursor-pointer transition-colors"
+              className="w-full py-2 px-3 rounded-xl bg-[var(--color-arcade-navy-dark)] hover:bg-[#152747] border border-[var(--color-arcade-navy-light)] text-[11px] font-black text-[var(--color-arcade-yellow)] uppercase tracking-wider flex items-center justify-between cursor-pointer transition-colors"
             >
               <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-[#FFB400]" />
+                <BookOpen className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
                 Glosario Dominado ({masteredConcepts.length} conceptos)
               </span>
               <span className="text-xs text-slate-400">{showSummary ? '▲ Ocultar' : '▼ Ver'}</span>
             </button>
 
             {showSummary && (
-              <div className="mt-2 p-2.5 rounded-xl bg-[#081224] border border-[#1e3a6c] max-h-44 overflow-y-auto space-y-2 text-left">
+              <div className="mt-2 p-2.5 rounded-xl bg-[#081224] border border-[var(--color-arcade-navy-light)] max-h-44 overflow-y-auto space-y-2 text-left">
                 {masteredConcepts.map((item, idx) => (
                   <div key={idx} className="p-2 rounded-lg bg-[#0e1e38] border border-slate-700/60">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black text-[#48C838] uppercase">
+                      <span className="text-[11px] font-black text-[var(--color-arcade-green)] uppercase">
                         {item.name || item.concept_name || item.label}
                       </span>
                       <span className="inline-flex items-center gap-0.5 text-[9px] font-mono text-cyan-300"><CheckCircle2 className="w-2.5 h-2.5" /> Dominado</span>
@@ -268,9 +269,9 @@ export default function VictoryModal({
             {onRetry && (
               <button
                 onClick={onRetry}
-                className="flex-1 py-3 px-3 rounded-2xl bg-[#0a162b] hover:bg-[#162a4d] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-slate-200 font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-1 active:shadow-none"
+                className="flex-1 py-3 px-3 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[#162a4d] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-slate-200 font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none"
               >
-                <RotateCcw className="w-4 h-4 text-[#FF7A00]" />
+                <RotateCcw className="w-4 h-4 text-[var(--color-arcade-orange)]" />
                 <span>Reiniciar</span>
               </button>
             )}
@@ -278,7 +279,7 @@ export default function VictoryModal({
             {onGoToMenu && (
               <button
                 onClick={onGoToMenu}
-                className="flex-1 py-3 px-3 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-1 active:shadow-none"
+                className="flex-1 py-3 px-3 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] font-black text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none"
               >
                 <Map className="w-4 h-4" />
                 <span>Menú / Mapa</span>
@@ -289,7 +290,7 @@ export default function VictoryModal({
           {onNextLevel && stars >= 2 && (
             <button
               onClick={onNextLevel}
-              className="w-full py-3.5 px-4 rounded-2xl bg-[#48C838] hover:bg-[#57d847] border-2 border-[#67dc59] border-b-4 border-b-[#28871E] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none"
+              className="w-full py-3.5 px-4 rounded-2xl bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-2 border-[var(--color-arcade-green-light)] border-b-4 border-b-[var(--color-arcade-green-shadow)] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none"
             >
               <span>¡Avanzar al Siguiente Nivel!</span>
               <ArrowRight className="w-4 h-4 text-white" />

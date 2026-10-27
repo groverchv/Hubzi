@@ -33,8 +33,8 @@ export default class ErrorBoundary extends React.Component {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-[#0a162b] text-white font-sans p-4">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-[#122443] border-4 border-[#0a162b] text-center shadow-[0_12px_0_#050a13]">
+      <div className="w-screen h-screen flex items-center justify-center bg-[var(--color-arcade-navy-dark)] text-white font-sans p-4">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] text-center shadow-[0_12px_0_var(--color-arcade-ink)]">
           <div className="w-16 h-16 rounded-3xl bg-rose-500/20 border-2 border-rose-500/50 flex items-center justify-center mx-auto mb-4">
             <TriangleAlert className="w-8 h-8 text-rose-400" />
           </div>
@@ -51,14 +51,14 @@ export default class ErrorBoundary extends React.Component {
           <div className="flex gap-3">
             <button
               onClick={this.handleReload}
-              className="flex-1 py-3 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-b-4 border-[#D45B00] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="flex-1 py-3 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-b-4 border-[var(--color-arcade-orange-shadow)] font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               Reintentar
             </button>
             <button
               onClick={this.handleHome}
-              className="flex-1 py-3 rounded-2xl bg-[#0a162b] hover:bg-[#1a335e] border-3 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-slate-300 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="flex-1 py-3 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-slate-300 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <Home className="w-4 h-4" />
               Inicio

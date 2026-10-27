@@ -69,12 +69,12 @@ export default function ArcadeNode({
             strokeWidth="1.5"
           />
           {/* Corner rivet dots */}
-          <circle cx="30" cy="4" r="2.5" fill="#fbbf24" />
-          <circle cx="56" cy="17" r="2.5" fill="#fbbf24" />
-          <circle cx="56" cy="51" r="2.5" fill="#fbbf24" />
-          <circle cx="30" cy="64" r="2.5" fill="#fbbf24" />
-          <circle cx="4" cy="51" r="2.5" fill="#fbbf24" />
-          <circle cx="4" cy="17" r="2.5" fill="#fbbf24" />
+          <circle cx="30" cy="4" r="2.5" fill="var(--color-amber-400)" />
+          <circle cx="56" cy="17" r="2.5" fill="var(--color-amber-400)" />
+          <circle cx="56" cy="51" r="2.5" fill="var(--color-amber-400)" />
+          <circle cx="30" cy="64" r="2.5" fill="var(--color-amber-400)" />
+          <circle cx="4" cy="51" r="2.5" fill="var(--color-amber-400)" />
+          <circle cx="4" cy="17" r="2.5" fill="var(--color-amber-400)" />
         </svg>
 
         {/* RECTANGULAR CARD DROP AREA — inside the hexagon, where the card sits */}
@@ -101,7 +101,7 @@ export default function ArcadeNode({
 
       {/* HOVER TOOLTIP FLOTANTE DE LECTURA RÁPIDA (SIEMPRE LEGIBLE) */}
       {question && (
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3 rounded-2xl bg-[#122443]/98 border-2 border-amber-400/80 shadow-[0_12px_32px_rgba(0,0,0,0.85)] text-slate-100 opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3 rounded-2xl bg-[var(--color-arcade-navy)]/98 border-2 border-amber-400/80 shadow-[0_12px_32px_rgba(0,0,0,0.85)] text-slate-100 opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
           <p className="text-amber-300 font-black text-[9px] uppercase tracking-wider mb-1 flex items-center gap-1">
             <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
             <span>{label ? `Casilla: ${label}` : 'Reactivo:'}</span>

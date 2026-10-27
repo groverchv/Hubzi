@@ -72,16 +72,16 @@ export default function DashboardPage() {
 
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <Link to="/" className="flex items-center gap-2">
-          <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-xl border-2 border-[#122443] object-cover" />
-          <span className="text-xl font-black uppercase text-[#122443]">Hubzy</span>
+          <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-xl border-2 border-[var(--color-arcade-navy)] object-cover" />
+          <span className="text-xl font-black uppercase text-[var(--color-arcade-navy)]">Hubzy</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link to="/zen" className="rounded-2xl bg-white/70 px-4 py-2 text-xs font-black uppercase text-[#122443] hover:bg-white">
+          <Link to="/zen" className="rounded-2xl bg-white/70 px-4 py-2 text-xs font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
             <Wind className="inline w-4 h-4 mr-1" /> {t("nav.zen")}
           </Link>
           <button
             onClick={logout}
-            className="rounded-2xl bg-[#122443] px-4 py-2 text-xs font-black uppercase text-white hover:bg-[#1a335e]"
+            className="rounded-2xl bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white hover:bg-[var(--color-arcade-navy-hover)]"
           >
             <LogOut className="inline w-4 h-4 mr-1" /> {t("nav.logout")}
           </button>
@@ -90,7 +90,7 @@ export default function DashboardPage() {
 
       <main className="relative z-10 mx-auto max-w-5xl px-6 pb-20">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl sm:text-4xl font-black text-[#122443]">
+          <h1 className="text-3xl sm:text-4xl font-black text-[var(--color-arcade-navy)]">
             {t("dashboard.welcome", { name: username })}
           </h1>
           <p className="mt-1 font-semibold text-slate-600">{t("dashboard.subtitle")}</p>
@@ -100,7 +100,7 @@ export default function DashboardPage() {
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <Link
             to="/arena"
-            className="flex items-center gap-3 rounded-3xl bg-[#FF7A00] p-5 text-white border-b-6 border-[#D45B00] shadow-lg hover:scale-[1.02] transition-transform"
+            className="flex items-center gap-3 rounded-3xl bg-[var(--color-arcade-orange)] p-5 text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-lg hover:scale-[1.02] transition-transform"
           >
             <Play className="w-8 h-8" />
             <span className="font-black uppercase">{t("dashboard.continue")}</span>
@@ -122,16 +122,16 @@ export default function DashboardPage() {
           {!isPro ? (
             <Link
               to="/arena?upgrade=1"
-              className="flex items-center gap-3 rounded-3xl bg-[#122443] p-5 text-white border-b-6 border-[#050a13] shadow-lg hover:scale-[1.02] transition-transform"
+              className="flex items-center gap-3 rounded-3xl bg-[var(--color-arcade-navy)] p-5 text-white border-b-6 border-[var(--color-arcade-ink)] shadow-lg hover:scale-[1.02] transition-transform"
             >
-              <Crown className="w-8 h-8 text-[#FFB400]" />
+              <Crown className="w-8 h-8 text-[var(--color-arcade-yellow)]" />
               <div>
                 <span className="font-black uppercase">{t("dashboard.upgrade")}</span>
                 <p className="text-xs font-bold text-amber-300">{t("dashboard.plan_free")}</p>
               </div>
             </Link>
           ) : (
-            <div className="flex items-center gap-3 rounded-3xl bg-gradient-to-r from-amber-400 to-orange-400 p-5 text-[#122443] border-b-6 border-amber-600 shadow-lg">
+            <div className="flex items-center gap-3 rounded-3xl bg-gradient-to-r from-amber-400 to-orange-400 p-5 text-[var(--color-arcade-navy)] border-b-6 border-amber-600 shadow-lg">
               <Crown className="w-8 h-8" />
               <span className="font-black uppercase">{t("dashboard.plan_pro")}</span>
             </div>
@@ -141,20 +141,20 @@ export default function DashboardPage() {
         {/* Folders */}
         <section className="mt-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black uppercase text-[#122443] flex items-center gap-2">
+            <h2 className="text-xl font-black uppercase text-[var(--color-arcade-navy)] flex items-center gap-2">
               <BookOpen className="w-5 h-5" /> {t("dashboard.my_folders")}
             </h2>
             <div className="flex gap-2">
               <button
                 onClick={load}
-                className="rounded-xl bg-white/70 p-2 text-[#122443] hover:bg-white"
+                className="rounded-xl bg-white/70 p-2 text-[var(--color-arcade-navy)] hover:bg-white"
                 aria-label={t("common.retry")}
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
               <Link
                 to="/arena"
-                className="inline-flex items-center gap-1 rounded-xl bg-[#122443] px-3 py-2 text-xs font-black uppercase text-white"
+                className="inline-flex items-center gap-1 rounded-xl bg-[var(--color-arcade-navy)] px-3 py-2 text-xs font-black uppercase text-white"
               >
                 <FolderPlus className="w-4 h-4" /> {t("dashboard.new_folder")}
               </Link>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
                 <p className="mt-3 font-semibold text-slate-600">{t("dashboard.empty_folders")}</p>
                 <Link
                   to="/arena"
-                  className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#FF7A00] px-5 py-2.5 text-sm font-black uppercase text-white border-b-4 border-[#D45B00]"
+                  className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[var(--color-arcade-orange)] px-5 py-2.5 text-sm font-black uppercase text-white border-b-4 border-[var(--color-arcade-orange-shadow)]"
                 >
                   <FolderPlus className="w-4 h-4" /> {t("dashboard.new_folder")}
                 </Link>
@@ -193,11 +193,11 @@ export default function DashboardPage() {
                   className="group rounded-3xl bg-white/85 p-5 border-b-6 border-slate-200 shadow hover:scale-[1.02] transition-transform"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="rounded-2xl bg-[#FFB400]/20 p-3">
-                      <Folder className="w-6 h-6 text-[#FF7A00]" />
+                    <div className="rounded-2xl bg-[var(--color-arcade-yellow)]/20 p-3">
+                      <Folder className="w-6 h-6 text-[var(--color-arcade-orange)]" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="truncate font-black text-[#122443]">{f.name}</h3>
+                      <h3 className="truncate font-black text-[var(--color-arcade-navy)]">{f.name}</h3>
                       <p className="text-xs font-semibold text-slate-500">
                         {(f.documents || []).length} docs · {(f.games || []).length} juegos
                       </p>
@@ -211,7 +211,7 @@ export default function DashboardPage() {
 
         {/* Portabilidad de datos — derecho a exportar */}
         <section className="mt-14 rounded-3xl border-2 border-slate-200 bg-white/80 p-6">
-          <h2 className="text-sm font-black uppercase tracking-wide text-[#122443]">
+          <h2 className="text-sm font-black uppercase tracking-wide text-[var(--color-arcade-navy)]">
             {t("dashboard.your_data", "Tus datos")}
           </h2>
           <p className="mt-1 text-xs font-semibold text-slate-500">

@@ -160,11 +160,11 @@ export default function CapyCompanion({
               initial={{ opacity: 0, y: 15, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-2xl bg-gradient-to-br from-[#122443] via-[#0a162b] to-slate-900 border-3 border-[#1e3a6c] shadow-[0_8px_0_#050a13] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left text-white"
+              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-2xl bg-gradient-to-br from-[var(--color-arcade-navy)] via-[var(--color-arcade-navy-dark)] to-slate-900 border-3 border-[var(--color-arcade-navy-light)] shadow-[0_8px_0_var(--color-arcade-ink)] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left text-white"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-[#FFB400] font-mono flex items-center gap-1.5">
-                  <Wind className="w-3.5 h-3.5 text-[#FFB400] animate-pulse" />
+                <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] font-mono flex items-center gap-1.5">
+                  <Wind className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)] animate-pulse" />
                   Hubzy • Pausa de Estudio
                 </span>
                 <button
@@ -185,7 +185,7 @@ export default function CapyCompanion({
                   onZenDismiss();
                   onZenAccept();
                 }}
-                className="w-full py-2 px-3 rounded-xl bg-[#48C838] hover:bg-[#57d847] border-2 border-[#67dc59] border-b-3 border-b-[#28871E] text-white font-black text-[10px] tracking-wide uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 transition-all"
+                className="w-full py-2 px-3 rounded-xl bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-2 border-[var(--color-arcade-green-light)] border-b-3 border-b-[var(--color-arcade-green-shadow)] text-white font-black text-[10px] tracking-wide uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 transition-all"
               >
                 <Sparkles className="w-3 h-3 text-white" />
                 Pausar y Respirar con Hubzy
@@ -333,7 +333,7 @@ export default function CapyCompanion({
             {/* CORONA Y BARRA DE VIDA DE JEFE FINAL (NIVEL 20) */}
             {currentLevel === 20 && (
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center">
-                <Crown className="w-8 h-8 text-[#FFB400] fill-[#FFB400] drop-shadow-[0_3px_6px_rgba(0,0,0,0.8)] animate-bounce" />
+                <Crown className="w-8 h-8 text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)] drop-shadow-[0_3px_6px_rgba(0,0,0,0.8)] animate-bounce" />
                 <div className="w-24 h-2 bg-slate-900 border border-amber-400 rounded-full overflow-hidden shadow-md mt-0.5">
                   {(() => {
                     const totalNodes = Object.keys(nodes).length || 20;

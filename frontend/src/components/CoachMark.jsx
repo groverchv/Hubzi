@@ -55,7 +55,7 @@ export default function CoachMark({ id, children, position = 'bottom' }) {
       initial={{ opacity: 0, y: position === 'top' ? 6 : -6, x: '-50%' }}
       animate={{ opacity: 1, y: 0, x: '-50%' }}
       transition={{ type: 'spring', stiffness: 350, damping: 24 }}
-      className={`absolute ${pos} z-40 w-60 rounded-xl bg-[#0a162b] border-2 border-cyan-400/60 px-3 py-2.5 shadow-[0_10px_30px_rgba(6,182,212,0.3)] pointer-events-auto`}
+      className={`absolute ${pos} z-40 w-60 rounded-xl bg-[var(--color-arcade-navy-dark)] border-2 border-cyan-400/60 px-3 py-2.5 shadow-[0_10px_30px_rgba(6,182,212,0.3)] pointer-events-auto`}
       role="note"
     >
       <span

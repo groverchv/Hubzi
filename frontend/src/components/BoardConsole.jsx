@@ -89,7 +89,7 @@ export default function BoardConsole({
         {/* 7. BORDE SUPERIOR */}
         <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-6 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner pointer-events-none">
           <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_var(--color-amber-400)]" />
           <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
         </div>
 
@@ -198,7 +198,7 @@ export default function BoardConsole({
 
                   {/* Indicador de casilla destino para la pista de 30s */}
                   {hintNodeId === node.id && (
-                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40 px-2.5 py-0.5 rounded-full bg-[#FFB400] text-[#122443] font-black text-[9px] uppercase tracking-wider shadow-lg flex items-center gap-1 animate-bounce border-2 border-white">
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-40 px-2.5 py-0.5 rounded-full bg-[var(--color-arcade-yellow)] text-[var(--color-arcade-navy)] font-black text-[9px] uppercase tracking-wider shadow-lg flex items-center gap-1 animate-bounce border-2 border-white">
                       <span>¡COLOCA AQUÍ!</span>
                     </div>
                   )}

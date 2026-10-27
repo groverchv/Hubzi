@@ -65,10 +65,10 @@ export default function ZenPage() {
       <AnimatedCloudsBackground />
 
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
-        <Link to="/" className="inline-flex items-center gap-2 rounded-2xl bg-white/70 px-4 py-2 text-sm font-black uppercase text-[#122443] hover:bg-white">
+        <Link to="/" className="inline-flex items-center gap-2 rounded-2xl bg-white/70 px-4 py-2 text-sm font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
           <ArrowLeft className="w-4 h-4" /> {t("common.back")}
         </Link>
-        <Link to="/arena" className="rounded-2xl bg-[#122443] px-4 py-2 text-xs font-black uppercase text-white">
+        <Link to="/arena" className="rounded-2xl bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white">
           {t("nav.arena")} →
         </Link>
       </header>
@@ -78,13 +78,13 @@ export default function ZenPage() {
           <div className="mx-auto mb-4 inline-flex rounded-full bg-emerald-500/20 p-4">
             <Wind className="w-10 h-10 text-emerald-600" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-[#122443]">{t("zen.title")}</h1>
+          <h1 className="text-3xl sm:text-4xl font-black text-[var(--color-arcade-navy)]">{t("zen.title")}</h1>
           <p className="mt-2 font-semibold text-slate-600">{t("zen.subtitle")}</p>
         </motion.div>
 
         {/* Check-in emocional */}
         <section className="mt-8 rounded-3xl bg-white/85 p-6 border-b-6 border-slate-200 shadow-lg">
-          <h2 className="flex items-center gap-2 font-black text-[#122443]">
+          <h2 className="flex items-center gap-2 font-black text-[var(--color-arcade-navy)]">
             <HeartPulse className="w-5 h-5 text-rose-500" /> {t("zen.checkin")}
           </h2>
           <div className="mt-3 flex gap-2">
@@ -126,7 +126,7 @@ export default function ZenPage() {
         <AnimatePresence>
           {active && (
             <motion.section
-              className="mt-6 rounded-3xl bg-[#122443] p-8 text-white shadow-2xl"
+              className="mt-6 rounded-3xl bg-[var(--color-arcade-navy)] p-8 text-white shadow-2xl"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
@@ -189,7 +189,7 @@ export default function ZenPage() {
               onClick={() => startProtocol(key, p)}
               className="rounded-3xl bg-white/85 p-5 text-left border-b-6 border-slate-200 shadow hover:scale-[1.02] transition-transform"
             >
-              <h3 className="font-black text-[#122443]">{p.name}</h3>
+              <h3 className="font-black text-[var(--color-arcade-navy)]">{p.name}</h3>
               <p className="mt-1 text-xs font-semibold text-slate-600 line-clamp-2">{p.objective}</p>
               <p className="mt-2 text-[10px] font-black uppercase text-emerald-600">
                 ~{Math.round((p.duration_seconds || 60))}s

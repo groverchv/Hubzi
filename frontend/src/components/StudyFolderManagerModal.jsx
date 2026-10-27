@@ -560,7 +560,7 @@ export default function StudyFolderManagerModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 15 }}
         transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-        className="relative w-full h-full max-w-7xl max-h-[96vh] rounded-2xl sm:rounded-[2rem] bg-[#122443] border-4 border-[#0a162b] shadow-[0_16px_0_#050a13,0_25px_60px_rgba(0,0,0,0.8)] flex flex-col text-white overflow-hidden"
+        className="relative w-full h-full max-w-7xl max-h-[96vh] rounded-2xl sm:rounded-[2rem] bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] shadow-[0_16px_0_var(--color-arcade-ink),0_25px_60px_rgba(0,0,0,0.8)] flex flex-col text-white overflow-hidden"
       >
         {/* INPUT OCULTO PARA SUBIR ARCHIVOS DIRECTO A LA CARPETA */}
         <input 
@@ -578,10 +578,10 @@ export default function StudyFolderManagerModal({
         {!activeFolderView && (
           <>
             {/* Cabecera Estilo Taberna / Inventario de Videojuego */}
-            <div className="p-6 border-b-3 border-[#1e3a6c] bg-[#0a162b] flex items-center justify-between">
+            <div className="p-6 border-b-3 border-[var(--color-arcade-navy-light)] bg-[var(--color-arcade-navy-dark)] flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-[#FFB400] border-3 border-[#122443] flex items-center justify-center text-[#122443] shadow-[0_4px_0_#D48800]">
-                  <FolderArchive className="w-8 h-8 text-[#122443]" />
+                <div className="w-14 h-14 rounded-2xl bg-[var(--color-arcade-yellow)] border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-[var(--color-arcade-navy)] shadow-[0_4px_0_var(--color-arcade-yellow-shadow)]">
+                  <FolderArchive className="w-8 h-8 text-[var(--color-arcade-navy)]" />
                 </div>
                 <div>
 
@@ -599,7 +599,7 @@ export default function StudyFolderManagerModal({
                 {onBackToMenu && (
                   <button
                     onClick={onBackToMenu}
-                    className="px-3.5 py-2.5 rounded-2xl bg-[#0a162b] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] font-black text-xs uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    className="px-3.5 py-2.5 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] font-black text-xs uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                     title="Volver a la Pantalla de Inicio / Menú Principal"
                   >
                     <Home className="w-4 h-4 stroke-[2.5]" />
@@ -609,7 +609,7 @@ export default function StudyFolderManagerModal({
 
                 <button
                   onClick={() => setIsCreating(true)}
-                  className="px-4 py-2.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-2 border-[#ff9b38] border-b-4 border-b-[#D45B00] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
                   <span className="hidden sm:inline">Nueva Carpeta</span>
@@ -618,7 +618,7 @@ export default function StudyFolderManagerModal({
                 {onClose && (
                   <button
                     onClick={onClose}
-                    className="p-2.5 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-slate-300 hover:text-white transition-all cursor-pointer shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none"
+                    className="p-2.5 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-slate-300 hover:text-white transition-all cursor-pointer shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none"
                     title="Cerrar ventana"
                   >
                     <X className="w-5 h-5 stroke-[2.5]" />
@@ -689,7 +689,7 @@ export default function StudyFolderManagerModal({
               {/* Onboarding guiado: solo cuando el usuario aún no tiene
                   carpetas propias. */}
               {folders.length === 0 && (
-                <div className="rounded-3xl border-2 border-cyan-500/30 bg-gradient-to-r from-[#0d1f3c] to-[#122443] p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="rounded-3xl border-2 border-cyan-500/30 bg-gradient-to-r from-[#0d1f3c] to-[var(--color-arcade-navy)] p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black uppercase tracking-wider text-cyan-300 mb-1.5">
                       Tu primera partida en 3 pasos
@@ -882,11 +882,11 @@ export default function StudyFolderManagerModal({
         {activeFolderView && (
           <>
             {/* Cabecera Interior de la Carpeta */}
-            <div className="p-6 border-b-3 border-[#1e3a6c] bg-[#0a162b] flex items-center justify-between">
+            <div className="p-6 border-b-3 border-[var(--color-arcade-navy-light)] bg-[var(--color-arcade-navy-dark)] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveFolderView(null)}
-                  className="p-2.5 rounded-2xl bg-[#122443] hover:bg-[#1a335e] border-2 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-white transition-all cursor-pointer flex items-center justify-center shadow-md active:translate-y-1 active:shadow-none"
+                  className="p-2.5 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white transition-all cursor-pointer flex items-center justify-center shadow-md active:translate-y-1 active:shadow-none"
                   title="Volver al baúl de carpetas"
                 >
                   <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
@@ -894,7 +894,7 @@ export default function StudyFolderManagerModal({
 
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#FF7A00] text-white border-2 border-[#D45B00]">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white border-2 border-[var(--color-arcade-orange-shadow)]">
                       Carpeta Abierta
                     </span>
                     <span className="text-xs text-slate-300 font-bold">
@@ -911,7 +911,7 @@ export default function StudyFolderManagerModal({
               {(!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-2 border-[#ff9b38] border-b-4 border-b-[#D45B00] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                className="px-4 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
               >
                 <UploadCloud className="w-4 h-4 text-white stroke-[2.8]" />
                 <span className="drop-shadow-sm">Subir Más Archivos</span>
@@ -921,7 +921,7 @@ export default function StudyFolderManagerModal({
 
             {/* Franja de muestras: probar el juego sin tener un PDF a mano */}
             {sampleCatalog.length > 0 && (
-              <div className="px-6 py-3 bg-[#0d1a30] border-b-2 border-[#1e3a6c] flex flex-wrap items-center gap-2">
+              <div className="px-6 py-3 bg-[#0d1a30] border-b-2 border-[var(--color-arcade-navy-light)] flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 mr-1">
                   ¿Sin material? Prueba un ejemplo:
                 </span>
@@ -943,7 +943,7 @@ export default function StudyFolderManagerModal({
             <div className="p-6 flex-1 overflow-y-auto space-y-4 bg-[#0f1726]">
               {/* ======= ARCHIPIÉLAGO DE ISLAS (un tema = una campaña) ======= */}
               {(detectingTopics || (activeFolderView.islands || []).length > 0) && (
-                <div className="rounded-3xl border-2 border-[#1e3a6c] bg-gradient-to-b from-[#0d1f3c] to-[#0a162b] p-4">
+                <div className="rounded-3xl border-2 border-[var(--color-arcade-navy-light)] bg-gradient-to-b from-[#0d1f3c] to-[var(--color-arcade-navy-dark)] p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="w-4 h-4 text-cyan-300" />
                     <h3 className="text-sm font-black uppercase tracking-wider text-cyan-200">
@@ -974,7 +974,7 @@ export default function StudyFolderManagerModal({
                               selectedIsland: isl,
                             })
                           }
-                          className="group text-left rounded-2xl border-2 border-[#2b3f5f] hover:border-cyan-400/70 bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none"
+                          className="group text-left rounded-2xl border-2 border-[#2b3f5f] hover:border-cyan-400/70 bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <Palmtree className="w-6 h-6 text-cyan-300 group-hover:text-cyan-100 transition-colors" />
@@ -1041,7 +1041,7 @@ export default function StudyFolderManagerModal({
                   {(!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-5 py-2.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-2 border-[#ff9b38] border-b-4 border-b-[#D45B00] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#050a13] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                      className="px-5 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4 stroke-[3]" />
                       <span>Subir Documentos Ahora</span>
@@ -1207,10 +1207,10 @@ export default function StudyFolderManagerModal({
                       onClick={handlePlayDirectly}
                       className={`w-full sm:w-auto px-7 py-3 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 border-3 transition-all ${
                         isDisabled && !isProcessingGame
-                          ? 'bg-slate-800 text-slate-500 border-[#1e3a6c] cursor-not-allowed opacity-50'
+                          ? 'bg-slate-800 text-slate-500 border-[var(--color-arcade-navy-light)] cursor-not-allowed opacity-50'
                           : isProcessingGame
-                          ? 'bg-[#48C838] border-[#0a162b] text-white shadow-[0_0_20px_rgba(72,200,56,0.6)] cursor-wait font-black'
-                          : 'bg-[#48C838] hover:bg-[#57d847] border-[#0a162b] border-b-5 border-b-[#28871E] text-white shadow-[0_5px_0_#050a13] active:translate-y-1 active:shadow-none cursor-pointer'
+                          ? 'bg-[var(--color-arcade-green)] border-[var(--color-arcade-navy-dark)] text-white shadow-[0_0_20px_rgba(72,200,56,0.6)] cursor-wait font-black'
+                          : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-green-shadow)] text-white shadow-[0_5px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer'
                       }`}
                     >
                       {isProcessingGame ? (

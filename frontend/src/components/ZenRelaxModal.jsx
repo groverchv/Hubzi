@@ -21,7 +21,7 @@ const BREATH_PHASES = [
     duration: 4,
     scale: 1.25,
     glow: 'rgba(186, 230, 253, 0.45)',
-    borderColor: '#38bdf8',
+    borderColor: 'var(--color-sky-400)',
     textColor: '#0369a1',
     speakText: 'Inhala... despacio... siente cómo el aire llena tu cuerpo.'
   },
@@ -43,7 +43,7 @@ const BREATH_PHASES = [
     duration: 8,
     scale: 0.92,
     glow: 'rgba(253, 230, 138, 0.45)',
-    borderColor: '#fbbf24',
+    borderColor: 'var(--color-amber-400)',
     textColor: '#b45309',
     speakText: 'Exhala... muy despacio... deja ir todo lo que no necesitas.'
   }

@@ -9,19 +9,23 @@
   --color-clay: #A08C78;
 
   /* Paleta Estilo Card Clash / Arcade */
-  --color-arcade-navy: #122443;
-  --color-arcade-navy-dark: #0a162b;
-  --color-arcade-navy-light: #1e3a6c;
-  --color-arcade-orange: #FF7A00;
-  --color-arcade-orange-shadow: #D45B00;
-  --color-arcade-orange-light: #FF9B38;
-  --color-arcade-green: #48C838;
-  --color-arcade-green-shadow: #28871E;
-  --color-arcade-green-light: #67DC59;
-  --color-arcade-yellow: #FFB400;
-  --color-arcade-yellow-shadow: #D48800;
-  --color-arcade-blue: #1C8FE8;
-  --color-arcade-cyan: #45B1E8;
+  --color-arcade-navy: var(--color-arcade-navy);
+  --color-arcade-navy-dark: var(--color-arcade-navy-dark);
+  --color-arcade-navy-light: var(--color-arcade-navy-light);
+  --color-arcade-navy-hover: var(--color-arcade-navy-hover);
+  --color-arcade-navy-deep: var(--color-arcade-navy-deep);
+  --color-arcade-ink: var(--color-arcade-ink);
+  --color-arcade-orange-bright: var(--color-arcade-orange-bright);
+  --color-arcade-orange: var(--color-arcade-orange);
+  --color-arcade-orange-shadow: var(--color-arcade-orange-shadow);
+  --color-arcade-orange-light: var(--color-arcade-orange-light);
+  --color-arcade-green: var(--color-arcade-green);
+  --color-arcade-green-shadow: var(--color-arcade-green-shadow);
+  --color-arcade-green-light: var(--color-arcade-green-light);
+  --color-arcade-yellow: var(--color-arcade-yellow);
+  --color-arcade-yellow-shadow: var(--color-arcade-yellow-shadow);
+  --color-arcade-blue: var(--color-arcade-blue);
+  --color-arcade-cyan: var(--color-arcade-cyan);
 }
 
 /* Custom 3D Sky & Fluffy Cloud Environment (Card Clash Inspired for Focus & Immersion) */
@@ -158,7 +162,7 @@ body::after {
 .btn-arcade-pill {
   position: relative;
   background-color: var(--color-arcade-navy);
-  border: 3px solid #0a162b;
+  border: 3px solid var(--color-arcade-navy-dark);
   border-bottom: 5px solid #060d1b;
   color: #ffffff;
   font-weight: 900;
@@ -189,15 +193,15 @@ body::after {
   color: white;
   border: 3px solid #0f1c34;
   border-bottom: 5px solid #070e1b;
-  box-shadow: 0 4px 0 #050a13;
+  box-shadow: 0 4px 0 var(--color-arcade-ink);
   transition: all 0.1s ease-in-out;
 }
 .btn-arcade-solid:hover {
-  background-color: #1a335e;
+  background-color: var(--color-arcade-navy-hover);
 }
 .btn-arcade-solid:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 #050a13;
+  box-shadow: 0 1px 0 var(--color-arcade-ink);
 }
 
 /* Borde Arcade Contundente */
@@ -251,7 +255,7 @@ html.low-power .drop-shadow-xl {
     z-index: 99999;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(180deg, #0a162b 0%, #122443 100%);
+    background: linear-gradient(180deg, var(--color-arcade-navy-dark) 0%, var(--color-arcade-navy) 100%);
     color: #fff;
     font-family: 'Fredoka', 'Nunito', sans-serif;
   }
@@ -271,8 +275,8 @@ html.low-power .drop-shadow-xl {
     height: 96px;
     border-radius: 28px;
     background: rgba(255, 180, 0, 0.12);
-    border: 3px solid #FFB400;
-    color: #FFB400;
+    border: 3px solid var(--color-arcade-yellow);
+    color: var(--color-arcade-yellow);
     animation: rotateHint 2.2s ease-in-out infinite;
   }
   .rotate-overlay-title {
@@ -280,7 +284,7 @@ html.low-power .drop-shadow-xl {
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #FFB400;
+    color: var(--color-arcade-yellow);
     margin: 0;
   }
   .rotate-overlay-sub {

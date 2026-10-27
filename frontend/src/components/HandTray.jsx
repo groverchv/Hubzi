@@ -49,7 +49,7 @@ export default function HandTray({
       <div className="flex flex-col items-center gap-1.5">
         {/* Controles de página para niveles con muchas cartas (Niveles 4 y 5) */}
         {totalPages > 1 && (
-          <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-[#122443] border border-[#1e3a6c] shadow-md z-50">
+          <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] border border-[var(--color-arcade-navy-light)] shadow-md z-50">
             <button
               type="button"
               onClick={() => setHandPage((prev) => Math.max(0, prev - 1))}
@@ -57,7 +57,7 @@ export default function HandTray({
               className={`p-1 rounded-lg border transition-all cursor-pointer ${
                 activePage === 0
                   ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
-                  : "bg-[#1a335e] border-[#294c8b] text-[#FFB400] hover:scale-110"
+                  : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
               }`}
               title="Página anterior de cartas"
             >
@@ -78,7 +78,7 @@ export default function HandTray({
               className={`p-1 rounded-lg border transition-all cursor-pointer ${
                 activePage >= totalPages - 1
                   ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
-                  : "bg-[#1a335e] border-[#294c8b] text-[#FFB400] hover:scale-110"
+                  : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
               }`}
               title="Siguiente página de cartas"
             >
@@ -110,10 +110,10 @@ export default function HandTray({
                   {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
                   {isHinted && (
                     <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none animate-bounce">
-                      <span className="px-2 py-0.5 rounded-full bg-[#FF7A00] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
                         ¡USA ÉSTA!
                       </span>
-                      <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#FF7A00]" />
+                      <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[var(--color-arcade-orange)]" />
                     </div>
                   )}
 

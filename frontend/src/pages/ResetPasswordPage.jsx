@@ -50,15 +50,15 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-[#0a162b] text-white">
+      <div className="w-screen h-screen flex items-center justify-center bg-[var(--color-arcade-navy-dark)] text-white">
         <p className="text-slate-300">Este enlace no contiene un token válido.</p>
       </div>
     );
   }
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center bg-[#0a162b] text-white font-sans">
-      <div className="max-w-sm w-full mx-4 p-8 rounded-3xl bg-[#122443] border-4 border-[#0a162b] shadow-[0_12px_0_#050a13]">
+    <div className="w-screen h-screen flex items-center justify-center bg-[var(--color-arcade-navy-dark)] text-white font-sans">
+      <div className="max-w-sm w-full mx-4 p-8 rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] shadow-[0_12px_0_var(--color-arcade-ink)]">
         {done ? (
           <div className="text-center">
             <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
             <p className="text-sm text-slate-300 mb-6">Ya puedes iniciar sesión con tu nueva contraseña.</p>
             <Link
               to="/"
-              className="inline-block px-6 py-3 rounded-2xl bg-[#FF7A00] border-b-4 border-[#D45B00] font-black text-xs uppercase tracking-wider hover:bg-[#ff8c1a] transition-colors"
+              className="inline-block px-6 py-3 rounded-2xl bg-[var(--color-arcade-orange)] border-b-4 border-[var(--color-arcade-orange-shadow)] font-black text-xs uppercase tracking-wider hover:bg-[var(--color-arcade-orange-bright)] transition-colors"
             >
               Ir a iniciar sesión
             </Link>
@@ -122,7 +122,7 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 rounded-2xl bg-[#FF7A00] hover:bg-[#ff8c1a] border-b-4 border-[#D45B00] text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                className="w-full py-3.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-b-4 border-[var(--color-arcade-orange-shadow)] text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
                 {isLoading ? 'Guardando…' : 'Guardar nueva contraseña'}

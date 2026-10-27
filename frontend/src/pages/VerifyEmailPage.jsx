@@ -39,8 +39,8 @@ export default function VerifyEmailPage() {
   }, [params]);
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center bg-[#0a162b] text-white font-sans">
-      <div className="max-w-sm w-full mx-4 p-8 rounded-3xl bg-[#122443] border-4 border-[#0a162b] text-center shadow-[0_12px_0_#050a13]">
+    <div className="w-screen h-screen flex items-center justify-center bg-[var(--color-arcade-navy-dark)] text-white font-sans">
+      <div className="max-w-sm w-full mx-4 p-8 rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] text-center shadow-[0_12px_0_var(--color-arcade-ink)]">
         {state === 'loading' && (
           <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mx-auto mb-4" />
         )}
@@ -52,7 +52,7 @@ export default function VerifyEmailPage() {
         <p className="text-sm text-slate-300 mb-6">{message}</p>
         <Link
           to="/"
-          className="inline-block px-6 py-3 rounded-2xl bg-[#FF7A00] border-b-4 border-[#D45B00] font-black text-xs uppercase tracking-wider hover:bg-[#ff8c1a] transition-colors"
+          className="inline-block px-6 py-3 rounded-2xl bg-[var(--color-arcade-orange)] border-b-4 border-[var(--color-arcade-orange-shadow)] font-black text-xs uppercase tracking-wider hover:bg-[var(--color-arcade-orange-bright)] transition-colors"
         >
           Ir a Hubzi
         </Link>

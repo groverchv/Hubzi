@@ -181,34 +181,34 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 20 }}
-        className="relative w-full max-w-md rounded-3xl bg-[#122443] border-4 border-[#0a162b] p-6 sm:p-7 text-white shadow-[0_12px_0_#050a13,0_20px_35px_rgba(0,0,0,0.6)] overflow-hidden"
+        className="relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_12px_0_var(--color-arcade-ink),0_20px_35px_rgba(0,0,0,0.6)] overflow-hidden"
       >
         {/* Glow de fondo */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#FF7A00]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[#48C838]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-48 h-48 bg-[var(--color-arcade-orange)]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[var(--color-arcade-green)]/15 rounded-full blur-3xl pointer-events-none" />
 
         {/* Botón Cerrar (X) */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2 rounded-2xl bg-[#0a162b] hover:bg-[#1a335e] border-2 border-[#1e3a6c] text-slate-300 hover:text-white shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+          className="absolute top-4 right-4 z-30 p-2 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] text-slate-300 hover:text-white shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
           title="Cerrar"
         >
           <X className="w-5 h-5 stroke-[2.5]" />
         </button>
 
         {/* Header con Capibara y Título */}
-        <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[#1e3a6c]">
-          <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-3 border-[#FFB400] shadow-[0_4px_0_#D48800] shrink-0 bg-[#0a162b]">
+        <div className="flex items-center gap-3.5 mb-5 pb-4 border-b-2 border-[var(--color-arcade-navy-light)]">
+          <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-[0_4px_0_var(--color-arcade-yellow-shadow)] shrink-0 bg-[var(--color-arcade-navy-dark)]">
             <img src={capyEscolar} alt="Hubzi Guardián" className="w-full h-full object-cover scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-sans font-black uppercase text-[#FFB400] tracking-wider">
+              <span className="text-[10px] font-sans font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider">
                 PORTAL DE ACCESO
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-[#0a162b] border-2 border-[#1e3a6c] text-[9px] font-black text-white uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] text-[9px] font-black text-white uppercase tracking-wider">
                 HUBZI ARENA
               </span>
             </div>
@@ -220,13 +220,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
         {/* Selector de Pestañas (Login / Registro estilo Card Clash) */}
         {mode !== 'forgot' && (
-        <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-[#0a162b] border-3 border-[#1e3a6c] mb-5">
+        <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-[var(--color-arcade-navy-dark)] border-3 border-[var(--color-arcade-navy-light)] mb-5">
           <button
             type="button"
             onClick={() => handleToggleMode('login')}
             className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               mode === 'login'
-                ? 'bg-[#FF7A00] text-white border-b-3 border-[#D45B00] shadow-[0_2px_0_#050a13]'
+                ? 'bg-[var(--color-arcade-orange)] text-white border-b-3 border-[var(--color-arcade-orange-shadow)] shadow-[0_2px_0_var(--color-arcade-ink)]'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -238,7 +238,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             onClick={() => handleToggleMode('register')}
             className={`py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               mode === 'register'
-                ? 'bg-[#48C838] text-white border-b-3 border-[#28871E] shadow-[0_2px_0_#050a13]'
+                ? 'bg-[var(--color-arcade-green)] text-white border-b-3 border-[var(--color-arcade-green-shadow)] shadow-[0_2px_0_var(--color-arcade-ink)]'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -250,7 +250,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
         {/* Cabecera del modo recuperación */}
         {mode === 'forgot' && (
-          <div className="mb-4 p-3 rounded-xl bg-[#0a162b] border border-[#1e3a6c] text-xs text-slate-300 leading-snug">
+          <div className="mb-4 p-3 rounded-xl bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] text-xs text-slate-300 leading-snug">
             Escribe tu correo y te enviaremos un enlace para restablecer tu contraseña.
           </div>
         )}
@@ -462,10 +462,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               disabled={isLoading}
               className={`w-full py-3.5 rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 border-3 transition-all cursor-pointer ${
                 isLoading 
-                  ? 'bg-slate-800 text-slate-500 border-[#1e3a6c] cursor-not-allowed'
+                  ? 'bg-slate-800 text-slate-500 border-[var(--color-arcade-navy-light)] cursor-not-allowed'
                   : mode === 'login'
-                  ? 'bg-[#FF7A00] hover:bg-[#ff8c1a] border-[#0a162b] border-b-5 border-b-[#D45B00] text-white shadow-[0_5px_0_#050a13] active:translate-y-1 active:shadow-none'
-                  : 'bg-[#48C838] hover:bg-[#57d847] border-[#0a162b] border-b-5 border-b-[#28871E] text-white shadow-[0_5px_0_#050a13] active:translate-y-1 active:shadow-none'
+                  ? 'bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-orange-shadow)] text-white shadow-[0_5px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none'
+                  : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-green-shadow)] text-white shadow-[0_5px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none'
               }`}
             >
               {isLoading ? (
@@ -525,9 +525,9 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   onAuthSuccess(guestUser);
                 }, 400);
               }}
-              className="w-full py-2.5 rounded-2xl bg-[#0a162b] hover:bg-[#122443] border-3 border-[#1e3a6c] border-b-4 border-b-[#050a13] text-[#FFB400] text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_3px_0_#050a13] active:translate-y-0.5 active:shadow-none"
+              className="w-full py-2.5 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#FFB400] animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)] animate-pulse" />
               <span>Ingresar Directo (Sin Registro / Invitado)</span>
             </button>
             )}
