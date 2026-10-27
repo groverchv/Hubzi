@@ -9,23 +9,23 @@
   --color-clay: #A08C78;
 
   /* Paleta Estilo Card Clash / Arcade */
-  --color-arcade-navy: var(--color-arcade-navy);
-  --color-arcade-navy-dark: var(--color-arcade-navy-dark);
-  --color-arcade-navy-light: var(--color-arcade-navy-light);
-  --color-arcade-navy-hover: var(--color-arcade-navy-hover);
-  --color-arcade-navy-deep: var(--color-arcade-navy-deep);
-  --color-arcade-ink: var(--color-arcade-ink);
-  --color-arcade-orange-bright: var(--color-arcade-orange-bright);
-  --color-arcade-orange: var(--color-arcade-orange);
-  --color-arcade-orange-shadow: var(--color-arcade-orange-shadow);
-  --color-arcade-orange-light: var(--color-arcade-orange-light);
-  --color-arcade-green: var(--color-arcade-green);
-  --color-arcade-green-shadow: var(--color-arcade-green-shadow);
-  --color-arcade-green-light: var(--color-arcade-green-light);
-  --color-arcade-yellow: var(--color-arcade-yellow);
-  --color-arcade-yellow-shadow: var(--color-arcade-yellow-shadow);
-  --color-arcade-blue: var(--color-arcade-blue);
-  --color-arcade-cyan: var(--color-arcade-cyan);
+  --color-arcade-navy: #122443;
+  --color-arcade-navy-dark: #0a162b;
+  --color-arcade-navy-light: #1e3a6c;
+  --color-arcade-navy-hover: #1a335e;
+  --color-arcade-navy-deep: #0d1627;
+  --color-arcade-ink: #050a13;
+  --color-arcade-orange: #FF7A00;
+  --color-arcade-orange-shadow: #D45B00;
+  --color-arcade-orange-light: #FF9B38;
+  --color-arcade-orange-bright: #ff8c1a;
+  --color-arcade-green: #48C838;
+  --color-arcade-green-shadow: #28871E;
+  --color-arcade-green-light: #67DC59;
+  --color-arcade-yellow: #FFB400;
+  --color-arcade-yellow-shadow: #D48800;
+  --color-arcade-blue: #1C8FE8;
+  --color-arcade-cyan: #45B1E8;
 }
 
 /* Custom 3D Sky & Fluffy Cloud Environment (Card Clash Inspired for Focus & Immersion) */
