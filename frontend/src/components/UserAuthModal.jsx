@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Sparkles, Volume2, ShieldCheck, Heart, GraduationCap, Compass } from 'lucide-react';
+import { User, Sparkles, Volume2, ShieldCheck, Heart, GraduationCap, Compass, LogOut } from 'lucide-react';
 import capyPsicologo from '../assets/mascots/capy_psicologo_m.webp';
 import { capyVoice } from '../utils/capyVoice';
 import { fetchWithAuth } from '../lib/api';
 
-export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
+export default function UserAuthModal({ isOpen, currentUser, onUserSaved, onLogout }) {
   const [username, setUsername] = useState(currentUser?.username || '');
   const [gender, setGender] = useState(currentUser?.gender || 'masculino');
   const [age, setAge] = useState(currentUser?.age ? String(currentUser.age) : '20');
@@ -261,6 +261,18 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved }) {
               <span>{isLoading ? 'Configurando...' : 'Entrar a mi Espacio Privado'}</span>
             </button>
           </div>
+
+          {/* Cerrar sesión — solo cuando hay una cuenta activa */}
+          {currentUser && onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="w-full py-2.5 rounded-2xl bg-rose-950/60 hover:bg-rose-900/70 border border-rose-500/50 text-rose-300 font-black text-xs uppercase tracking-wider font-mono transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Cerrar sesión</span>
+            </button>
+          )}
         </form>
       </motion.div>
     </div>

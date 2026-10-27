@@ -1811,6 +1811,10 @@ export default function ArcadeArena() {
           setIsUserModalOpen(false);
           capyVoice.currentUser = user;
         }}
+        onLogout={() => {
+          setIsUserModalOpen(false);
+          handleLogout();
+        }}
       />
 
       {/* -1. PANEL PREVIO DE CARPETAS Y ASIGNATURAS DE ESTUDIO (AISLADO POR USUARIO) */}
@@ -2091,10 +2095,11 @@ export default function ArcadeArena() {
             </button>
             <button
               onClick={handleLogout}
-              className="p-1.5 hover:bg-rose-900/80 hover:text-rose-200 text-slate-300 rounded-xl transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 hover:bg-rose-900/80 hover:text-rose-200 text-slate-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
               title="Cerrar sesión de esta cuenta"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wide">Salir</span>
             </button>
           </div>
         ) : (
