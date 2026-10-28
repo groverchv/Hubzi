@@ -97,8 +97,9 @@ export default function WelcomeScreen({
     window.addEventListener('keydown', handleFirstGesture, { passive: true });
     window.addEventListener('touchstart', handleFirstGesture, { passive: true });
 
+    // La música del lobby NO se detiene al desmontar: sigue sonando en
+    // carpetas y mapa hasta entrar al tablero (orquestada en ArcadeArena).
     return () => {
-      lobbyAmbient.stop(0.5);
       window.removeEventListener('click', handleFirstGesture);
       window.removeEventListener('keydown', handleFirstGesture);
       window.removeEventListener('touchstart', handleFirstGesture);
@@ -106,7 +107,6 @@ export default function WelcomeScreen({
   }, []);
 
   const handleContinueClick = (e) => {
-    lobbyAmbient.stop(0.4);
     lockLandscape();
     if (onContinue) onContinue(e);
   };
@@ -266,10 +266,10 @@ export default function WelcomeScreen({
           {/* Letras 3D Grandes */}
           <div className="relative">
             {/* Texto "HUBZY" */}
-            <h1 
+            <h1
               className="text-6xl sm:text-7xl md:text-8xl font-black uppercase tracking-wider text-[var(--color-arcade-yellow)] leading-none drop-shadow-[0_8px_0_var(--color-arcade-yellow-shadow)]"
               style={{
-                WebkitTextStroke: '3.5px var(--color-arcade-navy)',
+                WebkitTextStroke: '1.8px var(--color-arcade-navy)',
                 textShadow: '0 8px 0 var(--color-arcade-navy), 0 16px 25px rgba(0,0,0,0.5)'
               }}
             >

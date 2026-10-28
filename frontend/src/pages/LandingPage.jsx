@@ -229,10 +229,10 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.22 }}
-            className="relative w-full max-w-6xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-gradient-to-b from-sky-200 to-emerald-100 p-5 sm:p-7 shadow-2xl border-4 border-white/70"
+            className="relative w-full max-w-6xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-gradient-to-b from-sky-200 to-emerald-100 p-3 sm:p-7 shadow-2xl border-4 border-white/70"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-5">
               <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
                 <Crown className="w-3.5 h-3.5 fill-current" /> Planes y Precios
               </div>
@@ -249,7 +249,7 @@ export default function LandingPage() {
               </button>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3 w-full mx-auto text-left items-stretch">
+            <div className="plans-modal-grid grid grid-cols-3 gap-2 sm:gap-5 w-full mx-auto text-left items-stretch">
             {/* PLAN GRATUITO */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

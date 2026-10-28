@@ -625,8 +625,9 @@ export default function CapyCompanion({
             />
           </motion.div>
 
-          {/* Badge 3D interactivo con estado — refleja todos los moods */}
-          <div className="mt-2 flex items-center gap-1.5 z-20">
+          {/* Badge 3D interactivo con estado — refleja todos los moods.
+              Los controles van en su propia fila (más grandes, táctiles) */}
+          <div className="mt-2 flex flex-col items-center gap-2 z-20">
             <div
               className={`px-3 py-0.5 rounded-full bg-slate-900/95 shadow-lg text-center backdrop-blur-sm border transition-colors duration-500 ${
                 isCapySad
@@ -718,6 +719,8 @@ export default function CapyCompanion({
               </span>
             </div>
 
+          {/* FILA DE CONTROLES — micrófono, voz, música y respiración */}
+          <div className="flex items-center gap-2.5">
             {/* Botón Micrófono para hablar por voz con Hubzi */}
             <span className="relative inline-flex">
               <CoachMark id="mic" position="top">
@@ -728,7 +731,7 @@ export default function CapyCompanion({
                 e.stopPropagation();
                 onToggleMicrophone();
               }}
-              className={`p-1 rounded-full border transition-all duration-300 shadow-md cursor-pointer flex items-center justify-center ${
+              className={`p-2.5 rounded-full border-2 transition-all duration-300 shadow-md cursor-pointer flex items-center justify-center ${
                 isListening
                   ? "bg-rose-600 border-rose-400 text-white ring-4 ring-rose-400/60 animate-pulse shadow-[0_0_15px_#f43f5e]"
                   : isThinkingHint
@@ -745,9 +748,9 @@ export default function CapyCompanion({
               }
             >
               {isListening ? (
-                <MicOff className="w-3 h-3 text-white" />
+                <MicOff className="w-5 h-5 text-white" />
               ) : (
-                <Mic className="w-3 h-3 text-cyan-300" />
+                <Mic className="w-5 h-5 text-cyan-300" />
               )}
             </button>
             </span>
@@ -761,15 +764,15 @@ export default function CapyCompanion({
                 capyVoice.isMuted = nextMuted;
                 if (nextMuted) capyVoice.stop();
               }}
-              className="p-1 rounded-full bg-slate-900/90 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
+              className="p-2.5 rounded-full bg-slate-900/90 border-2 border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
               title={
                 isCapyMuted ? "Activar voz de Hubzi" : "Silenciar voz de Hubzi"
               }
             >
               {isCapyMuted ? (
-                <VolumeX className="w-3 h-3 text-rose-400" />
+                <VolumeX className="w-5 h-5 text-rose-400" />
               ) : (
-                <Volume2 className="w-3 h-3 text-cyan-300" />
+                <Volume2 className="w-5 h-5 text-cyan-300" />
               )}
             </button>
 
@@ -780,7 +783,7 @@ export default function CapyCompanion({
                 e.stopPropagation();
                 hubziAmbient.toggle();
               }}
-              className={`p-1 rounded-full border transition-all duration-300 shadow-md cursor-pointer ${
+              className={`p-2.5 rounded-full border-2 transition-all duration-300 shadow-md cursor-pointer ${
                 isAmbientPlaying
                   ? "bg-purple-900/90 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-2 ring-purple-400/40"
                   : "bg-slate-900/90 border-slate-700 hover:border-purple-400 text-slate-400 hover:text-purple-300"
@@ -792,9 +795,9 @@ export default function CapyCompanion({
               }
             >
               {isAmbientPlaying ? (
-                <Music2 className="w-3 h-3 text-purple-300 animate-pulse" />
+                <Music2 className="w-5 h-5 text-purple-300 animate-pulse" />
               ) : (
-                <Music className="w-3 h-3" />
+                <Music className="w-5 h-5" />
               )}
             </button>
 
@@ -815,6 +818,7 @@ export default function CapyCompanion({
                 Respira
               </motion.button>
             )}
+          </div>
           </div>
 
           {/* Micro-pista interactiva al pasar el mouse */}

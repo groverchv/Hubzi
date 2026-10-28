@@ -37,6 +37,7 @@ import BoardConsole from "../components/BoardConsole";
 import { capyAudio } from "../utils/capyAudio";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
+import { lobbyAmbient } from "../utils/lobbyAmbient";
 import { sfx } from "../utils/sfx";
 import { detectDomainCategory } from "../utils/domainIcons";
 
@@ -461,7 +462,7 @@ export default function ArcadeArena() {
     }
   };
 
-  // Temporizador de 30 segundos
+  // Temporizador de 60 segundos de inactividad para la pista de Hubzi
   useEffect(() => {
     const checkInterval = setInterval(() => {
       // Solo disparar si hay una partida en curso y cartas en mano
@@ -471,7 +472,7 @@ export default function ArcadeArena() {
         !isVictoryModalOpen
       ) {
         const elapsed = (Date.now() - lastActionTimestampRef.current) / 1000;
-        if (elapsed >= 30 && !hintCardId) {
+        if (elapsed >= 60 && !hintCardId) {
           // Encontrar el primer nodo vacío que aún no tenga carta colocada
           const emptyNode = Object.values(nodes).find((n) => !n.placedCard);
           if (emptyNode) {
@@ -524,6 +525,8 @@ export default function ArcadeArena() {
   useEffect(() => {
     const unsubscribe = capyVoice.subscribe((state) => {
       setIsCapySpeaking(state.isSpeaking);
+      // Ducking: la música baja mientras Hubzi habla — su voz manda.
+      hubziAmbient.duck(state.isSpeaking);
       if (!state.isSpeaking) {
         if (capySpeechTimeoutRef.current)
           clearTimeout(capySpeechTimeoutRef.current);
@@ -542,13 +545,9 @@ export default function ArcadeArena() {
     const unsubscribeAmbient = hubziAmbient.subscribe((state) => {
       setIsAmbientPlaying(state.isPlaying);
     });
-    // La música arranca activada: el navegador exige un gesto del usuario,
-    // así que arranca en la primera interacción (o ya si está permitido).
-    const disarmAmbientAutostart = hubziAmbient.autoStart();
     return () => {
       unsubscribe();
       unsubscribeAmbient();
-      disarmAmbientAutostart();
       if (capySpeechTimeoutRef.current)
         clearTimeout(capySpeechTimeoutRef.current);
     };
@@ -563,6 +562,9 @@ export default function ArcadeArena() {
       } catch (_) {}
       try {
         hubziAmbient.stop(0);
+      } catch (_) {}
+      try {
+        lobbyAmbient.stop(0);
       } catch (_) {}
       try {
         genAbortRef.current?.abort();
@@ -697,6 +699,19 @@ export default function ArcadeArena() {
   useEffect(() => {
     if (hasActiveBoard) lockLandscape();
   }, [hasActiveBoard]);
+
+  // ORQUESTACIÓN MUSICAL: el lobby suena desde el inicio, en carpetas y en
+  // el mapa; al cargar el tablero toma el mando el ambient del juego (y el
+  // lobby se apaga). Sin tablero no suena música de juego.
+  useEffect(() => {
+    if (hasActiveBoard) {
+      lobbyAmbient.stop(0.6);
+      return hubziAmbient.autoStart();
+    }
+    hubziAmbient.stop(0.6);
+    if (currentUser) lobbyAmbient.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActiveBoard, currentUser]);
 
   // Nivel desde el que continuar: del progreso del servidor o del espejo local
   const getResumeLevel = (folder, island = null) => {
@@ -2370,7 +2385,7 @@ export default function ArcadeArena() {
       {/* GUÍA PASO A PASO DE LA PRIMERA PARTIDA — overlay sobre el tablero
           real (no modal de texto). Solo aparece una vez en la vida del jugador. */}
       <AnimatePresence>
-        {guideStep > 0 && Object.keys(nodes).length > 0 && (
+        {guideStep > 0 && Object.keys(nodes).length > 0 && !isFolderModalOpen && (
           <motion.div
             key={`guide-${guideStep}`}
             initial={{ opacity: 0, y: 12, x: "-50%" }}

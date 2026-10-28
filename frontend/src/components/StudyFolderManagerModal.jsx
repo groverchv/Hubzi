@@ -1005,7 +1005,7 @@ export default function StudyFolderManagerModal({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   {folders.map((folder) => {
                     const docsCount = folder.documents?.length || 0;
                     const gamesCount = folder.games?.length || 0;
@@ -1262,7 +1262,7 @@ export default function StudyFolderManagerModal({
                   <p className="text-[11px] text-slate-500 mb-3">
                     Cada isla es un tema detectado en tus documentos, con su propia campaña de niveles. Las preguntas nunca mezclan temas.
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {(activeFolderView.islands || []).map((isl, islIdx) => {
                       const p = isl.campaign_progress || {};
                       const style = ISLAND_STYLES[islIdx % ISLAND_STYLES.length];
@@ -1472,7 +1472,7 @@ export default function StudyFolderManagerModal({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {activeFolderView.documents.map((doc) => (
                       <div
                         key={doc.id}

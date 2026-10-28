@@ -336,11 +336,26 @@ class HubziAmbientEngine {
     this._notify();
   }
 
+  // Ducking: baja la música mientras Hubzi habla — su voz siempre se
+  // entiende por encima del ambient (restaura al terminar de hablar).
+  duck(active) {
+    this._ducked = Boolean(active);
+    if (this.ctx && this.masterGain && this.isPlaying && !this.isMuted) {
+      const now = this.ctx.currentTime;
+      const target = this.targetVolume * (this._ducked ? 0.3 : 1);
+      this.masterGain.gain.cancelScheduledValues(now);
+      this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+      this.masterGain.gain.linearRampToValueAtTime(target, now + 0.4);
+    }
+  }
+
   toggleMute() {
     this.isMuted = !this.isMuted;
     if (this.ctx && this.masterGain && this.isPlaying) {
       const now = this.ctx.currentTime;
-      const target = this.isMuted ? 0.0001 : this.targetVolume;
+      const target = this.isMuted
+        ? 0.0001
+        : this.targetVolume * (this._ducked ? 0.3 : 1);
       this.masterGain.gain.cancelScheduledValues(now);
       this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
       this.masterGain.gain.linearRampToValueAtTime(target, now + 0.3);
@@ -377,11 +392,8 @@ class HubziAmbientEngine {
   autoStart() {
     if (this._autoStartArmed || this.isPlaying || typeof window === 'undefined')
       return () => {};
-    // Si el usuario apagó la música explícitamente, su decisión sobrevive al
-    // reload — el autoStart solo corre para quien nunca la tocó.
-    try {
-      if (localStorage.getItem('hubzy_ambient_pref') === 'off') return () => {};
-    } catch (_) { }
+    // La música siempre arranca ACTIVA en cada sesión — solo se apaga si el
+    // usuario la desactiva manualmente durante la partida.
     this._autoStartArmed = true;
     void this.start();
 
