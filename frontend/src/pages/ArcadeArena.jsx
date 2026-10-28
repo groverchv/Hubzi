@@ -320,6 +320,20 @@ export default function ArcadeArena() {
     }
   };
 
+  // Con sesión iniciada y sin partida/mapa/menú visible, la arena no debe
+  // quedar vacía: el baúl de carpetas se abre solo (p. ej. tras "Empezar").
+  useEffect(() => {
+    if (
+      currentUser &&
+      !isWelcomeScreenVisible &&
+      !isMapVisible &&
+      !isFolderModalOpen &&
+      Object.keys(nodes).length === 0
+    ) {
+      setIsFolderModalOpen(true);
+    }
+  }, [currentUser, isWelcomeScreenVisible, isMapVisible, isFolderModalOpen, nodes]);
+
   // Accesibilidad (A11y): Cerrar cualquier modal activo al presionar la tecla Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
