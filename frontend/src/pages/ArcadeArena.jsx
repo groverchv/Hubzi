@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Layers,
   RotateCcw,
   LogOut,
   Sparkles,
@@ -262,6 +261,19 @@ export default function ArcadeArena() {
   // Modales (Flujo: 1. Autenticación -> 2. Carpetas/Material -> 3. Zen Relax -> 4. Juego en Vivo)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isInstitutionModalOpen, setIsInstitutionModalOpen] = useState(false);
+  const [hasInstitution, setHasInstitution] = useState(false);
+
+  // El botón COLEGIO solo existe si la cuenta ya pertenece a una institución
+  useEffect(() => {
+    if (!currentUser) {
+      setHasInstitution(false);
+      return;
+    }
+    fetchWithAuth("/api/v1/institutions/mine")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setHasInstitution(Boolean(d?.institution)))
+      .catch(() => setHasInstitution(false));
+  }, [currentUser]);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
   const [victoryStats, setVictoryStats] = useState({
@@ -2079,8 +2091,8 @@ export default function ArcadeArena() {
           <span className="hidden lg:inline">Carpetas</span>
         </button>
 
-        {/* BOTÓN COLEGIO / INSTITUCIÓN */}
-        {currentUser && (
+        {/* BOTÓN COLEGIO / INSTITUCIÓN — solo cuentas ya afiliadas a un colegio */}
+        {currentUser && hasInstitution && (
           <span className="relative inline-flex">
             <CoachMark id="school">
               ¿Eres docente? Crea tu colegio, genera códigos de clase y mira el progreso de tus estudiantes aquí.
@@ -2185,19 +2197,6 @@ export default function ArcadeArena() {
           <span className="text-sm font-black text-white">
             {Object.values(nodes).filter((n) => Boolean(n.placedCard)).length} /{" "}
             {Object.keys(nodes).length || 3}
-          </span>
-        </div>
-      </div>
-
-      {/* Contador de Cartas Propias en Mano */}
-      <div className="absolute bottom-5 left-4 sm:left-6 z-40 flex items-center gap-2">
-        <div
-          className="flex items-center gap-2 bg-[#101726]/90 border border-amber-400/60 px-3 py-1.5 rounded-xl shadow-lg"
-          title="Tus cartas restantes"
-        >
-          <Layers className="w-4 h-4 text-amber-400" />
-          <span className="text-xs font-mono font-bold text-amber-300">
-            {String(hand.length).padStart(2, "0")} cartas
           </span>
         </div>
       </div>
