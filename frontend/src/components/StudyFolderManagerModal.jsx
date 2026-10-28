@@ -28,7 +28,9 @@ import {
   School,
   Waves,
   Star,
-  RotateCw
+  RotateCw,
+  Pencil,
+  AlertTriangle
 } from 'lucide-react';
 import { resolveDynamicIcon } from '../utils/domainIcons';
 
@@ -250,9 +252,13 @@ export default function StudyFolderManagerModal({
     setActiveFolderView(folderItem);
   };
 
-  // Eliminar carpeta
-  const handleDeleteFolder = async (e, folderId) => {
-    e.stopPropagation();
+  // Estado de los modales de confirmación y edición
+  const [confirmState, setConfirmState] = useState(null); // {type:'delete', folder} | {type:'save'}
+  const [editingFolder, setEditingFolder] = useState(null); // {id, name, description}
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Eliminar carpeta (solo se invoca tras confirmar en el modal)
+  const handleDeleteFolder = async (folderId) => {
     const updated = folders.filter(f => f.id !== folderId);
     saveFolders(updated);
     if (activeFolderView?.id === folderId) {
@@ -261,6 +267,43 @@ export default function StudyFolderManagerModal({
     try {
       await fetchWithAuth(`/api/v1/folders/${folderId}`, { method: 'DELETE' });
     } catch {}
+  };
+
+  // Guardar edición de nombre/descripción (tras confirmar en el modal)
+  const handleUpdateFolder = async () => {
+    if (!editingFolder) return;
+    const { id, name, description } = editingFolder;
+    setSavingEdit(true);
+    const applyLocal = () => {
+      const updated = folders.map(f =>
+        f.id === id ? { ...f, name, description } : f
+      );
+      saveFolders(updated);
+      if (activeFolderView?.id === id) {
+        setActiveFolderView(prev => ({ ...prev, name, description }));
+      }
+    };
+    applyLocal();
+    try {
+      await fetchWithAuth(`/api/v1/folders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, description }),
+      });
+    } catch {}
+    setSavingEdit(false);
+    setEditingFolder(null);
+  };
+
+  // Ejecuta la acción pendiente tras confirmar en el modal
+  const handleConfirmAction = async () => {
+    if (!confirmState) return;
+    const action = confirmState;
+    setConfirmState(null);
+    if (action.type === 'delete') {
+      await handleDeleteFolder(action.folder.id);
+    } else if (action.type === 'save') {
+      await handleUpdateFolder();
+    }
   };
 
   // Sincronizar activeFolderView automáticamente cuando folders cambie desde el backend
@@ -846,13 +889,34 @@ export default function StudyFolderManagerModal({
                             {/* Solo el dueño (docente) puede borrar la carpeta;
                                 estudiantes ven la materia como solo-lectura. */}
                             {(!folder.is_school_folder || folder.user_id === currentUser?.id) && (
-                              <button
-                                onClick={(e) => handleDeleteFolder(e, folder.id)}
-                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
-                                title="Eliminar carpeta"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <span className="flex items-center gap-0.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingFolder({
+                                      id: folder.id,
+                                      name: folder.name,
+                                      description: folder.description || '',
+                                    });
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                                  title="Editar nombre o descripción"
+                                  aria-label={`Editar carpeta ${folder.name}`}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmState({ type: 'delete', folder });
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                                  title="Eliminar carpeta"
+                                  aria-label={`Eliminar carpeta ${folder.name}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </span>
                             )}
                           </div>
 
@@ -1317,6 +1381,133 @@ export default function StudyFolderManagerModal({
             </div>
           </>
         )}
+
+        {/* ======== MODAL: EDITAR CARPETA (nombre / descripción) ======== */}
+        <AnimatePresence>
+          {editingFolder && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6"
+              onClick={() => !savingEdit && setEditingFolder(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 12 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 12 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md bg-white rounded-3xl border-2 border-cyan-300 p-6 shadow-2xl space-y-4"
+              >
+                <h3 className="text-base font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-cyan-600" /> Editar carpeta
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mb-1">Nombre</label>
+                    <input
+                      type="text"
+                      value={editingFolder.name}
+                      autoFocus
+                      onChange={(e) => setEditingFolder(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-white border-2 border-slate-300 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mb-1">Descripción</label>
+                    <input
+                      type="text"
+                      value={editingFolder.description}
+                      onChange={(e) => setEditingFolder(prev => ({ ...prev, description: e.target.value }))}
+                      className="w-full bg-white border-2 border-slate-300 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={savingEdit}
+                    onClick={() => setEditingFolder(null)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingEdit || !editingFolder.name.trim()}
+                    onClick={() => setConfirmState({ type: 'save' })}
+                    className="px-5 py-2.5 rounded-xl bg-[var(--color-arcade-green)] hover:bg-[#57d847] text-white font-black text-xs uppercase tracking-wider shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:translate-y-1 active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    Guardar cambios
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ======== MODAL: CONFIRMACIÓN (eliminar / guardar) ======== */}
+        <AnimatePresence>
+          {confirmState && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-sm p-6"
+              onClick={() => setConfirmState(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 12 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 12 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-white rounded-3xl border-2 border-slate-200 p-6 shadow-2xl text-center"
+                role="alertdialog"
+                aria-modal="true"
+              >
+                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center border-2 mb-3 ${
+                  confirmState.type === 'delete'
+                    ? 'bg-rose-50 border-rose-300 text-rose-500'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-600'
+                }`}>
+                  {confirmState.type === 'delete'
+                    ? <AlertTriangle className="w-7 h-7" />
+                    : <CheckCircle2 className="w-7 h-7" />}
+                </div>
+                <h3 className="text-base font-black text-slate-800">
+                  {confirmState.type === 'delete'
+                    ? '¿Eliminar esta carpeta?'
+                    : '¿Guardar los cambios?'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  {confirmState.type === 'delete'
+                    ? `"${confirmState.folder?.name}" y todo su contenido se eliminarán permanentemente.`
+                    : `La carpeta se actualizará con el nuevo nombre "${editingFolder?.name}".`}
+                </p>
+                <div className="flex gap-2 mt-5">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmState(null)}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmAction}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer active:translate-y-0.5 ${
+                      confirmState.type === 'delete'
+                        ? 'bg-rose-500 hover:bg-rose-400 shadow-[0_4px_0_#9f1239] active:shadow-none'
+                        : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:shadow-none'
+                    }`}
+                  >
+                    {confirmState.type === 'delete' ? 'Sí, eliminar' : 'Sí, guardar'}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Toast: la detección de temas encontró islas nuevas */}
         <AnimatePresence>

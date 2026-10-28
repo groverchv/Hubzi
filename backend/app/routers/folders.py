@@ -670,6 +670,49 @@ async def delete_folder(
     return {"status": "folder_deleted", "folder_id": folder_id}
 
 
+class UpdateFolderRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+
+
+@router.patch("/{folder_id}")
+async def update_folder(
+    folder_id: str,
+    payload: UpdateFolderRequest,
+    current_user: dict | None = Depends(get_optional_user),
+):
+    """Renombra o actualiza la descripción de una carpeta propia."""
+    folder_doc = await _load_folder(folder_id)
+    if not folder_doc:
+        raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
+    # Mismo criterio que delete: solo el dueño (docente incluido en
+    # materias de colegio) puede editar — un estudiante no renombra la clase.
+    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+
+    updates: dict = {}
+    if payload.name is not None and payload.name.strip():
+        updates["name"] = payload.name.strip()
+    if payload.description is not None:
+        updates["description"] = payload.description.strip()
+    if not updates:
+        return {"status": "folder_unchanged", "folder_id": folder_id}
+
+    if db_manager.db is not None:
+        try:
+            await db_manager.db["study_folders"].update_one(
+                _folder_query(folder_id), {"$set": updates}
+            )
+        except Exception as e:
+            logger.error(f"Error actualizando carpeta en MongoDB: {e}")
+            raise HTTPException(
+                status_code=500, detail="Error al actualizar la carpeta."
+            ) from e
+    else:
+        in_memory_study_folders.setdefault(folder_id, {}).update(updates)
+
+    return {"status": "folder_updated", "folder_id": folder_id, **updates}
+
+
 @router.post("/{folder_id}/upload-document")
 @limiter.limit("15/minute")
 async def upload_document_to_folder(
