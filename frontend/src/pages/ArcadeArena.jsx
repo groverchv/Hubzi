@@ -6,9 +6,7 @@ import {
   Sparkles,
   BookOpen,
   Trophy,
-  LogIn as LogInIcon,
   Folder as FolderIcon,
-  User as UserIcon,
   Home,
   Compass,
   CheckCircle2,
@@ -2155,42 +2153,6 @@ export default function ArcadeArena() {
           <FolderIcon className="w-4 h-4 text-[var(--color-arcade-cyan)]" />
           <span className="hidden lg:inline">Carpetas</span>
         </button>
-
-        {/* BOTÓN PERFIL / INICIAR SESIÓN */}
-        {currentUser ? (
-          <div className="flex items-center gap-1 bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] rounded-2xl p-1 shadow-[0_4px_0_var(--color-arcade-ink)]">
-            <button
-              onClick={() => setIsUserModalOpen(true)}
-              className="px-2.5 py-1 text-white text-xs font-black transition-all flex items-center gap-2 hover:bg-[var(--color-arcade-navy-hover)] rounded-xl cursor-pointer group"
-              title="Configurar perfil de usuario, edad y voz de Hubzi"
-            >
-              <UserIcon
-                className={`w-4 h-4 shrink-0 ${currentUser?.gender === "femenino" ? "text-amber-400" : "text-cyan-300"}`}
-              />
-              <div className="flex flex-col text-left leading-tight">
-                <span className="text-[11px] font-black uppercase text-white truncate max-w-[90px]">
-                  {currentUser?.username ||
-                    currentUser?.email?.split("@")[0] ||
-                    "Mi Perfil"}
-                </span>
-                <span className="text-[8.5px] font-mono text-amber-300 truncate max-w-[90px]">
-                  {currentUser?.email
-                    ? currentUser.email
-                    : `${currentUser?.age}a • ${currentUser?.gender === "femenino" ? "Voz Masc." : "Voz Fem."}`}
-                </span>
-              </div>
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsAuthModalOpen(true)}
-            className="px-4 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-4 text-white font-black text-xs uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none cursor-pointer"
-            title="Iniciar sesión o registrarse con correo y contraseña"
-          >
-            <LogInIcon className="w-4 h-4 text-amber-400" />
-            <span>Iniciar Sesión</span>
-          </button>
-        )}
 
         {/* BOTÓN REINICIAR — solo cuando hay una partida que reiniciar */}
         {Object.keys(nodes).length > 0 && (
