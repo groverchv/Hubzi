@@ -429,10 +429,10 @@ export default function InstitutionModal({ isOpen, onClose }) {
       <motion.div
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="relative w-full max-w-2xl max-h-[88vh] rounded-3xl bg-[#0f172a] border-4 border-[var(--color-arcade-navy-dark)] text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden"
+        className="relative w-full max-w-2xl max-h-[88vh] rounded-3xl bg-[#f1f6fd] border-4 border-[var(--color-arcade-navy-dark)] text-slate-800 shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden"
       >
         {/* Cabecera */}
-        <div className="p-5 border-b-2 border-[var(--color-arcade-navy-light)] bg-[var(--color-arcade-navy-dark)] flex items-center justify-between">
+        <div className="p-5 border-b-2 border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
           <div className="flex items-center gap-3">
             {view === "dashboard" && (
               <button
@@ -453,7 +453,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     ? inst.name
                     : t("school.title")}
               </h2>
-              <p className="text-[11px] text-slate-400 font-bold">
+              <p className="text-[11px] text-slate-500 font-bold">
                 {role === "admin" && t("school.role_admin")}
                 {role === "teacher" && t("school.role_teacher")}
                 {role === "student" && t("school.role_student")}
@@ -475,8 +475,8 @@ export default function InstitutionModal({ isOpen, onClose }) {
           <div
             className={`mx-5 mt-3 p-2.5 rounded-xl text-xs font-bold text-center border-2 ${
               error
-                ? "bg-rose-500/15 border-rose-500/60 text-rose-300"
-                : "bg-emerald-500/15 border-emerald-500/60 text-emerald-300"
+                ? "bg-rose-50 border-rose-300 text-rose-700"
+                : "bg-emerald-50 border-emerald-300 text-emerald-700"
             }`}
           >
             {error || notice}
@@ -485,7 +485,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
         <div className="p-5 overflow-y-auto flex-1 space-y-4">
           {loading ? (
-            <div className="py-14 flex items-center justify-center gap-2 text-slate-400 font-bold text-sm">
+            <div className="py-14 flex items-center justify-center gap-2 text-slate-500 font-bold text-sm">
               <Loader2 className="w-5 h-5 animate-spin" /> {t("common.loading")}
             </div>
           ) : view === "dashboard" ? (
@@ -493,11 +493,11 @@ export default function InstitutionModal({ isOpen, onClose }) {
             dashLoading || !dashboard ? (
               /* Esqueleto mientras carga el panel */
               <div className="space-y-3 animate-pulse" aria-busy="true">
-                <div className="h-14 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]" />
+                <div className="h-14 rounded-2xl bg-white border-2 border-slate-200" />
                 {[...Array(4)].map((_, i) => (
                   <div
                     key={i}
-                    className="h-20 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]"
+                    className="h-20 rounded-2xl bg-white border-2 border-slate-200"
                   />
                 ))}
                 <p className="text-center text-xs text-slate-500 font-bold">
@@ -507,8 +507,8 @@ export default function InstitutionModal({ isOpen, onClose }) {
             ) : (
             <>
               {(dashboard.weak_topics || []).length > 0 && (
-                <div className="p-3.5 rounded-2xl bg-amber-950/40 border-2 border-amber-500/40">
-                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-amber-300 mb-2">
+                <div className="p-3.5 rounded-2xl bg-amber-50 border-2 border-amber-300">
+                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-amber-700 mb-2">
                     <Pin className="w-3 h-3" />
                     {t("school.weak_topics")}
                   </p>
@@ -516,7 +516,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     {dashboard.weak_topics.slice(0, 8).map((topic, i) => (
                       <span
                         key={i}
-                        className="px-2 py-0.5 rounded-lg bg-[var(--color-arcade-navy-dark)] border border-amber-500/30 text-[10px] font-bold text-amber-200"
+                        className="px-2 py-0.5 rounded-lg bg-white border border-amber-300 text-[10px] font-bold text-amber-700"
                       >
                         {topic.topic} · {topic.students}{" "}
                         {topic.students !== 1
@@ -528,14 +528,14 @@ export default function InstitutionModal({ isOpen, onClose }) {
                 </div>
               )}
               {dashboard.students.length === 0 ? (
-                <div className="py-10 px-4 rounded-3xl border-2 border-dashed border-slate-700 bg-[#141d2c]/60 text-center flex flex-col items-center gap-3">
-                  <GraduationCap className="w-10 h-10 text-slate-600" />
-                  <p className="text-sm text-slate-300 font-bold max-w-xs">
+                <div className="py-10 px-4 rounded-3xl border-2 border-dashed border-slate-300 bg-white/70 text-center flex flex-col items-center gap-3">
+                  <GraduationCap className="w-10 h-10 text-slate-400" />
+                  <p className="text-sm text-slate-600 font-bold max-w-xs">
                     {t("school.no_students")}
                   </p>
                   <button
                     onClick={() => copy(dashGrade?.join_code, `dash_${dashGrade?.id}`)}
-                    className="px-4 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/30 border-2 border-cyan-500/50 font-mono font-black text-cyan-300 text-sm tracking-widest transition-all cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-cyan-50 hover:bg-cyan-100 border-2 border-cyan-300 font-mono font-black text-cyan-700 text-sm tracking-widest transition-all cursor-pointer"
                   >
                     {copied === `dash_${dashGrade?.id}` ? t("school.copied") : dashGrade?.join_code}
                   </button>
@@ -550,16 +550,16 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     .map((s) => (
                     <div
                       key={s.student_id}
-                      className="rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] p-3.5"
+                      className="rounded-2xl bg-white border-2 border-slate-200 p-3.5"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <GraduationCap className="w-4 h-4 text-cyan-300" />
-                        <span className="font-black text-sm text-white">
+                        <GraduationCap className="w-4 h-4 text-cyan-700" />
+                        <span className="font-black text-sm text-slate-800">
                           {s.username}
                         </span>
                         {studentAlertScore(s) >= 2 && (
                           <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/40 text-[9px] font-black text-amber-300 uppercase"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-300 text-[9px] font-black text-amber-700 uppercase"
                             title={t("school.needs_followup_title")}
                           >
                             <AlertTriangle className="w-2.5 h-2.5" />
@@ -569,7 +569,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                         <button
                           onClick={() => openReport(dashGrade, s.student_id)}
                           disabled={busy}
-                          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border border-[var(--color-arcade-navy-light)] text-[10px] font-black text-slate-300 uppercase cursor-pointer disabled:opacity-50"
+                          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[10px] font-black text-slate-600 uppercase cursor-pointer disabled:opacity-50"
                           title={t("school.report_title")}
                         >
                           <FileText className="w-3 h-3" />
@@ -584,11 +584,11 @@ export default function InstitutionModal({ isOpen, onClose }) {
                         <div className="space-y-1.5">
                           {s.subjects.map((sub) => (
                             <div key={sub.folder_id} className="text-[11px]">
-                              <span className="font-black text-slate-300 uppercase tracking-wide">
+                              <span className="font-black text-slate-700 uppercase tracking-wide">
                                 {sub.subject}
                               </span>
                               {sub.folder_progress && (
-                                <span className="ml-2 inline-flex items-center gap-1 text-amber-300 font-bold">
+                                <span className="ml-2 inline-flex items-center gap-1 text-amber-600 font-bold">
                                   Nivel {sub.folder_progress.current_level || 1}
                                   {" · "}
                                   <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
@@ -602,9 +602,9 @@ export default function InstitutionModal({ isOpen, onClose }) {
                               {sub.islands.map((isl) => (
                                 <div
                                   key={isl.island_id}
-                                  className="mt-1 ml-3 flex items-center gap-2 text-slate-400"
+                                  className="mt-1 ml-3 flex items-center gap-2 text-slate-500"
                                 >
-                                  <Palmtree className="w-3.5 h-3.5 text-cyan-400/80 shrink-0" />
+                                  <Palmtree className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
                                   <span className="font-bold">{isl.island_name}</span>
                                   <span className="text-slate-500">·</span>
                                   <span>
@@ -617,7 +617,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                     <Star className="w-3 h-3 fill-amber-400" />{isl.stars}
                                   </span>
                                   {isl.completed && (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                                   )}
                                 </div>
                               ))}
@@ -634,11 +634,11 @@ export default function InstitutionModal({ isOpen, onClose }) {
           ) : !inst ? (
             /* ============ SIN INSTITUCIÓN ============ */
             <>
-              <div className="p-4 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]">
-                <h3 className="font-black text-sm uppercase tracking-wide text-[var(--color-arcade-yellow)] mb-1.5 flex items-center gap-2">
+              <div className="p-4 rounded-2xl bg-white border-2 border-slate-200">
+                <h3 className="font-black text-sm uppercase tracking-wide text-amber-600 mb-1.5 flex items-center gap-2">
                   <School className="w-4 h-4" /> {t("school.create_school_title")}
                 </h3>
-                <p className="text-[11px] text-slate-400 font-bold mb-3">
+                <p className="text-[11px] text-slate-500 font-bold mb-3">
                   {t("school.create_school_desc")}
                 </p>
                 <div className="flex gap-2">
@@ -646,7 +646,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     value={schoolName}
                     onChange={(e) => setSchoolName(e.target.value)}
                     placeholder={t("school.create_school_ph")}
-                    className="flex-1 rounded-xl bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] px-3 py-2 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:border-[var(--color-arcade-yellow)]"
+                    className="flex-1 rounded-xl bg-white border-2 border-slate-300 px-3 py-2 text-sm font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-[var(--color-arcade-yellow)]"
                   />
                   <button
                     onClick={handleCreate}
@@ -657,11 +657,11 @@ export default function InstitutionModal({ isOpen, onClose }) {
                   </button>
                 </div>
               </div>
-              <div className="p-4 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-dashed border-[#2b3f5f]">
-                <h3 className="font-black text-sm uppercase tracking-wide text-cyan-300 mb-1.5 flex items-center gap-2">
+              <div className="p-4 rounded-2xl bg-white border-2 border-dashed border-slate-300">
+                <h3 className="font-black text-sm uppercase tracking-wide text-cyan-700 mb-1.5 flex items-center gap-2">
                   <KeyRound className="w-4 h-4" /> {t("school.join_code_title")}
                 </h3>
-                <p className="text-[11px] text-slate-400 font-bold mb-3">
+                <p className="text-[11px] text-slate-500 font-bold mb-3">
                   {t("school.join_code_desc")}
                 </p>
                 <div className="flex gap-2">
@@ -669,7 +669,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     placeholder={t("school.join_code_ph")}
-                    className="flex-1 rounded-xl bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] px-3 py-2 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 tracking-widest"
+                    className="flex-1 rounded-xl bg-white border-2 border-slate-300 px-3 py-2 text-sm font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-cyan-400 tracking-widest"
                   />
                   <button
                     onClick={handleJoin}
@@ -686,16 +686,16 @@ export default function InstitutionModal({ isOpen, onClose }) {
             <>
               {/* Licencia por seats (solo admin) */}
               {role === "admin" && (
-                <div className="p-3.5 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]">
+                <div className="p-3.5 rounded-2xl bg-white border-2 border-slate-200">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <p className="text-[10px] font-black uppercase text-slate-400">
+                      <p className="text-[10px] font-black uppercase text-slate-500">
                         {t("school.license_label")}
                       </p>
-                      <p className="text-xs font-bold text-white">
+                      <p className="text-xs font-bold text-slate-800">
                         {inst.subscription?.status === "active" ? (
                           <>
-                            <span className="text-emerald-400">
+                            <span className="text-emerald-600">
                               {t("school.license_active")}
                             </span>{" "}
                             —{" "}
@@ -705,7 +705,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                           </>
                         ) : (
                           <>
-                            <span className="text-amber-400">
+                            <span className="text-amber-600">
                               {t("school.license_trial")}
                             </span>{" "}
                             — {t("school.license_trial_fmt")}
@@ -727,7 +727,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                           min={30}
                           value={seatsInput}
                           onChange={(e) => setSeatsInput(e.target.value)}
-                          className="w-16 rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-emerald-400"
+                          className="w-16 rounded-lg bg-white border-slate-300 px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:border-emerald-400"
                           title={t("school.seats_title")}
                         />
                         <button
@@ -746,22 +746,22 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
               {/* Código de docentes (solo staff) */}
               {isStaff && inst.teacher_code && (
-                <div className="p-3.5 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] flex items-center justify-between">
+                <div className="p-3.5 rounded-2xl bg-white border-2 border-slate-200 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-black uppercase text-slate-400">
+                    <p className="text-[10px] font-black uppercase text-slate-500">
                       {t("school.teacher_code_label")}
                     </p>
-                    <p className="font-black text-cyan-300 tracking-widest">
+                    <p className="font-black text-cyan-700 tracking-widest">
                       {inst.teacher_code}
                     </p>
                   </div>
                   <button
                     onClick={() => copy(inst.teacher_code, "prof")}
-                    className="p-2 rounded-xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border border-[var(--color-arcade-navy-light)] cursor-pointer"
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 cursor-pointer"
                     title={t("school.copy_title")}
                   >
                     {copied === "prof" ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
+                      <Check className="w-4 h-4 text-emerald-500" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
@@ -771,12 +771,12 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
               {/* Unirse a otro grado (estudiantes ya dentro pueden sumar más) */}
               {!isStaff && (
-                <div className="p-3.5 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-dashed border-[#2b3f5f] flex gap-2">
+                <div className="p-3.5 rounded-2xl bg-white border-2 border-dashed border-slate-300 flex gap-2">
                   <input
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     placeholder={t("school.join_another_ph")}
-                    className="flex-1 rounded-xl bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] px-3 py-2 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 tracking-widest"
+                    className="flex-1 rounded-xl bg-white border-2 border-slate-300 px-3 py-2 text-xs font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-cyan-400 tracking-widest"
                   />
                   <button
                     onClick={handleJoin}
@@ -790,8 +790,8 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
               {/* Lista de grados */}
               <div>
-                <h3 className="font-black text-xs uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[var(--color-arcade-yellow)]" /> {t("school.grades_title")}
+                <h3 className="font-black text-xs uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-amber-500" /> {t("school.grades_title")}
                 </h3>
                 {(instData?.grades || []).length === 0 ? (
                   <p className="text-xs text-slate-500 font-bold py-3">
@@ -804,15 +804,15 @@ export default function InstitutionModal({ isOpen, onClose }) {
                     {instData.grades.map((g) => (
                       <div
                         key={g.id}
-                        className="rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] p-3.5"
+                        className="rounded-2xl bg-white border-2 border-slate-200 p-3.5"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <GraduationCap className="w-4 h-4 text-cyan-300 shrink-0" />
-                            <span className="font-black text-sm text-white truncate">
+                            <GraduationCap className="w-4 h-4 text-cyan-700 shrink-0" />
+                            <span className="font-black text-sm text-slate-800 truncate">
                               {g.name}
                             </span>
-                            <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                            <span className="text-[10px] font-bold text-slate-500 shrink-0">
                               {g.student_count ?? (g.student_ids || []).length}{" "}
                               {(g.student_count ?? (g.student_ids || []).length) !== 1
                                 ? t("school.students_other")
@@ -827,11 +827,11 @@ export default function InstitutionModal({ isOpen, onClose }) {
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 onClick={() => copy(g.join_code, g.id)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border border-[var(--color-arcade-navy-light)] text-[10px] font-black text-cyan-300 tracking-wider cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[10px] font-black text-cyan-700 tracking-wider cursor-pointer"
                                 title={t("school.join_code_title")}
                               >
                                 {copied === g.id ? (
-                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <Check className="w-3 h-3 text-emerald-500" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -840,14 +840,14 @@ export default function InstitutionModal({ isOpen, onClose }) {
                               <button
                                 onClick={() => openDashboard(g)}
                                 disabled={busy}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 border border-emerald-500/50 text-[10px] font-black text-emerald-300 uppercase cursor-pointer disabled:opacity-50"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[10px] font-black text-emerald-700 uppercase cursor-pointer disabled:opacity-50"
                               >
                                 <BarChart3 className="w-3 h-3" /> {t("school.panel_btn")}
                               </button>
                               <button
                                 onClick={() => toggleAssign(g)}
                                 disabled={busy || (g.folder_ids || []).length === 0}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/50 text-[10px] font-black text-amber-300 uppercase cursor-pointer disabled:opacity-50"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[10px] font-black text-amber-700 uppercase cursor-pointer disabled:opacity-50"
                                 title={
                                   (g.folder_ids || []).length === 0
                                     ? t("school.assign_no_subject")
@@ -866,7 +866,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                   );
                                 }}
                                 disabled={busy}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 border border-cyan-500/50 text-[10px] font-black text-cyan-300 uppercase cursor-pointer disabled:opacity-50"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 border border-cyan-300 text-[10px] font-black text-cyan-700 uppercase cursor-pointer disabled:opacity-50"
                                 title={t("school.csv_title")}
                               >
                                 <Users className="w-3 h-3" /> {t("school.csv_btn")}
@@ -877,8 +877,8 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
                         {/* Matrícula masiva CSV (staff) */}
                         {isStaff && enrollGrade === g.id && (
-                          <div className="mt-2.5 p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/40 space-y-2">
-                            <p className="text-[10px] font-black uppercase text-cyan-300">
+                          <div className="mt-2.5 p-3 rounded-xl bg-cyan-50 border border-cyan-300 space-y-2">
+                            <p className="text-[10px] font-black uppercase text-cyan-700">
                               {t("school.bulk_title")}
                             </p>
                             <textarea
@@ -886,7 +886,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                               onChange={(e) => setEnrollText(e.target.value)}
                               rows={4}
                               placeholder={t("school.bulk_ph")}
-                              className="w-full rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2.5 py-2 text-[11px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 font-mono"
+                              className="w-full rounded-lg bg-white border-slate-300 px-2.5 py-2 text-[11px] font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-cyan-400 font-mono"
                             />
                             <p className="text-[10px] text-slate-500 font-bold">
                               {t("school.bulk_format")}
@@ -894,7 +894,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                             <div className="flex gap-2 justify-end">
                               <button
                                 onClick={() => setEnrollGrade(null)}
-                                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-400 hover:text-white cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-slate-800 cursor-pointer"
                               >
                                 {t("school.close_btn")}
                               </button>
@@ -907,9 +907,9 @@ export default function InstitutionModal({ isOpen, onClose }) {
                               </button>
                             </div>
                             {enrollResult && (
-                              <div className="max-h-36 overflow-y-auto rounded-lg bg-[var(--color-arcade-navy-dark)] border border-emerald-500/40 p-2 space-y-1">
+                              <div className="max-h-36 overflow-y-auto rounded-lg bg-white border border-emerald-300 p-2 space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-[10px] font-black text-emerald-300 uppercase">
+                                  <p className="text-[10px] font-black text-emerald-700 uppercase">
                                     {t("school.creds_title")}
                                   </p>
                                   <button
@@ -924,13 +924,13 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                         "csv",
                                       )
                                     }
-                                    className="text-[10px] font-black text-cyan-300 hover:text-cyan-100 cursor-pointer"
+                                    className="text-[10px] font-black text-cyan-700 hover:text-cyan-800 cursor-pointer"
                                   >
                                     {copied === "csv" ? t("school.copied") : t("school.copy_all")}
                                   </button>
                                 </div>
                                 {enrollResult.map((c, i) => (
-                                  <p key={i} className="text-[10px] font-mono text-slate-300">
+                                  <p key={i} className="text-[10px] font-mono text-slate-600">
                                     {c.username} → {c.email} / {c.password}
                                   </p>
                                 ))}
@@ -950,7 +950,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                 }))
                               }
                               placeholder={t("school.new_subject_ph")}
-                              className="flex-1 rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2.5 py-1.5 text-[11px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-cyan-400"
+                              className="flex-1 rounded-lg bg-white border-slate-300 px-2.5 py-1.5 text-[11px] font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-cyan-400"
                             />
                             <button
                               onClick={() => handleCreateSubject(g.id)}
@@ -964,8 +964,8 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
                         {/* Formulario de asignación 📌 (sin presión: es un objetivo visible, no un castigo) */}
                         {isStaff && assignGrade === g.id && (
-                          <div className="mt-2.5 p-3 rounded-xl bg-amber-950/30 border border-amber-500/40 space-y-2">
-                            <p className="text-[10px] font-black uppercase text-amber-300">
+                          <div className="mt-2.5 p-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2">
+                            <p className="text-[10px] font-black uppercase text-amber-700">
                               {t("school.assign_panel_title")}
                             </p>
                             <div className="grid grid-cols-2 gap-2">
@@ -978,7 +978,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                     island_id: "",
                                   }))
                                 }
-                                className="rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-amber-400"
+                                className="rounded-lg bg-white border-slate-300 px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:border-amber-400"
                               >
                                 <option value="">{t("school.subject_opt")}</option>
                                 {(teacherFolders || [])
@@ -997,7 +997,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                     island_id: e.target.value,
                                   }))
                                 }
-                                className="rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-amber-400"
+                                className="rounded-lg bg-white border-slate-300 px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:border-amber-400"
                               >
                                 <option value="">{t("school.all_subject_opt")}</option>
                                 {(
@@ -1021,7 +1021,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                   }))
                                 }
                                 placeholder={t("school.assign_ph")}
-                                className="flex-1 rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2 py-1.5 text-[11px] font-bold text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
+                                className="flex-1 rounded-lg bg-white border-slate-300 px-2 py-1.5 text-[11px] font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-amber-400"
                               />
                               <input
                                 type="date"
@@ -1032,13 +1032,13 @@ export default function InstitutionModal({ isOpen, onClose }) {
                                     due_date: e.target.value,
                                   }))
                                 }
-                                className="rounded-lg bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] px-2 py-1.5 text-[11px] font-bold text-white outline-none focus:border-amber-400"
+                                className="rounded-lg bg-white border-slate-300 px-2 py-1.5 text-[11px] font-bold text-slate-800 outline-none focus:border-amber-400"
                               />
                             </div>
                             <div className="flex gap-2 justify-end">
                               <button
                                 onClick={() => setAssignGrade(null)}
-                                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-400 hover:text-white cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-slate-800 cursor-pointer"
                               >
                                 {t("common.cancel")}
                               </button>
@@ -1061,8 +1061,8 @@ export default function InstitutionModal({ isOpen, onClose }) {
 
               {/* Crear grado (staff) */}
               {isStaff && (
-                <div className="p-3.5 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-dashed border-[#2b3f5f]">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2 flex items-center gap-1.5">
+                <div className="p-3.5 rounded-2xl bg-white border-2 border-dashed border-slate-300">
+                  <p className="text-[10px] font-black uppercase text-slate-500 mb-2 flex items-center gap-1.5">
                     <Plus className="w-3.5 h-3.5" /> {t("school.new_grade_label")}
                   </p>
                   <div className="flex gap-2">
@@ -1070,7 +1070,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
                       value={newGradeName}
                       onChange={(e) => setNewGradeName(e.target.value)}
                       placeholder={t("school.new_grade_ph")}
-                      className="flex-1 rounded-xl bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] px-3 py-2 text-xs font-bold text-white placeholder:text-slate-500 outline-none focus:border-[var(--color-arcade-yellow)]"
+                      className="flex-1 rounded-xl bg-white border-2 border-slate-300 px-3 py-2 text-xs font-bold text-slate-800 placeholder:text-slate-500 outline-none focus:border-[var(--color-arcade-yellow)]"
                     />
                     <button
                       onClick={handleCreateGrade}
