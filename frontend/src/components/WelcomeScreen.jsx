@@ -27,6 +27,7 @@ import confetti from 'canvas-confetti';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { lobbyAmbient } from '../utils/lobbyAmbient';
 import { isLowPower } from '../utils/lowPower';
+import { lockLandscape } from '../utils/orientation';
 
 const TRIAL_DAYS = 7;
 
@@ -105,6 +106,7 @@ export default function WelcomeScreen({
 
   const handleContinueClick = (e) => {
     lobbyAmbient.stop(0.4);
+    lockLandscape();
     if (onContinue) onContinue(e);
   };
 

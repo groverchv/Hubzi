@@ -1943,6 +1943,7 @@ export default function ArcadeArena() {
             setIsWelcomeScreenVisible(true);
           }}
           onSelectFolder={async (folder) => {
+            lockLandscape();
             const island = folder.selectedIsland || null;
             hydrateCachedBoards(folder);
             setActiveFolder(folder);
@@ -2018,6 +2019,7 @@ export default function ArcadeArena() {
           setIsWelcomeScreenVisible(true);
         }}
         onSelectFolder={async (folder) => {
+          lockLandscape();
           const island = folder.selectedIsland || null;
           hydrateCachedBoards(folder);
           setActiveFolder(folder);
