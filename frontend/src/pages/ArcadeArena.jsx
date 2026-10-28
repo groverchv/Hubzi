@@ -438,6 +438,27 @@ export default function ArcadeArena() {
   const lvlCacheKey = (lvl, island) =>
     island ? `${island.id}__level_${lvl}` : `level_${lvl}`;
   const islandQuery = (island) => (island ? `&island_id=${island.id}` : "");
+
+  // El GET /folders excluye cached_boards (payload pesado): los re-hidratamos
+  // desde el espejo localStorage para que entrar a una isla ya generada sea
+  // instantáneo en vez de pasar por el job del backend.
+  const hydrateCachedBoards = (folder) => {
+    try {
+      const key = currentUser?.id
+        ? `hubzy_user_study_folders_${currentUser.id}`
+        : "hubzy_user_study_folders";
+      const saved = JSON.parse(localStorage.getItem(key) || "[]");
+      const match = saved.find((f) => f.id === folder.id);
+      if (match?.cached_boards && !folder.cached_boards) {
+        folder.cached_boards = match.cached_boards;
+      }
+      if (match?.cached_board && !folder.cached_board) {
+        folder.cached_board = match.cached_board;
+      }
+    } catch {}
+    return folder;
+  };
+
   // Niveles de la campaña activa: los de la isla o los 20 de la carpeta
   const maxLevel = activeIsland?.total_levels || 20;
   const activeLevels =
@@ -1757,6 +1778,7 @@ export default function ArcadeArena() {
           }}
           onSelectFolder={async (folder) => {
             const island = folder.selectedIsland || null;
+            hydrateCachedBoards(folder);
             setActiveFolder(folder);
             setActiveIsland(island);
             setIsFolderModalOpen(false);
@@ -1831,6 +1853,7 @@ export default function ArcadeArena() {
         }}
         onSelectFolder={async (folder) => {
           const island = folder.selectedIsland || null;
+          hydrateCachedBoards(folder);
           setActiveFolder(folder);
           setActiveIsland(island);
           setIsFolderModalOpen(false);

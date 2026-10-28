@@ -27,6 +27,9 @@ MAX_ISLANDS = 8
 CHARS_PER_LEVEL = 9000  # niveles proporcionales al tamaño del tema
 MIN_LEVELS = 3
 MAX_LEVELS = 10
+# Toda isla es una campaña completa de 20 niveles: los sectores del tema se
+# recorren en las primeras 5 y los niveles 6-20 profundizan en rondas.
+ISLAND_CAMPAIGN_LEVELS = 20
 
 # Cabeceras tipo "Tema 3:", "CAPÍTULO II", "Unidad 4", "Sección 2.1"
 _HEADING_KEYWORDS = r"(?:tema|cap[ií]tulo|unidad|secci[oó]n|m[oó]dulo|parte|lecci[oó]n|bloque)"
@@ -318,7 +321,7 @@ def rebuild_islands(folder_doc: dict) -> list[dict]:
             "source_doc_ids": sorted({s["doc_id"] for s in g["sections"] if s["doc_id"]}),
             "sections": g["sections"],  # rangos exactos → get_island_text sin re-derivar
             "char_count": g["chars"],
-            "total_levels": compute_total_levels(g["chars"]),
+            "total_levels": ISLAND_CAMPAIGN_LEVELS,
         }
         # Conservar progreso si ya existía una isla con nombre similar
         for prev in prev_islands:

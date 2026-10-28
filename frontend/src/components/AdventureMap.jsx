@@ -63,9 +63,11 @@ export default function AdventureMap({
           };
         });
 
-  // 20 posiciones en zigzag vertical (de abajo hacia arriba, Nivel 1 en el fondo, Nivel 20 arriba)
-  // X varía entre 22% y 78% alternando; Y espaciado uniformemente
-  const TOTAL_HEIGHT = 2800; // Altura del lienzo en píxeles para scroll vertical
+  // Posiciones en zigzag vertical (de abajo hacia arriba, Nivel 1 en el fondo,
+  // último nivel arriba). La altura es proporcional a la cantidad de niveles:
+  // antes era 2800px fijo y una isla de 3 niveles quedaba con huecos de ~1200px.
+  const LEVEL_GAP = 135; // separación vertical entre nodos consecutivos
+  const TOTAL_HEIGHT = 320 + LEVEL_GAP * Math.max(1, mapLevels.length - 1);
   const levelCoords = mapLevels.map((lvl, idx) => {
     // Alternancia suave en onda senoidal
     const t = idx / (mapLevels.length - 1);
@@ -244,7 +246,9 @@ export default function AdventureMap({
             { y: TOTAL_HEIGHT - 1520, label: "Tierras Altas (N11 - N15)" },
             { y: TOTAL_HEIGHT - 2160, label: "Meseta de Élite (N16 - N19)" },
             { y: 160, label: "Cima Legendaria: Hubzi Boss (N20)" },
-          ].map((island, idx) => (
+          ]
+            .filter((island) => island.y > 0 && island.y < TOTAL_HEIGHT - 60)
+            .map((island, idx) => (
             <div
               key={idx}
               style={{ top: `${island.y}px` }}

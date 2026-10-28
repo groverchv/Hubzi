@@ -788,98 +788,6 @@ async def upload_document_to_folder(
     }
 
 
-@router.get("/samples/catalog")
-async def list_sample_documents():
-    """Catálogo de documentos de muestra para probar el juego sin subir un PDF."""
-    from app.data.sample_documents import list_samples
-
-    return {"samples": list_samples()}
-
-
-@router.post("/{folder_id}/add-sample")
-@limiter.limit("15/minute")
-async def add_sample_document_to_folder(
-    request: Request,
-    folder_id: str,
-    payload: dict,
-    current_user: dict | None = Depends(get_optional_user),
-):
-    """
-    Inyecta un documento de muestra curado en la carpeta — permite jugar sin
-    tener un PDF propio. El texto queda como extracted_text, por lo que fluye
-    por el mismo pipeline (dominio → motor → tablero) que un documento subido.
-    """
-    from app.data.sample_documents import get_sample
-
-    sample_id = (payload or {}).get("sample_id", "")
-    sample = get_sample(sample_id)
-    if not sample:
-        raise HTTPException(status_code=404, detail="Muestra no encontrada.")
-
-    folder_doc = await _load_folder(folder_id)
-    if folder_doc:
-        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
-
-    doc_record = {
-        "id": f"doc_sample_{sample_id}",
-        "name": sample["name"],
-        "size": f"{len(sample['extracted_text']) / 1024:.1f} KB",
-        "type": "txt",
-        "extracted_text": sample["extracted_text"],
-        "char_count": len(sample["extracted_text"]),
-        "is_sample": True,
-        "uploaded_at": utcnow_iso(),
-    }
-
-    if db_manager.db is not None:
-        try:
-            await db_manager.db["study_folders"].update_one(
-                _folder_query(folder_id),
-                {
-                    "$push": {"documents": doc_record},
-                    "$unset": {
-                        "cached_board": "",
-                        "cached_boards": "",
-                        "cached_board_hashes": "",
-                        "cached_content_hash": "",
-                    },
-                },
-            )
-        except Exception as e:
-            logger.error(f"Error guardando muestra en MongoDB: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Servicio de base de datos no disponible. Intenta de nuevo.",
-            ) from e
-    else:
-        if folder_id in in_memory_study_folders:
-            docs = in_memory_study_folders[folder_id].setdefault("documents", [])
-            if not any(d.get("id") == doc_record["id"] for d in docs):
-                docs.append(doc_record)
-                invalidate_folder_game_cache(folder_id)
-        else:
-            in_memory_study_folders[folder_id] = {
-                "id": folder_id,
-                "name": folder_id.replace("folder_", "").replace("_", " ").title(),
-                "user_id": resolve_effective_user_id(current_user, None),
-                "documents": [doc_record],
-                "games": [],
-                "created_at": utcnow_iso(),
-            }
-
-    logger.info(f"Muestra '{sample_id}' añadida a la carpeta '{folder_id}'.")
-    return {
-        "status": "added",
-        "document": {
-            "id": doc_record["id"],
-            "name": doc_record["name"],
-            "size": doc_record["size"],
-            "type": doc_record["type"],
-            "is_sample": True,
-        },
-    }
-
-
 # Presupuesto de caracteres del texto combinado que viaja al LLM por
 # generación. Acota latencia y costo; la repartición justa por documento
 # preserva el orden (las directivas sectoriales por nivel 0-25%, 25-50%…
@@ -1261,11 +1169,14 @@ async def _remap_island_id_refs(
     logger.info(f"🔄 Islas de '{folder_id}' re-mapeadas: {id_map}")
 
 
-async def detect_topics_and_store(folder_id: str, doc_id: str) -> None:
+async def detect_topics_and_store(
+    folder_id: str, doc_id: str, force: bool = False
+) -> None:
     """
     Detecta los temas de un documento recién subido y reconstruye las islas
     de la carpeta. Corre en background tras el upload — nunca bloquea la
     respuesta. Islas existentes conservan su progreso por nombre similar.
+    Con force=True re-analiza aunque el doc ya tenga topic_sections.
     """
     try:
         folder_doc = await _load_folder(folder_id)
@@ -1273,7 +1184,7 @@ async def detect_topics_and_store(folder_id: str, doc_id: str) -> None:
             return
         docs = folder_doc.get("documents") or []
         doc = next((d for d in docs if d.get("id") == doc_id), None)
-        if not doc or doc.get("topic_sections"):
+        if not doc or (doc.get("topic_sections") and not force):
             return  # ya detectado
         text = (doc.get("extracted_text") or "").strip()
         if len(text) < 300:
@@ -1330,20 +1241,104 @@ async def detect_topics_and_store(folder_id: str, doc_id: str) -> None:
 async def detect_topics_endpoint(
     request: Request,
     folder_id: str,
+    force: bool = Query(False, description="Re-detectar aunque ya haya secciones"),
     current_user: dict | None = Depends(get_optional_user),
 ):
-    """(Re)detecta temas de todos los docs sin secciones y devuelve las islas."""
+    """(Re)detecta temas de todos los docs sin secciones y devuelve las islas.
+    Con ?force=true re-analiza todos los docs: las islas se reconstruyen y los
+    tableros cacheados se invalidan (las preguntas quedaban del texto viejo)."""
     folder_doc = await _load_folder(folder_id)
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
     _assert_folder_access(current_user, folder_doc)
 
     for doc in folder_doc.get("documents") or []:
-        if not doc.get("topic_sections"):
-            await detect_topics_and_store(folder_id, doc.get("id"))
+        if force or not doc.get("topic_sections"):
+            await detect_topics_and_store(folder_id, doc.get("id"), force=force)
+
+    if force:
+        # Secciones nuevas → los tableros guardados describen el texto viejo
+        await _invalidate_folder_boards(folder_id)
 
     folder_doc = await _load_folder(folder_id)
     return {"islands": (folder_doc or {}).get("islands") or []}
+
+
+async def _invalidate_folder_boards(folder_id: str, island_id: str | None = None) -> None:
+    """Borra tableros cacheados. Con island_id solo los de esa isla
+    (claves `{isla}__level_N`); sin él, toda la carpeta."""
+    if island_id:
+        folder_doc = await _load_folder(folder_id)
+        if not folder_doc:
+            return
+        prefix = f"{island_id}__"
+        boards = folder_doc.get("cached_boards") or {}
+        hashes = folder_doc.get("cached_board_hashes") or {}
+        unset: dict = {}
+        for k in [k for k in boards if str(k).startswith(prefix)]:
+            unset[f"cached_boards.{k}"] = ""
+        for k in [k for k in hashes if str(k).startswith(prefix)]:
+            unset[f"cached_board_hashes.{k}"] = ""
+        if str(folder_doc.get("cached_board_key") or "").startswith(prefix):
+            unset["cached_board"] = ""
+            unset["cached_board_key"] = ""
+        if not unset:
+            return
+        if db_manager.db is not None:
+            await db_manager.db["study_folders"].update_one(
+                _folder_query(folder_id), {"$unset": unset}
+            )
+        fdoc = in_memory_study_folders.get(folder_id)
+        if fdoc is not None:
+            for k in [k for k in (fdoc.get("cached_boards") or {}) if str(k).startswith(prefix)]:
+                fdoc["cached_boards"].pop(k, None)
+            for k in [k for k in (fdoc.get("cached_board_hashes") or {}) if str(k).startswith(prefix)]:
+                fdoc["cached_board_hashes"].pop(k, None)
+            if str(fdoc.get("cached_board_key") or "").startswith(prefix):
+                fdoc.pop("cached_board", None)
+                fdoc.pop("cached_board_key", None)
+        return
+
+    unsets = {
+        "cached_board": "",
+        "cached_boards": "",
+        "cached_board_hashes": "",
+        "cached_board_key": "",
+        "cached_content_hash": "",
+    }
+    if db_manager.db is not None:
+        await db_manager.db["study_folders"].update_one(
+            _folder_query(folder_id), {"$unset": unsets}
+        )
+    fdoc = in_memory_study_folders.get(folder_id)
+    if fdoc is not None:
+        for k in unsets:
+            fdoc.pop(k, None)
+
+
+@router.post("/{folder_id}/islands/{island_id}/regenerate", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute")
+async def regenerate_island_questions(
+    request: Request,
+    folder_id: str,
+    island_id: str,
+    current_user: dict | None = Depends(get_optional_user),
+):
+    """
+    Invalida los tableros cacheados de UNA isla — el próximo "Jugar" genera
+    preguntas nuevas sobre el mismo tema. El progreso (estrellas/XP) se
+    conserva: solo se renuevan los reactivos.
+    """
+    folder_doc = await _load_folder(folder_id)
+    if not folder_doc:
+        raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
+    _assert_folder_access(current_user, folder_doc)
+    if not any(i.get("id") == island_id for i in (folder_doc.get("islands") or [])):
+        raise HTTPException(status_code=404, detail="Isla no encontrada.")
+
+    await _invalidate_folder_boards(folder_id, island_id)
+    logger.info(f"♻️ Tableros de isla '{island_id}' invalidados en '{folder_id}'.")
+    return {"status": "island_boards_invalidated", "island_id": island_id}
 
 
 @router.post("/{folder_id}/generate-game", status_code=status.HTTP_200_OK)
@@ -1378,6 +1373,22 @@ async def generate_game_from_folder(
     question_count = enforce_question_limit(effective_plan, question_count)
 
     if async_mode:
+        # Atajo de caché: si el tablero ya existe (y sigue fresco — los hashes
+        # se borran con cada invalidación), responder 200 al instante en vez
+        # de crear un job y obligar al frontend a sondearlo con overlay.
+        if not force:
+            lvl_key = (
+                f"{island_id}__level_{level}" if island_id else f"level_{level}"
+            )
+            cached = (folder_doc.get("cached_boards") or {}).get(lvl_key)
+            if cached and (folder_doc.get("cached_board_hashes") or {}).get(
+                lvl_key
+            ):
+                logger.info(
+                    f"⚡ Tablero cacheado '{lvl_key}' de '{folder_id}' servido sin job."
+                )
+                return GameBoardResponse(**cached)
+
         uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
         job = await create_job(
             "folder_generation",

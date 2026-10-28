@@ -27,7 +27,8 @@ import {
   Pin,
   School,
   Waves,
-  Star
+  Star,
+  RotateCw
 } from 'lucide-react';
 
 const STORAGE_KEY = 'hubzy_user_study_folders';
@@ -69,15 +70,17 @@ export default function StudyFolderManagerModal({
   const [processingCountdown, setProcessingCountdown] = useState(5);
   const processingTimerRef = useRef(null);
 
-  // Catálogo de documentos de muestra (probar sin PDF propio)
-  const [sampleCatalog, setSampleCatalog] = useState([]);
-  const [addingSample, setAddingSample] = useState(null);
-
   // Errores de subida por archivo (reemplaza los alert() nativos)
   const [uploadErrors, setUploadErrors] = useState([]);
 
   // Detección de temas en curso para la carpeta abierta (archipiélago)
   const [detectingTopics, setDetectingTopics] = useState(false);
+  // Selector de islas: solo se revela al pulsar "Iniciar juego" — la carpeta
+  // muestra documentos, y el archipiélago se crea/muestra al iniciar.
+  const [showIslandPicker, setShowIslandPicker] = useState(false);
+  // Regeneración: re-detección de temas (islas) e invalidación de preguntas por isla
+  const [regeneratingIslands, setRegeneratingIslands] = useState(false);
+  const [regeneratingIslandId, setRegeneratingIslandId] = useState(null);
   // Toast de celebración cuando la detección revela temas nuevos
   const [topicsToast, setTopicsToast] = useState(null);
 
@@ -92,6 +95,8 @@ export default function StudyFolderManagerModal({
     if (!isOpen) {
       setIsProcessingGame(false);
       setProcessingCountdown(5);
+      setShowIslandPicker(false);
+      setDetectingTopics(false);
       if (processingTimerRef.current) clearInterval(processingTimerRef.current);
     }
   }, [isOpen]);
@@ -128,28 +133,6 @@ export default function StudyFolderManagerModal({
     return () => clearTimeout(t);
   }, [topicsToast]);
 
-  useEffect(() => {
-    const f = activeFolderView;
-    if (!f?.id) return;
-    if (f.islands !== undefined) return;
-    if (!(f.documents || []).some((d) => !d.isUploading)) return;
-    let cancelled = false;
-    setDetectingTopics(true);
-    fetchWithAuth(`/api/v1/folders/${f.id}/detect-topics`, { method: 'POST' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d?.islands) applyIslands(f.id, d.islands);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setDetectingTopics(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFolderView?.id]);
-
   // Cargar las carpetas privadas del usuario activo desde el backend o localStorage
   useEffect(() => {
     if (!isOpen) return;
@@ -157,7 +140,11 @@ export default function StudyFolderManagerModal({
     try {
       const saved = localStorage.getItem(currentKey);
       if (saved) {
-        setFolders(JSON.parse(saved));
+        // Migración: purga la carpeta demo estática (ya no existe el backend)
+        const cleaned = JSON.parse(saved).filter(
+          (f) => f?.id !== 'folder_administracion_default',
+        );
+        setFolders(cleaned);
       } else {
         setFolders([]);
       }
@@ -165,19 +152,16 @@ export default function StudyFolderManagerModal({
       setFolders([]);
     }
 
-    // Catálogo de muestras curadas (una sola vez por apertura)
-    fetch('/api/v1/folders/samples/catalog')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.samples) setSampleCatalog(data.samples); })
-      .catch(() => {});
-
     const userIdParam = currentUser?.id ? `?user_id=${currentUser.id}` : '';
     fetchWithAuth(`/api/v1/folders${userIdParam}`)
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data && data.folders) {
-          setFolders(data.folders);
-          localStorage.setItem(currentKey, JSON.stringify(data.folders));
+          const list = data.folders.filter(
+            (f) => f?.id !== 'folder_administracion_default',
+          );
+          setFolders(list);
+          localStorage.setItem(currentKey, JSON.stringify(list));
         }
       })
       .catch(() => {});
@@ -232,42 +216,6 @@ export default function StudyFolderManagerModal({
     setIsCreating(false);
     // Abrir directamente la carpeta creada
     setActiveFolderView(folderItem);
-  };
-
-  // Añadir documento de muestra a la carpeta activa
-  const handleAddSample = async (sampleId) => {
-    if (!activeFolderView || addingSample) return;
-    setAddingSample(sampleId);
-    try {
-      const res = await fetchWithAuth(
-        `/api/v1/folders/${activeFolderView.id}/add-sample`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sample_id: sampleId }),
-        }
-      );
-      const data = res.ok ? await res.json() : null;
-      const doc = data?.document || {
-        id: `doc_sample_${sampleId}`,
-        name: sampleCatalog.find(s => s.id === sampleId)?.name || 'Muestra',
-        is_sample: true,
-      };
-      const docWithMeta = { ...doc, uploaded_at: 'Muestra', is_sample: true };
-      const updated = folders.map(f =>
-        f.id === activeFolderView.id
-          ? { ...f, documents: [...(f.documents || []), docWithMeta] }
-          : f
-      );
-      saveFolders(updated);
-      setActiveFolderView(prev =>
-        prev ? { ...prev, documents: [...(prev.documents || []), docWithMeta] } : prev
-      );
-    } catch (err) {
-      console.warn('Error añadiendo muestra:', err);
-    } finally {
-      setAddingSample(null);
-    }
   };
 
   // Eliminar carpeta
@@ -428,20 +376,6 @@ export default function StudyFolderManagerModal({
               ],
             };
           });
-          // Las islas se construyen en background tras la subida: re-sondear
-          // una vez para que aparezcan sin tener que reabrir la carpeta.
-          setTimeout(async () => {
-            try {
-              const r = await fetchWithAuth(
-                `/api/v1/folders/${folderId}/detect-topics`,
-                { method: 'POST' },
-              );
-              if (r.ok) {
-                const d = await r.json();
-                if (d?.islands) applyIslands(folderId, d.islands);
-              }
-            } catch {}
-          }, 4000);
         }
       }
     }
@@ -497,13 +431,101 @@ export default function StudyFolderManagerModal({
   };
 
 
-  // Iniciar el juego: Al instante (0 ms) si ya está analizado, o con breve cuenta regresiva si es nuevo
-  const handlePlayDirectly = () => {
-    if (!activeFolderView || isProcessingGame) return;
+  // Recargar islas: fuerza la re-detección de temas en el backend — las
+  // islas se reconstruyen y las preguntas viejas se invalidan.
+  const handleRegenerateIslands = async () => {
+    if (!activeFolderView || regeneratingIslands) return;
+    setRegeneratingIslands(true);
+    try {
+      const r = await fetchWithAuth(
+        `/api/v1/folders/${activeFolderView.id}/detect-topics?force=true`,
+        { method: 'POST' },
+      );
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.islands) applyIslands(activeFolderView.id, d.islands);
+      }
+    } catch {} finally {
+      setRegeneratingIslands(false);
+    }
+  };
 
-    // Si la carpeta ya tiene análisis previo, ENTRAR INMEDIATAMENTE
+  // Recargar preguntas de UNA isla: invalida sus tableros cacheados — la
+  // próxima partida genera reactivos nuevos sobre el mismo tema. El progreso
+  // (estrellas/XP) se conserva.
+  const handleRegenerateIsland = async (e, islandId) => {
+    e.stopPropagation();
+    if (!activeFolderView || regeneratingIslandId) return;
+    setRegeneratingIslandId(islandId);
+    try {
+      const r = await fetchWithAuth(
+        `/api/v1/folders/${activeFolderView.id}/islands/${islandId}/regenerate`,
+        { method: 'POST' },
+      );
+      if (r.ok) {
+        const prefix = `${islandId}__`;
+        const stripBoards = (f) => {
+          if (!f?.cached_boards) return f;
+          const boards = Object.fromEntries(
+            Object.entries(f.cached_boards).filter(([k]) => !k.startsWith(prefix)),
+          );
+          const out = { ...f, cached_boards: boards };
+          if ((f.cached_board_key || '').startsWith(prefix)) {
+            delete out.cached_board;
+            delete out.cached_board_key;
+          }
+          return out;
+        };
+        const updated = folders.map((f) =>
+          f.id === activeFolderView.id ? stripBoards(f) : f,
+        );
+        saveFolders(updated);
+        setActiveFolderView((prev) => (prev ? stripBoards(prev) : prev));
+      }
+    } catch {} finally {
+      setRegeneratingIslandId(null);
+    }
+  };
+
+  // Iniciar el juego: AQUÍ se crean las islas del archipiélago. La carpeta
+  // solo muestra documentos; al pulsar Iniciar se detectan temas y se
+  // muestran todas las islas para elegir campaña (o jugar mezclado).
+  const handlePlayDirectly = async () => {
+    if (!activeFolderView || isProcessingGame || detectingTopics) return;
+
+    // 1. Islas ya existentes (campañas previas) → mostrarlas directo
+    let islands = activeFolderView.islands || [];
+
+    // 2. Sin islas todavía → detectar temas ahora (idempotente en el backend)
+    const readyDocs = (activeFolderView.documents || []).filter(d => !d.isUploading);
+    if (!islands.length && readyDocs.length > 0) {
+      setDetectingTopics(true);
+      try {
+        const r = await fetchWithAuth(
+          `/api/v1/folders/${activeFolderView.id}/detect-topics`,
+          { method: 'POST' },
+        );
+        if (r.ok) {
+          const d = await r.json();
+          if (d?.islands?.length) {
+            islands = d.islands;
+            applyIslands(activeFolderView.id, d.islands);
+          }
+        }
+      } catch {} finally {
+        setDetectingTopics(false);
+      }
+    }
+
+    // 3. Hay islas → el jugador elige su campaña
+    if (islands.length > 0) {
+      setShowIslandPicker(true);
+      return;
+    }
+
+    // 4. Sin temas detectados → campaña general (contenido mezclado)
     const isAlreadyAnalyzed = Boolean(
-      activeFolderView.cached_boards || 
+      activeFolderView.cached_boards ||
       activeFolderView.cached_board
     );
 
@@ -712,11 +734,11 @@ export default function StudyFolderManagerModal({
                     </ol>
                   </div>
                   <button
-                    onClick={() => setActiveFolderView(DEFAULT_ADMIN_FOLDER)}
+                    onClick={() => setIsCreating(true)}
                     className="shrink-0 px-4 py-2.5 rounded-2xl bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                   >
-                    <Gamepad2 className="w-4 h-4 stroke-[2.5]" />
-                    <span>Probar con material de ejemplo</span>
+                    <FolderPlus className="w-4 h-4 stroke-[2.5]" />
+                    <span>Crear mi carpeta</span>
                   </button>
                 </div>
               )}
@@ -757,6 +779,7 @@ export default function StudyFolderManagerModal({
                         key={folder.id}
                         onClick={() => {
                           setActiveFolderView(folder);
+                          setShowIslandPicker(false);
                           fetchWithAuth('/api/v1/folders')
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
@@ -885,7 +908,7 @@ export default function StudyFolderManagerModal({
             <div className="p-6 border-b-3 border-[var(--color-arcade-navy-light)] bg-[var(--color-arcade-navy-dark)] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setActiveFolderView(null)}
+                  onClick={() => { setActiveFolderView(null); setShowIslandPicker(false); }}
                   className="p-2.5 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white transition-all cursor-pointer flex items-center justify-center shadow-md active:translate-y-1 active:shadow-none"
                   title="Volver al baúl de carpetas"
                 >
@@ -919,30 +942,12 @@ export default function StudyFolderManagerModal({
               )}
             </div>
 
-            {/* Franja de muestras: probar el juego sin tener un PDF a mano */}
-            {sampleCatalog.length > 0 && (
-              <div className="px-6 py-3 bg-[#0d1a30] border-b-2 border-[var(--color-arcade-navy-light)] flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 mr-1">
-                  ¿Sin material? Prueba un ejemplo:
-                </span>
-                {sampleCatalog.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleAddSample(s.id)}
-                    disabled={Boolean(addingSample)}
-                    title={s.description}
-                    className="px-3 py-1.5 rounded-xl bg-[#1a263a] hover:bg-[#223147] border-2 border-[#2b3f5f] hover:border-cyan-400/60 text-[11px] font-bold text-cyan-200 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait"
-                  >
-                    {addingSample === s.id ? 'Añadiendo…' : `+ ${s.name.replace('.txt', '')}`}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* Listado de Documentos de la Carpeta */}
             <div className="p-6 flex-1 overflow-y-auto space-y-4 bg-[#0f1726]">
-              {/* ======= ARCHIPIÉLAGO DE ISLAS (un tema = una campaña) ======= */}
-              {(detectingTopics || (activeFolderView.islands || []).length > 0) && (
+              {/* ======= ARCHIPIÉLAGO DE ISLAS (un tema = una campaña) =======
+                  Solo se revela al pulsar "Iniciar juego": ahí se crean las
+                  islas y el jugador elige su campaña. */}
+              {showIslandPicker && (activeFolderView.islands || []).length > 0 && (
                 <div className="rounded-3xl border-2 border-[var(--color-arcade-navy-light)] bg-gradient-to-b from-[#0d1f3c] to-[var(--color-arcade-navy-dark)] p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="w-4 h-4 text-cyan-300" />
@@ -955,6 +960,15 @@ export default function StudyFolderManagerModal({
                         Detectando temas…
                       </span>
                     )}
+                    <button
+                      onClick={handleRegenerateIslands}
+                      disabled={regeneratingIslands}
+                      className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-500/40 text-[10px] font-black uppercase tracking-wide text-cyan-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                      title="Re-detectar los temas de tus documentos y reconstruir las islas"
+                    >
+                      <RotateCw className={`w-3 h-3 ${regeneratingIslands ? 'animate-spin' : ''}`} />
+                      {regeneratingIslands ? 'Recargando…' : 'Recargar islas'}
+                    </button>
                   </div>
                   <p className="text-[11px] text-slate-400 mb-3">
                     Cada isla es un tema detectado en tus documentos, con su propia campaña de niveles. Las preguntas nunca mezclan temas.
@@ -965,8 +979,10 @@ export default function StudyFolderManagerModal({
                       const stars = Object.values(p.level_stars || {}).reduce((a, b) => a + b, 0);
                       const lvl = p.current_level || p.unlocked_level || 1;
                       return (
-                        <button
+                        <div
                           key={isl.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() =>
                             onSelectFolder({
                               ...activeFolderView,
@@ -974,11 +990,33 @@ export default function StudyFolderManagerModal({
                               selectedIsland: isl,
                             })
                           }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onSelectFolder({
+                                ...activeFolderView,
+                                playDirectly: true,
+                                selectedIsland: isl,
+                              });
+                            }
+                          }}
                           className="group text-left rounded-2xl border-2 border-[#2b3f5f] hover:border-cyan-400/70 bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <Palmtree className="w-6 h-6 text-cyan-300 group-hover:text-cyan-100 transition-colors" />
                             <span className="flex items-center gap-1.5">
+                              {/* Recargar preguntas de esta isla */}
+                              <button
+                                onClick={(e) => handleRegenerateIsland(e, isl.id)}
+                                disabled={Boolean(regeneratingIslandId)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/15 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                                title={`Recargar preguntas de "${isl.name}" (tu progreso se conserva)`}
+                                aria-label={`Recargar preguntas de ${isl.name}`}
+                              >
+                                <RotateCw
+                                  className={`w-3.5 h-3.5 ${regeneratingIslandId === isl.id ? 'animate-spin text-cyan-300' : ''}`}
+                                />
+                              </button>
                               {/* Tarea del docente dirigida a esta isla */}
                               {activeFolderView.assignment?.island_id === isl.id && (
                                 <span
@@ -1006,7 +1044,7 @@ export default function StudyFolderManagerModal({
                               {lvl > 1 || stars > 0 ? `Continuar N${lvl}` : 'Jugar'}
                             </span>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1200,20 +1238,26 @@ export default function StudyFolderManagerModal({
                 {/* Iniciar el juego directamente con los archivos procesados de la carpeta (Estilo Card Clash) */}
                 {(() => {
                   const readyCount = (activeFolderView.documents || []).filter(d => !d.isUploading).length;
-                  const isDisabled = readyCount === 0 || isProcessingGame;
+                  const isDisabled = readyCount === 0 || isProcessingGame || detectingTopics;
+                  const isBusy = isProcessingGame || detectingTopics;
                   return (
                     <button
                       disabled={isDisabled}
                       onClick={handlePlayDirectly}
                       className={`w-full sm:w-auto px-7 py-3 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 border-3 transition-all ${
-                        isDisabled && !isProcessingGame
+                        isDisabled && !isBusy
                           ? 'bg-slate-800 text-slate-500 border-[var(--color-arcade-navy-light)] cursor-not-allowed opacity-50'
-                          : isProcessingGame
+                          : isBusy
                           ? 'bg-[var(--color-arcade-green)] border-[var(--color-arcade-navy-dark)] text-white shadow-[0_0_20px_rgba(72,200,56,0.6)] cursor-wait font-black'
                           : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-green-shadow)] text-white shadow-[0_5px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer'
                       }`}
                     >
-                      {isProcessingGame ? (
+                      {detectingTopics ? (
+                        <>
+                          <Loader2 className="w-5 h-5 stroke-[2.5] animate-spin text-white" />
+                          <span>Creando islas…</span>
+                        </>
+                      ) : isProcessingGame ? (
                         <>
                           <Loader2 className="w-5 h-5 stroke-[2.5] animate-spin text-white" />
                           <span>Procesando... {processingCountdown}s</span>
