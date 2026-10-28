@@ -1887,7 +1887,7 @@ export default function ArcadeArena() {
   // RENDERIZADO DEL MAPA DE AVENTURA (MUNDOS E ISLAS ESTILO MONSTER LEGENDS)
   if (isMapVisible) {
     return (
-      <div className="relative w-screen h-[100dvh] overflow-hidden select-none">
+      <div className="arena-stage relative w-screen h-[100dvh] overflow-hidden select-none">
         <AdventureMap
           folderName={
             activeIsland
@@ -1977,7 +1977,7 @@ export default function ArcadeArena() {
   }
 
   return (
-    <div className="relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none">
+    <div className="arena-stage relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none">
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
       <AuthModal
         isOpen={isAuthModalOpen}
