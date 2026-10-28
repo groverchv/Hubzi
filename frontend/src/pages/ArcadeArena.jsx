@@ -1756,6 +1756,7 @@ export default function ArcadeArena() {
         <WelcomeScreen
           isLoggedIn={Boolean(currentUser)}
           username={currentUser?.username || currentUser?.email?.split("@")[0]}
+          user={currentUser}
           onOpenLogin={() => {
             if (currentUser) setIsLogoutConfirmOpen(true);
             else setIsAuthModalOpen(true);

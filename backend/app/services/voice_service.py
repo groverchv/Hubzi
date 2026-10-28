@@ -81,10 +81,12 @@ class VoiceService:
         stress_level: float | None = None,
         voice_gender: str | None = None,
         user_gender: str | None = None,
+        premium_voice: bool = True,
     ) -> bytes | None:
         """
         Genera audio MP3 mediante ElevenLabs o Edge-TTS modulando prosodia y ternura
         según el nivel de estrés o perfil terapéutico del estudiante.
+        premium_voice=False (plan free/guest) salta ElevenLabs y va directo a Edge-TTS.
         """
         target_gender = self.determine_voice_gender(voice_gender, user_gender)
 
@@ -149,8 +151,14 @@ class VoiceService:
             backup_voice_1 = MALE_VOICE_BACKUP
             edge_voice_name = EDGE_VOICE_MALE
 
-        # 2. Si hay API key de ElevenLabs y no se ha agotado la cuota, intentar en hilo separado
-        if self.api_key and len(self.api_key.strip()) > 5 and not self.elevenlabs_quota_exceeded:
+        # 2. Si hay API key de ElevenLabs, el plan lo permite y no se ha
+        # agotado la cuota, intentar en hilo separado
+        if (
+            premium_voice
+            and self.api_key
+            and len(self.api_key.strip()) > 5
+            and not self.elevenlabs_quota_exceeded
+        ):
             res_bytes = await asyncio.to_thread(self._call_elevenlabs, primary_voice, payload)
             if res_bytes:
                 return res_bytes

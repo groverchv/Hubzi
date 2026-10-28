@@ -206,7 +206,7 @@ export default function LandingPage() {
 
                 <div className="mt-5 mb-6 flex items-baseline gap-1">
                   <span className="text-4xl font-black text-[var(--color-arcade-navy)]">$0</span>
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">/ Siempre gratis</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">/ 7 días de prueba</span>
                 </div>
 
                 <div className="space-y-3 text-xs font-bold text-slate-700 border-t border-slate-200/80 pt-5">
@@ -238,7 +238,19 @@ export default function LandingPage() {
                     <div className="w-5 h-5 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
                       <Check className="w-3.5 h-3.5 stroke-[2]" />
                     </div>
-                    <span>1 Baúl de estudio activo</span>
+                    <span>Solo 1 Baúl de estudio · hasta 10 MB de material</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-slate-400">
+                    <div className="w-5 h-5 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5 stroke-[2]" />
+                    </div>
+                    <span>Voz estándar de Hubzi (la voz IA premium es Pro)</span>
+                  </div>
+                  <div className="flex items-center gap-2.5 text-slate-400">
+                    <div className="w-5 h-5 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5 stroke-[2]" />
+                    </div>
+                    <span>Prueba gratis de 7 días</span>
                   </div>
                 </div>
               </div>
@@ -296,7 +308,7 @@ export default function LandingPage() {
                     <div className="w-5 h-5 rounded-lg bg-[var(--color-arcade-green)] text-white flex items-center justify-center shrink-0 shadow-[0_2px_0_var(--color-arcade-green-shadow)]">
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </div>
-                    <span><strong>Acceso a los 5 Niveles</strong> de maestría en la Arena</span>
+                    <span><strong>Acceso a los 20 Niveles</strong> de maestría en la Arena</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-5 h-5 rounded-lg bg-[var(--color-arcade-green)] text-white flex items-center justify-center shrink-0 shadow-[0_2px_0_var(--color-arcade-green-shadow)]">
@@ -314,7 +326,7 @@ export default function LandingPage() {
                     <div className="w-5 h-5 rounded-lg bg-[var(--color-arcade-green)] text-white flex items-center justify-center shrink-0 shadow-[0_2px_0_var(--color-arcade-green-shadow)]">
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </div>
-                    <span><strong>Múltiples carpetas y materias</strong> simultáneas</span>
+                    <span><strong>Múltiples carpetas</strong> y hasta <strong>50 MB</strong> de material</span>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-5 h-5 rounded-lg bg-[var(--color-arcade-green)] text-white flex items-center justify-center shrink-0 shadow-[0_2px_0_var(--color-arcade-green-shadow)]">

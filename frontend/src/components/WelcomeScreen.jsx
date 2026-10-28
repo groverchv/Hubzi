@@ -28,19 +28,56 @@ import { usePwaInstall } from '../hooks/usePwaInstall';
 import { lobbyAmbient } from '../utils/lobbyAmbient';
 import { isLowPower } from '../utils/lowPower';
 
+const TRIAL_DAYS = 7;
+
 export default function WelcomeScreen({
   onContinue,
   onOpenTutorial,
   onOpenLogin,
   onOpenLegal,
   isLoggedIn = false,
-  username = ''
+  username = '',
+  user = null
 }) {
   const navigate = useNavigate();
   const { isInstalled, triggerInstall } = usePwaInstall();
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  // Cuenta regresiva de la prueba gratis (solo plan free; pro/school = ilimitado)
+  const isPremium = user?.plan === 'pro' || user?.plan === 'school';
+  const trialEndsAt = (() => {
+    if (!isLoggedIn || !user || isPremium || !user.created_at) return null;
+    const created = new Date(user.created_at).getTime();
+    return Number.isFinite(created) ? created + TRIAL_DAYS * 86400000 : null;
+  })();
+
+  const [now, setNow] = useState(Date.now());
+  React.useEffect(() => {
+    if (!trialEndsAt) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [trialEndsAt]);
+
+  const trialRemainingMs = trialEndsAt ? trialEndsAt - now : null;
+  const trialDaysLeft =
+    trialRemainingMs !== null
+      ? Math.max(0, Math.ceil(trialRemainingMs / 86400000))
+      : isLoggedIn && user && !isPremium && typeof user.trial_days_left === 'number'
+        ? user.trial_days_left
+        : null;
+
+  // "6d 23:59:41" — días + horas:minutos:segundos
+  const formatTrialCountdown = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d}d ${pad(h)}:${pad(m)}:${pad(sec)}`;
+  };
 
   // Inicializar paisaje sonoro relajante del lobby antes de iniciar el juego
   React.useEffect(() => {
@@ -135,6 +172,42 @@ export default function WelcomeScreen({
             </div>
           </button>
         </div>
+
+        {/* Chip central: días de prueba gratis / insignia PRO */}
+        {isLoggedIn && (
+          <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center">
+            {isPremium ? (
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/90 border-2 border-emerald-300 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_3px_0_rgba(4,120,87,0.6)]">
+                <Sparkles className="w-3 h-3" />
+                Plan {user?.plan === 'school' ? 'Escuela' : 'Pro'}
+              </span>
+            ) : trialRemainingMs !== null ? (
+              <span
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border-2 text-[10px] font-black uppercase tracking-widest text-white ${
+                  trialRemainingMs <= 0
+                    ? 'bg-rose-500/90 border-rose-300 shadow-[0_3px_0_rgba(159,18,57,0.6)]'
+                    : 'bg-[var(--color-arcade-navy)]/90 border-[var(--color-arcade-yellow)] text-[var(--color-arcade-yellow)] shadow-[0_3px_0_var(--color-arcade-ink)]'
+                }`}
+                title="Tiempo restante de tu prueba gratis"
+              >
+                <Sparkles className="w-3 h-3" />
+                {trialRemainingMs <= 0
+                  ? 'Prueba finalizada'
+                  : `Prueba gratis · ${formatTrialCountdown(trialRemainingMs)}`}
+              </span>
+            ) : trialDaysLeft !== null ? (
+              <span
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border-2 bg-[var(--color-arcade-navy)]/90 border-[var(--color-arcade-yellow)] text-[10px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-[0_3px_0_var(--color-arcade-ink)]"
+                title="Días restantes de tu prueba gratis"
+              >
+                <Sparkles className="w-3 h-3" />
+                {trialDaysLeft === 0
+                  ? 'Prueba finalizada'
+                  : `Prueba gratis · ${trialDaysLeft} ${trialDaysLeft === 1 ? 'día' : 'días'}`}
+              </span>
+            ) : null}
+          </div>
+        )}
 
         {/* Botones Derechos: Instalar App & Ayuda */}
         <div className="flex items-center gap-2">

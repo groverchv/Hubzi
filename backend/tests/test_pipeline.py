@@ -380,7 +380,8 @@ def test_rebuild_islands_groups_sections_and_scales_levels():
     folder["islands"] = islands
     assert len(islands) == 3
     assert all(i["id"].startswith("isl_") for i in islands)
-    assert all(3 <= i["total_levels"] <= 10 for i in islands)
+    # Campaña fija de 20 niveles por isla (regla de producto)
+    assert all(i["total_levels"] == 20 for i in islands)
     # Cada isla solo extrae SU texto — sin mezcla entre temas
     isl_ren = next(i for i in islands if "Renacimiento" in i["name"])
     txt = get_island_text(folder, isl_ren["id"])

@@ -64,6 +64,8 @@ class UserProfileResponse(BaseModel):
     voice_preference: str
     assigned_voice_gender: str  # "female" si es hombre, "male" si es mujer
     created_at: str | None = None
+    plan: str = "free"  # free | pro | school
+    trial_days_left: int | None = None  # días restantes de prueba (solo plan free)
 
 
 class AuthResponse(BaseModel):

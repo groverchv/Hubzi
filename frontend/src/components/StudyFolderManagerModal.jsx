@@ -106,6 +106,8 @@ export default function StudyFolderManagerModal({
 
   // Errores de subida por archivo (reemplaza los alert() nativos)
   const [uploadErrors, setUploadErrors] = useState([]);
+  // Cuota de almacenamiento de la cuenta (viene del backend en GET /folders)
+  const [storageInfo, setStorageInfo] = useState({ used_mb: 0, limit_mb: null });
 
   // Detección de temas en curso para la carpeta abierta (archipiélago)
   const [detectingTopics, setDetectingTopics] = useState(false);
@@ -196,6 +198,10 @@ export default function StudyFolderManagerModal({
           );
           setFolders(list);
           localStorage.setItem(currentKey, JSON.stringify(list));
+          setStorageInfo({
+            used_mb: data.storage_used_mb ?? 0,
+            limit_mb: data.storage_limit_mb ?? null,
+          });
         }
       })
       .catch(() => {});
@@ -210,10 +216,21 @@ export default function StudyFolderManagerModal({
     );
   };
 
+  // Plan del usuario: pro/school son premium (sin límites)
+  const isPremiumUser =
+    currentUser?.plan === 'pro' || currentUser?.plan === 'school';
+  const FREE_FOLDER_LIMIT = 1;
+
   // Crear nueva carpeta
   const handleCreateFolder = async (e) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
+
+    // Límite del plan gratis: 1 carpeta (el backend también lo exige con 402)
+    if (!isPremiumUser && folders.length >= FREE_FOLDER_LIMIT) {
+      if (onUpgradeToPro) onUpgradeToPro();
+      return;
+    }
 
     const folderItem = {
       id: `folder_${Date.now()}`,
@@ -238,6 +255,10 @@ export default function StudyFolderManagerModal({
       if (res.ok) {
         const savedDoc = await res.json();
         folderItem.id = savedDoc.id || folderItem.id;
+      } else if (res.status === 402) {
+        // Límite del plan alcanzado: no guardar local y ofrecer Pro
+        if (onUpgradeToPro) onUpgradeToPro();
+        return;
       }
     } catch (err) {
       console.warn("MongoDB no respondió, guardando en local storage privado:", err);
@@ -415,13 +436,43 @@ export default function StudyFolderManagerModal({
   // Subida paralela acotada (3 a la vez) con progreso real por archivo vía XHR.
   // El límite freemium lo impone el backend (402 → modal de upgrade).
   const handleUploadFilesToFolder = async (e) => {
-    const files = Array.from(e.target.files || []);
+    let files = Array.from(e.target.files || []);
     if (!files.length || !activeFolderView) return;
     // Las materias de colegio son de solo lectura para estudiantes
     if (activeFolderView.is_school_folder && activeFolderView.user_id !== currentUser?.id) return;
     e.target.value = '';
     setUploadErrors([]);
     const folderId = activeFolderView.id;
+
+    // Pre-check de cuota de almacenamiento (el backend vuelve a validar con 402):
+    // solo se sube lo que quepa; lo que exceda queda listado en uploadErrors.
+    if (storageInfo.limit_mb != null && !activeFolderView.is_school_folder) {
+      const limitBytes = storageInfo.limit_mb * 1048576;
+      let acc = storageInfo.used_mb * 1048576;
+      const fits = [];
+      const skipped = [];
+      for (const f of files) {
+        if (acc + f.size <= limitBytes) {
+          fits.push(f);
+          acc += f.size;
+        } else {
+          skipped.push(f);
+        }
+      }
+      if (skipped.length) {
+        setUploadErrors(
+          skipped.map(f => ({
+            name: f.name,
+            message: `supera tu límite de ${storageInfo.limit_mb} MB de almacenamiento. Borra archivos o pasa a Pro.`,
+          })),
+        );
+      }
+      if (!fits.length) {
+        if (onUpgradeToPro) onUpgradeToPro();
+        return;
+      }
+      files = fits;
+    }
 
     const CONCURRENCY = 3;
     for (let i = 0; i < files.length; i += CONCURRENCY) {
@@ -438,6 +489,10 @@ export default function StudyFolderManagerModal({
           folderStorageKey(currentUser),
           JSON.stringify(data.folders),
         );
+        setStorageInfo({
+          used_mb: data.storage_used_mb ?? 0,
+          limit_mb: data.storage_limit_mb ?? null,
+        });
         const currentFolder = data.folders.find(f => f.id === folderId);
         if (currentFolder) {
           setActiveFolderView(prev => {
@@ -988,7 +1043,9 @@ export default function StudyFolderManagerModal({
                 <span>Haz clic sobre cualquier carpeta para abrir su contenido y opciones</span>
               </span>
               <span className="font-bold text-slate-700">
-                Total: {folders.length} {folders.length === 1 ? 'carpeta' : 'carpetas'}
+                {isPremiumUser
+                  ? `Total: ${folders.length} ${folders.length === 1 ? 'carpeta' : 'carpetas'}${storageInfo.limit_mb != null ? ` · ${storageInfo.used_mb.toFixed(1)}/${storageInfo.limit_mb} MB` : ''}`
+                  : `Plan gratis: ${folders.length}/${FREE_FOLDER_LIMIT} ${folders.length === 1 ? 'carpeta' : 'carpetas'}${storageInfo.limit_mb != null ? ` · ${storageInfo.used_mb.toFixed(1)}/${storageInfo.limit_mb} MB` : ''}`}
               </span>
             </div>
           </>
@@ -1218,6 +1275,27 @@ export default function StudyFolderManagerModal({
                             <CheckCircle2 className="w-3.5 h-3.5" /> Archivo subido (esperando tu orden para procesar)
                           </span>
                         )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Barra de almacenamiento del plan (cuota total de la cuenta) */}
+                  {storageInfo.limit_mb != null && !activeFolderView.is_school_folder && (() => {
+                    const pct = Math.min(100, (storageInfo.used_mb / storageInfo.limit_mb) * 100);
+                    return (
+                      <div className="px-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
+                          <span className="uppercase tracking-wide">Almacenamiento de tu plan</span>
+                          <span className={pct >= 100 ? 'text-rose-600' : pct >= 80 ? 'text-amber-600' : 'text-slate-600'}>
+                            {storageInfo.used_mb.toFixed(1)} / {storageInfo.limit_mb} MB
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-rose-500' : pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
                     );
                   })()}

@@ -25,6 +25,7 @@ from app.core.plans import (
     enforce_docs_limit,
     enforce_folder_limit,
     enforce_question_limit,
+    enforce_storage_limit,
     get_limits,
 )
 from app.core.rate_limit import limiter
@@ -52,6 +53,7 @@ from app.services.document_store import (
 from app.services.document_store import (
     invalidate_folder_game_cache,
     persist_document_to_folder,
+    user_storage_bytes,
 )
 from app.services.document_store import (
     load_folder as _load_folder,
@@ -148,7 +150,20 @@ async def list_folders(
                 if iprog:
                     isl["campaign_progress"] = iprog
 
-    return {"folders": folders, "plan": get_user_plan(current_user)}
+    # Uso de almacenamiento de la cuenta (cuota freemium, para la UI)
+    used_bytes = 0
+    if effective_uid:
+        try:
+            used_bytes = await user_storage_bytes(effective_uid)
+        except Exception as e:
+            logger.warning(f"No se pudo calcular almacenamiento de {effective_uid}: {e}")
+    plan = get_user_plan(current_user)
+    return {
+        "folders": folders,
+        "plan": plan,
+        "storage_used_mb": round(used_bytes / 1024 / 1024, 2),
+        "storage_limit_mb": get_limits(plan)["max_storage_mb"],
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -742,6 +757,15 @@ async def upload_document_to_folder(
     filename = file.filename or "archivo"
     _validate_upload(file_bytes, filename)
 
+    # Cuota de almacenamiento total de la cuenta (las carpetas escolares las
+    # paga la institución). Check temprano — evita el costo OCR/IA si ya está llena.
+    if effective_plan != "school":
+        owner_id = folder_doc.get("user_id") or resolve_effective_user_id(
+            current_user, None
+        )
+        used_bytes = await user_storage_bytes(owner_id)
+        enforce_storage_limit(effective_plan, used_bytes, len(file_bytes))
+
     try:
         # Extracción/OCR son síncronos → thread para no congelar el event loop.
         extracted_text = await asyncio.to_thread(
@@ -782,6 +806,7 @@ async def upload_document_to_folder(
         "id": doc_id,
         "name": filename,
         "size": f"{len(file_bytes) / 1024:.1f} KB",
+        "size_bytes": len(file_bytes),
         "type": filename.split(".")[-1].lower(),
         "content_hash": content_hash,
         "extracted_text": extracted_text,

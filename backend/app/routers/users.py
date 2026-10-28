@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.age_bands import band_for_age, needs_parental_consent
 from app.core.database import db_manager
+from app.core.plans import trial_days_left
 from app.core.security import get_current_user, utcnow_iso
 from app.core.session_store import in_memory_auth_users, in_memory_study_folders
 from app.models.user import UserProfileResponse, UserRegisterRequest
@@ -121,6 +122,7 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
     """Perfil del usuario autenticado (desde JWT)."""
     user_id = str(current_user.get("id") or current_user.get("_id"))
     age = current_user.get("age") or 20  # tolera age=None en docs legacy
+    plan = current_user.get("plan", "free")
     return UserProfileResponse(
         id=user_id,
         email=current_user.get("email"),
@@ -132,6 +134,12 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
         voice_preference=current_user.get("voice_preference", "auto"),
         assigned_voice_gender=current_user.get("assigned_voice_gender", "female"),
         created_at=str(current_user.get("created_at", "")),
+        plan=plan,
+        trial_days_left=(
+            trial_days_left(str(current_user.get("created_at", "")))
+            if plan == "free"
+            else None
+        ),
     )
 
 

@@ -1,10 +1,12 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from app.core.plans import get_limits
 from app.core.rate_limit import limiter
+from app.core.security import get_optional_user, get_user_plan
 from app.services.voice_service import voice_service
 
 logger = logging.getLogger("hubzy.voice")
@@ -24,11 +26,17 @@ class SpeechRequest(BaseModel):
 
 @router.post("/speak")
 @limiter.limit("30/minute")
-async def speak_zen_voice(request: Request, payload: SpeechRequest):
+async def speak_zen_voice(
+    request: Request,
+    payload: SpeechRequest,
+    current_user: dict | None = Depends(get_optional_user),
+):
     """
     Genera audio adaptando prosodia y género de voz:
     - Si el usuario es hombre → voz femenina dulce y maternal.
     - Si la usuaria es mujer → voz masculina sabia y serena.
+    - La voz premium (ElevenLabs) es exclusiva de Pro/Escuela: el plan
+      free usa Edge-TTS neural.
     """
     audio_bytes = await voice_service.generate_speech(
         payload.text,
@@ -37,6 +45,7 @@ async def speak_zen_voice(request: Request, payload: SpeechRequest):
         stress_level=payload.stress_level,
         voice_gender=payload.voice_gender,
         user_gender=payload.user_gender,
+        premium_voice=get_limits(get_user_plan(current_user))["premium_voice"],
     )
     if not audio_bytes:
         raise HTTPException(status_code=503, detail="No se pudo generar el audio.")

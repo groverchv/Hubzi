@@ -17,6 +17,7 @@ from app.core.security import (
     utcnow_iso,
     verify_password,
 )
+from app.core.plans import trial_days_left
 from app.core.session_store import in_memory_auth_users
 from app.models.user import (
     AuthResponse,
@@ -44,6 +45,7 @@ def assign_voice_gender(gender: str, voice_preference: str | None = None) -> str
 
 def _to_profile(user_id: str, doc: dict) -> UserProfileResponse:
     age = doc.get("age") or 20  # legacy docs con age=None no rompen el perfil
+    plan = doc.get("plan", "free")
     return UserProfileResponse(
         id=user_id,
         email=doc.get("email"),
@@ -55,6 +57,12 @@ def _to_profile(user_id: str, doc: dict) -> UserProfileResponse:
         voice_preference=doc.get("voice_preference", "auto"),
         assigned_voice_gender=doc.get("assigned_voice_gender", "female"),
         created_at=str(doc.get("created_at", "")),
+        plan=plan,
+        trial_days_left=(
+            trial_days_left(str(doc.get("created_at", "")))
+            if plan == "free"
+            else None
+        ),
     )
 
 
