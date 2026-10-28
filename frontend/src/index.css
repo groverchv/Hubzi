@@ -345,6 +345,13 @@ html.low-power .drop-shadow-xl {
   .clouds-bg {
     display: none !important;
   }
+  /* Las nubes pintadas en el body (::before/::after con radial-gradient)
+     también se apagan — son la capa que borroneaba todo en móvil. */
+  body::before,
+  body::after {
+    display: none !important;
+    content: none !important;
+  }
 }
 
 /* === MODO LANDSCAPE COMPACTO (teléfonos horizontales) ===

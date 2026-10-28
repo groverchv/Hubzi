@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, animate } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 
@@ -110,22 +110,56 @@ export default function GameCard({
   }) || getDomainIcon(domain || name) || DOMAIN_ICONS[sourceType] || Sparkles;
   const cardTheme = CARD_THEMES[type] || CARD_THEMES.blue;
 
+  // En móvil horizontal el escenario usa transform: scale(0.55) — el drag
+  // nativo de framer-motion no corrige los deltas y la carta se separa del
+  // dedo. Se reemplaza por pan manual compensado por el factor de escala.
+  const zoomedMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(orientation: landscape) and (max-height: 640px)").matches;
+  const panX = useMotionValue(0);
+  const panY = useMotionValue(0);
+  const [isPanning, setIsPanning] = React.useState(false);
+  const manualDragProps =
+    isDraggable && zoomedMobile
+      ? {
+          onPanStart: () => setIsPanning(true),
+          onPan: (_e, info) => {
+            panX.set(panX.get() + info.delta.x / 0.55);
+            panY.set(panY.get() + info.delta.y / 0.55);
+          },
+          onPanEnd: (_e, info) => {
+            setIsPanning(false);
+            if (onDragEnd)
+              onDragEnd(id, {
+                point: { x: info.point.x, y: info.point.y },
+                offset: { x: panX.get(), y: panY.get() },
+              });
+            animate(panX, 0, { type: "spring", stiffness: 400, damping: 30 });
+            animate(panY, 0, { type: "spring", stiffness: 400, damping: 30 });
+          },
+        }
+      : {};
+
   return (
     <motion.div
-      drag={isDraggable}
+      drag={isDraggable && !zoomedMobile}
       dragSnapToOrigin={true}
       dragElastic={0.15}
       whileHover={{ scale: 1.13, y: -24, zIndex: 80 }}
-      whileDrag={{ 
-        scale: 0.9, 
+      whileDrag={{
+        scale: 0.9,
         zIndex: 9999,
         opacity: 0.97,
-        boxShadow: '0 0 38px rgba(251,146,60,0.9)' 
+        boxShadow: '0 0 38px rgba(251,146,60,0.9)'
       }}
+      animate={isPanning ? { scale: 0.9 } : { scale: 1 }}
       style={{
         rotate: `${rotation}deg`,
-        zIndex: isSelected ? 90 : zIndex,
+        zIndex: isPanning ? 9999 : isSelected ? 90 : zIndex,
+        x: panX,
+        y: panY,
       }}
+      {...manualDragProps}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       onTap={() => { if (onClick) onClick(id); }}
       onDragEnd={(e, info) => { if (onDragEnd) onDragEnd(id, info); }}
