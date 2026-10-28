@@ -47,8 +47,8 @@ const ISLAND_STYLES = [
   { icon: 'text-white', blob: 'from-amber-400 to-amber-500/85 border-amber-500/60',    ring: 'hover:border-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-300' },
 ];
 // Clave de storage por usuario: las carpetas de una cuenta logueada NUNCA
-// se escriben en la clave genérica — esa es del invitado y las filtraría a
-// quien use el navegador después sin sesión.
+// se escriben en la clave genérica — las filtraría a quien use el navegador
+// después con otra sesión.
 const folderStorageKey = (user) =>
   user?.id ? `${STORAGE_KEY}_${user.id}` : STORAGE_KEY;
 
@@ -220,7 +220,7 @@ export default function StudyFolderManagerModal({
       name: newFolderName.trim(),
       description: newFolderDesc.trim() || 'Juegos didácticos y preguntas personalizadas',
       created_at: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
-      user_id: currentUser?.id || 'guest',
+      user_id: currentUser?.id || null,
       documents: [],
       games: []
     };
@@ -232,7 +232,7 @@ export default function StudyFolderManagerModal({
         body: JSON.stringify({
           name: folderItem.name,
           description: folderItem.description,
-          user_id: currentUser?.id || 'guest'
+          user_id: currentUser?.id
         })
       });
       if (res.ok) {

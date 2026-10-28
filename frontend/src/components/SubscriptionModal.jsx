@@ -30,6 +30,10 @@ export default function SubscriptionModal({
   const isPro = currentUser?.plan === 'pro';
 
   const handleStripeCheckout = async () => {
+    if (!currentUser?.id) {
+      setErrorMsg('Inicia sesión para continuar con el pago.');
+      return;
+    }
     setIsLoading(true);
     setErrorMsg('');
 
@@ -38,8 +42,8 @@ export default function SubscriptionModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: currentUser?.id || 'guest_user',
-          email: currentUser?.email || 'estudiante@hubzi.app',
+          user_id: currentUser.id,
+          email: currentUser.email,
           plan_id: 'pro_monthly',
           success_url: window.location.origin + '/?payment=success',
           cancel_url: window.location.origin + '/?payment=cancelled'

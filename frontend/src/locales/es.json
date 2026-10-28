@@ -52,8 +52,7 @@
   },
   "auth": {
     "login": "Iniciar sesión",
-    "register": "Crear cuenta",
-    "guest": "Continuar como invitado"
+    "register": "Crear cuenta"
   },
   "common": {
     "loading": "Cargando…",

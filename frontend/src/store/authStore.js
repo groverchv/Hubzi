@@ -11,6 +11,11 @@ const LEGACY_TOKEN_KEY = "hubzy_auth_token";
 function loadLegacySession() {
   try {
     const user = JSON.parse(localStorage.getItem(LEGACY_USER_KEY) || "null");
+    // Las sesiones de invitado ya no existen: limpiarlas al cargar.
+    if (user?.is_guest) {
+      localStorage.removeItem(LEGACY_USER_KEY);
+      return { user: null, token: null };
+    }
     const token = localStorage.getItem(LEGACY_TOKEN_KEY);
     return { user, token };
   } catch {

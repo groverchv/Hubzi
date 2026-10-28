@@ -8,7 +8,6 @@ import {
   EyeOff, 
   LogIn, 
   UserPlus, 
-  Sparkles, 
   ShieldCheck, 
   Heart, 
   AlertCircle,
@@ -500,36 +499,6 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               >
                 ← Volver a iniciar sesión
               </button>
-            )}
-
-            {/* Ingreso Directo sin registrarse (Modo Invitado) */}
-            {mode !== 'forgot' && (
-            <button
-              type="button"
-              onClick={() => {
-                const guestUser = {
-                  id: `guest_${Date.now().toString(36)}`,
-                  email: 'invitado@hubzi.app',
-                  username: 'Invitado',
-                  gender: 'masculino',
-                  age: 14,
-                  avatar: 'capy_fan',
-                  voice_preference: 'auto',
-                  assigned_voice_gender: 'female',
-                  is_guest: true,
-                  created_at: new Date().toISOString()
-                };
-                localStorage.setItem('hubzy_current_user', JSON.stringify(guestUser));
-                setSuccessMsg('¡Ingreso directo concedido! Bienvenido.');
-                setTimeout(() => {
-                  onAuthSuccess(guestUser);
-                }, 400);
-              }}
-              className="w-full py-2.5 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)] animate-pulse" />
-              <span>Ingresar Directo (Sin Registro / Invitado)</span>
-            </button>
             )}
           </div>
         </form>

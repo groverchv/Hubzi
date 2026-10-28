@@ -101,7 +101,13 @@ export default function ArcadeArena() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem("hubzy_current_user");
-      return saved ? JSON.parse(saved) : null;
+      const parsed = saved ? JSON.parse(saved) : null;
+      // Las sesiones de invitado ya no son válidas: se descartan.
+      if (parsed?.is_guest) {
+        localStorage.removeItem("hubzy_current_user");
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -604,7 +610,7 @@ export default function ArcadeArena() {
     return nextUnlocked;
   };
 
-  // Guardar progreso: espejo localStorage (invitados/offline) + servidor.
+  // Guardar progreso: espejo localStorage (offline) + servidor.
   const persistCampaignProgress = (progress) => {
     if (!activeFolder?.id) return;
     try {

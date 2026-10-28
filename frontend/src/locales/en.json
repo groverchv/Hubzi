@@ -52,8 +52,7 @@
   },
   "auth": {
     "login": "Log in",
-    "register": "Create account",
-    "guest": "Continue as guest"
+    "register": "Create account"
   },
   "common": {
     "loading": "Loading…",
