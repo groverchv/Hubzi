@@ -36,7 +36,7 @@ export default function LandingPage() {
   const activeMascot = SHOWCASE_MASCOTS[selectedMascotIndex];
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-100 font-sans">
+    <div className="landing-stage min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-100 font-sans">
       <AnimatedCloudsBackground />
 
       {/* Nav */}

@@ -348,14 +348,20 @@ html.low-power .drop-shadow-xl {
 }
 
 @media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) {
-  /* Escenario completo escalado: la arena se dibuja como una ventana de
+  /* Escenario completo escalado: cada vista se dibuja como una ventana de
      laptop (~1500×700) y se reduce uniformemente a la pantalla real del
-     teléfono. Tablero, cartas, HUD y Hubzi conservan proporciones
-     idénticas a la versión de escritorio. */
-  .arena-stage {
+     teléfono. Tablero, cartas, HUD, Hubzi, landing y bienvenida conservan
+     proporciones idénticas a la versión de escritorio. */
+  .arena-stage,
+  .welcome-stage {
     zoom: 0.55;
     width: calc(100vw / 0.55) !important;
     height: calc(100dvh / 0.55) !important;
+  }
+  .landing-stage {
+    zoom: 0.55;
+    width: calc(100vw / 0.55) !important;
+    min-height: calc(100dvh / 0.55) !important;
   }
   /* max-h usa el vh real; en el espacio ampliado el tablero debe poder
      crecer hasta su tamaño de laptop (~485px del layout). */
