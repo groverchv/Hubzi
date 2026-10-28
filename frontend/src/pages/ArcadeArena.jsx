@@ -1684,7 +1684,9 @@ export default function ArcadeArena() {
   );
 
   // SI LA PANTALLA DE BIENVENIDA ESTÁ ACTIVA, SE MUESTRA EXCLUSIVAMENTE ELLA (SIN EL TABLERO NI EL JUEGO ABAJO)
-  if (isWelcomeScreenVisible) {
+  // Sin sesión la bienvenida es obligatoria: es la única puerta de entrada (login/registro).
+  const showWelcome = !currentUser || isWelcomeScreenVisible;
+  if (showWelcome) {
     return (
       <div className="relative w-screen h-screen overflow-hidden select-none">
         <WelcomeScreen
@@ -2260,79 +2262,8 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-      {/* SI EL JUEGO NO HA INICIADO: NO MOSTRAR LA TABLA NI EL MAZO VACÍO, MOSTRAR PASOS PARA INICIAR */}
-      {Object.keys(nodes).length === 0 ? (
-        <div className="flex-1 flex items-center justify-center w-full px-4 z-20 my-auto">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="w-full max-w-xl bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border-4 border-[var(--color-arcade-navy)] shadow-[0_20px_40px_rgba(18,36,67,0.2),0_10px_0_var(--color-arcade-navy)] flex flex-col items-center text-center relative overflow-hidden"
-          >
-            {/* Cabecera / Banner estilizado */}
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-orange-500 border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-white mb-4 shadow-[0_6px_0_var(--color-arcade-navy)]">
-              <Sparkles className="w-9 h-9 animate-bounce text-white drop-shadow" />
-            </div>
-
-            <div className="inline-block px-4 py-1 rounded-full bg-orange-100 border-2 border-orange-400 text-orange-800 font-black text-[11px] tracking-wider uppercase mb-2">
-              Hubzy
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-black text-[var(--color-arcade-navy)] tracking-wide uppercase mb-2">
-              ¡Aún no has iniciado tu partida!
-            </h2>
-            <p className="text-slate-600 font-medium text-sm sm:text-base max-w-md mb-6 leading-relaxed">
-              El tablero y tus cartas de batalla se generarán automáticamente a
-              partir de lo que desees estudiar hoy.
-            </p>
-
-            {/* Pasos requeridos con diseño arcade */}
-            <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 text-left">
-              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[var(--color-arcade-navy)] text-white text-xs font-black flex items-center justify-center">
-                  1
-                </span>
-                <span className="font-bold text-xs text-slate-800 uppercase">
-                  Abre tus carpetas
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Haz clic en el botón de carpetas de estudio.
-                </span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[var(--color-arcade-orange)] text-white text-xs font-black flex items-center justify-center">
-                  2
-                </span>
-                <span className="font-bold text-xs text-slate-800 uppercase">
-                  Sube tu tema
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Carga un PDF, video, audio o documento.
-                </span>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 flex flex-col items-start gap-1.5 shadow-sm">
-                <span className="w-6 h-6 rounded-full bg-[var(--color-arcade-green)] text-white text-xs font-black flex items-center justify-center">
-                  3
-                </span>
-                <span className="font-bold text-xs text-slate-800 uppercase">
-                  Genera el circuito
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  Presiona "Iniciar Juego" y que comience el duelo.
-                </span>
-              </div>
-            </div>
-
-            {/* Botón de acción principal Card Clash */}
-            <button
-              onClick={() => setIsFolderModalOpen(true)}
-              className="btn-arcade-banner-orange w-full sm:w-auto px-8 py-3.5 rounded-2xl text-base font-black uppercase tracking-wider flex items-center justify-center gap-3 cursor-pointer shadow-lg active:scale-95 transition-transform"
-            >
-              <FolderIcon className="w-5 h-5 text-white" />
-              <span>Abrir Carpetas y Seleccionar Tema</span>
-            </button>
-          </motion.div>
-        </div>
-      ) : (
+      {/* TABLERO Y MANO — SOLO CON PARTIDA ACTIVA (sin partida: solo cielo + barra) */}
+      {Object.keys(nodes).length > 0 && (
         <>
           {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
           <BoardConsole

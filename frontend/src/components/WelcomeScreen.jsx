@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Users, 
@@ -12,6 +13,7 @@ import {
   HelpCircle,
   GraduationCap,
   ArrowRight,
+  ArrowLeft,
   Play,
   Download,
   Smartphone,
@@ -34,6 +36,7 @@ export default function WelcomeScreen({
   isLoggedIn = false,
   username = ''
 }) {
+  const navigate = useNavigate();
   const { isInstalled, triggerInstall } = usePwaInstall();
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
@@ -104,8 +107,15 @@ export default function WelcomeScreen({
       {/* ── BARRA SUPERIOR: AJUSTES & ACCESO ── */}
       <div className="relative w-full px-4 sm:px-8 pt-4 flex items-center justify-between z-20">
 
-        {/* Botón Izquierdo: Iniciar Sesión / Cuenta */}
-        <div className="relative">
+        {/* Botón Izquierdo: Volver al inicio + Iniciar Sesión / Cuenta */}
+        <div className="relative flex items-center gap-2">
+          <button
+            onClick={() => navigate('/')}
+            className="p-3 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-ink)] text-white shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            title="Volver al inicio"
+          >
+            <ArrowLeft className="w-5 h-5 text-[var(--color-sky-400)]" />
+          </button>
           <button
             onClick={onOpenLogin}
             className="group relative flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-ink)] text-white transition-all shadow-[0_6px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none cursor-pointer"
