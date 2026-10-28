@@ -50,6 +50,26 @@ const ISLAND_STYLES = [
 const folderStorageKey = (user) =>
   user?.id ? `${STORAGE_KEY}_${user.id}` : STORAGE_KEY;
 
+// Fecha ISO "2026-10-28T00:48:55+00:00" → "28 oct 2026"
+const formatDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+// "22447.4 KB" → "22.4 MB" (auto-escala KB→MB→GB)
+const formatDocSize = (size) => {
+  if (!size) return '';
+  const m = /^([\d.]+)\s*(KB|MB|GB|B)?/i.exec(String(size));
+  if (!m) return String(size);
+  let n = parseFloat(m[1]);
+  let unit = (m[2] || 'KB').toUpperCase();
+  if (unit === 'KB' && n >= 1024) { n /= 1024; unit = 'MB'; }
+  if (unit === 'MB' && n >= 1024) { n /= 1024; unit = 'GB'; }
+  return `${Number.isInteger(n) ? n : n.toFixed(1)} ${unit}`;
+};
+
 export default function StudyFolderManagerModal({
   isOpen,
   currentUser,
@@ -800,7 +820,7 @@ export default function StudyFolderManagerModal({
                               }
                             }).catch(() => {});
                         }}
-                        className="relative p-5 rounded-3xl border-2 border-slate-200 hover:border-amber-400 bg-white hover:bg-sky-50 transition-all cursor-pointer flex flex-col justify-between group shadow-md hover:scale-[1.01]"
+                        className="relative p-5 rounded-3xl border-2 border-slate-300 hover:border-amber-400 bg-white hover:bg-sky-50 transition-all cursor-pointer flex flex-col justify-between group shadow-md hover:scale-[1.01]"
                       >
                         <div>
                           <div className="flex items-center justify-between mb-3">
@@ -813,7 +833,7 @@ export default function StudyFolderManagerModal({
                                   {folder.name}
                                 </h4>
                                 <span className="text-[11px] text-slate-500 font-medium">
-                                  {folder.created_at || 'Misión Activa'}
+                                  {folder.created_at ? `Creada el ${formatDate(folder.created_at)}` : 'Misión Activa'}
                                 </span>
                                 {folder.is_school_folder && (
                                   <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-300 text-[9px] font-black text-emerald-700 uppercase tracking-wide align-middle">
@@ -1018,7 +1038,7 @@ export default function StudyFolderManagerModal({
                               });
                             }
                           }}
-                          className={`group text-left rounded-2xl border-2 border-slate-200 ${style.ring} bg-white hover:bg-sky-50 p-4 transition-all cursor-pointer shadow-[0_3px_0_#cbd5e1] active:translate-y-0.5 active:shadow-none`}
+                          className={`group text-left rounded-2xl border-2 border-slate-300 ${style.ring} bg-white hover:bg-sky-50 p-4 transition-all cursor-pointer shadow-[0_3px_0_#cbd5e1] active:translate-y-0.5 active:shadow-none`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span className={`w-11 h-11 rounded-xl bg-gradient-to-br border flex items-center justify-center shrink-0 shadow-inner transition-transform group-hover:scale-110 ${style.blob}`}>
@@ -1170,11 +1190,11 @@ export default function StudyFolderManagerModal({
                         className={`p-3.5 rounded-2xl border-2 flex items-center justify-between group transition-all ${
                           doc.isUploading
                             ? 'bg-amber-50 border-amber-300 animate-pulse'
-                            : 'bg-white border-slate-200 hover:border-slate-400'
+                            : 'bg-white border-slate-300 hover:border-slate-400'
                         }`}
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 flex items-center justify-center shrink-0">
                             {doc.isUploading
                               ? <span className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
                               : getDocIcon(doc.name)
@@ -1197,7 +1217,7 @@ export default function StudyFolderManagerModal({
                             }`}>
                               {doc.isUploading
                                 ? (doc.uploaded_at || 'Cargando archivo...')
-                                : `${doc.size || 'Cargado'} • ${doc.uploaded_at || 'Listo'}`
+                                : `${formatDocSize(doc.size) || 'Cargado'} • ${formatDate(doc.uploaded_at) || 'Listo'}`
                               }
                             </span>
                           </div>
