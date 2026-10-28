@@ -133,7 +133,7 @@ export default function LandingPage() {
           </motion.div>
 
           {/* Showcase de Mascota (~30% derecha) con anterior/siguiente */}
-          <div className="w-full sm:w-[30%] flex flex-col items-center shrink-0">
+          <div className="w-full sm:w-auto flex flex-col items-center shrink-0">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] text-white text-[10px] xl:text-xs font-black uppercase tracking-wider shadow-md mb-2 xl:mb-3">
               <GraduationCap className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
               <span>Compañeros Hubzi</span>

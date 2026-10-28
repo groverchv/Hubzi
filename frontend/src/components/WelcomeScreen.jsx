@@ -177,7 +177,7 @@ export default function WelcomeScreen({
 
         {/* Chip central: días de prueba gratis / insignia PRO */}
         {isLoggedIn && (
-          <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center">
+          <div className="absolute left-1/2 -translate-x-1/2 hidden sm:flex items-center">
             {isPremium ? (
               <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/90 border-2 border-emerald-300 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_3px_0_rgba(4,120,87,0.6)]">
                 <Sparkles className="w-3 h-3" />
@@ -291,7 +291,7 @@ export default function WelcomeScreen({
           whileHover={{ scale: 1.04, y: -2 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => onOpenLegal && onOpenLegal('terms')}
-          className="absolute left-4 sm:left-8 lg:left-12 top-1/2 -translate-y-1/2 hidden md:flex flex-col items-center cursor-pointer group select-none z-30"
+          className="absolute left-4 sm:left-8 lg:left-12 top-1/2 -translate-y-1/2 hidden sm:flex flex-col items-center cursor-pointer group select-none z-30"
           title="Ver Términos y Condiciones, Políticas y Legal"
         >
           <div className="w-22 h-22 sm:w-24 sm:h-24 mb-2 relative flex items-center justify-center">
@@ -315,7 +315,7 @@ export default function WelcomeScreen({
           whileHover={{ scale: 1.04, y: -2 }}
           whileTap={{ scale: 0.97 }}
           onClick={onOpenTutorial}
-          className="absolute right-4 sm:right-8 lg:right-12 top-1/2 -translate-y-1/2 hidden md:flex flex-col items-center cursor-pointer group select-none z-30"
+          className="absolute right-4 sm:right-8 lg:right-12 top-1/2 -translate-y-1/2 hidden sm:flex flex-col items-center cursor-pointer group select-none z-30"
           title="Ver Tutorial de Hubzy"
         >
           <div className="w-22 h-22 sm:w-24 sm:h-24 mb-2 relative flex items-center justify-center">
@@ -384,7 +384,7 @@ export default function WelcomeScreen({
           </motion.button>
 
           {/* Accesos rápidos en móviles (Tutorial y Legal) */}
-          <div className="flex md:hidden items-center justify-center gap-4 pt-1">
+          <div className="flex sm:hidden items-center justify-center gap-4 pt-1">
             <button
               onClick={() => onOpenLegal && onOpenLegal('terms')}
               className="text-xs font-bold text-slate-300 hover:text-cyan-300 flex items-center gap-1.5 py-1 px-3 rounded-xl bg-[var(--color-arcade-navy-dark)]/80 border border-slate-700/50 cursor-pointer active:scale-95 transition-all"

@@ -347,8 +347,7 @@ html.low-power .drop-shadow-xl {
   height: 112px;
 }
 
-@media (orientation: landscape) and (max-height: 640px) and (pointer: coarse),
-       (orientation: landscape) and (max-height: 640px) and (hover: none) {
+@media (orientation: landscape) and (max-height: 640px) {
   /* Escenario completo escalado: cada vista se dibuja como una ventana de
      laptop (~1500×700) y se reduce uniformemente a la pantalla real del
      teléfono. Tablero, cartas, HUD, Hubzi, landing y bienvenida conservan
@@ -389,6 +388,15 @@ html.low-power .drop-shadow-xl {
      crecer hasta su tamaño de laptop (~485px del layout). */
   .arena-stage .board-table-3d {
     max-height: none !important;
+  }
+  /* El baúl de carpetas ocupa toda la pantalla en móvil horizontal */
+  .folder-modal-panel {
+    max-width: none !important;
+    max-height: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    border-width: 0 !important;
   }
   /* Tap targets mínimos aunque todo se vea como laptop */
   .touch-target {
