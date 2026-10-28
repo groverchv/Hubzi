@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Sparkles, BookOpen, Swords, Wind, ArrowRight, HeartHandshake, GraduationCap, Crown, Check, School } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, BookOpen, Swords, Wind, ArrowRight, HeartHandshake, GraduationCap, Crown, Check, School, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
 import SubscriptionModal from "../components/SubscriptionModal";
@@ -34,6 +34,8 @@ export default function LandingPage() {
   const [selectedMascotIndex, setSelectedMascotIndex] = useState(0);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const activeMascot = SHOWCASE_MASCOTS[selectedMascotIndex];
+  const nextMascot = () => setSelectedMascotIndex((i) => (i + 1) % SHOWCASE_MASCOTS.length);
+  const prevMascot = () => setSelectedMascotIndex((i) => (i - 1 + SHOWCASE_MASCOTS.length) % SHOWCASE_MASCOTS.length);
 
   const planCheck = (cls, iconCls) => (
     <div className={`w-4 h-4 rounded-md ${cls} flex items-center justify-center shrink-0`}>
@@ -78,64 +80,92 @@ export default function LandingPage() {
       {/* Contenido de una sola pantalla — si el contenido excede el alto
           disponible, el scroll queda dentro de este contenedor */}
       <main className="relative z-10 mx-auto w-full max-w-[1600px] flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 pt-1 pb-3 text-center flex flex-col justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="mx-auto mb-2.5 inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
-            <Sparkles className="w-3.5 h-3.5" /> {t("app.tagline")}
-          </div>
+        {/* Hero: información a la izquierda (~70%), mascota a la derecha (~30%) */}
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex-1 text-center lg:text-left"
+          >
+            <div className="mb-2.5 inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
+              <Sparkles className="w-3.5 h-3.5" /> {t("app.tagline")}
+            </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black uppercase leading-tight text-[var(--color-arcade-navy)] drop-shadow-sm">
-            {t("landing.hero_title")}
-          </h1>
-          <p className="mx-auto mt-2.5 max-w-3xl text-sm sm:text-base font-semibold text-slate-700">
-            {t("landing.hero_subtitle")}
-          </p>
+            <h1 className="text-3xl sm:text-5xl font-black uppercase leading-tight text-[var(--color-arcade-navy)] drop-shadow-sm">
+              {t("landing.hero_title")}
+            </h1>
+            <p className="mx-auto lg:mx-0 mt-2.5 max-w-3xl text-sm sm:text-base font-semibold text-slate-700">
+              {t("landing.hero_subtitle")}
+            </p>
 
-          <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              to="/arena"
-              className="group inline-flex items-center gap-2 rounded-3xl bg-[var(--color-arcade-orange)] px-7 py-3 text-base font-black uppercase text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
-            >
-              {t("landing.cta_start")}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              to="/zen"
-              className="inline-flex items-center gap-2 rounded-3xl bg-white/80 px-7 py-3 text-base font-black uppercase text-[var(--color-arcade-navy)] border-b-6 border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
-            >
-              <Wind className="w-5 h-5" /> {t("nav.zen")}
-            </Link>
-          </div>
-        </motion.div>
-
-        {/* Tira de Mascotas Oficiales de Hubzy (src/assets/mascots) */}
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-arcade-navy)] text-white text-[10px] font-black uppercase tracking-wider shadow-md">
-            <GraduationCap className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
-            <span>Compañeros Hubzi</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {SHOWCASE_MASCOTS.map((m, idx) => (
-              <button
-                key={m.name}
-                onClick={() => setSelectedMascotIndex(idx)}
-                title={m.name}
-                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 overflow-hidden transition-all cursor-pointer bg-white/80 ${
-                  idx === selectedMascotIndex
-                    ? "border-[var(--color-arcade-yellow)] scale-110 shadow-lg"
-                    : "border-white/60 hover:scale-105 shadow-sm"
-                }`}
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+              <Link
+                to="/arena"
+                className="group inline-flex items-center gap-2 rounded-3xl bg-[var(--color-arcade-orange)] px-7 py-3 text-base font-black uppercase text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
               >
-                <img src={m.image} alt={m.name} className="w-full h-full object-contain" />
+                {t("landing.cta_start")}
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                to="/zen"
+                className="inline-flex items-center gap-2 rounded-3xl bg-white/80 px-7 py-3 text-base font-black uppercase text-[var(--color-arcade-navy)] border-b-6 border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
+              >
+                <Wind className="w-5 h-5" /> {t("nav.zen")}
+              </Link>
+            </div>
+          </motion.div>
+
+          {/* Showcase de Mascota (~30% derecha) con anterior/siguiente */}
+          <div className="w-full lg:w-[30%] flex flex-col items-center shrink-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] text-white text-[10px] font-black uppercase tracking-wider shadow-md mb-2">
+              <GraduationCap className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
+              <span>Compañeros Hubzi</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={prevMascot}
+                aria-label="Mascota anterior"
+                className="w-9 h-9 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+              >
+                <ChevronLeft className="w-5 h-5" />
               </button>
-            ))}
-          </div>
-          <div className="text-left leading-tight min-w-[130px]">
-            <p className="text-xs font-black text-[var(--color-arcade-navy)] uppercase">{activeMascot.name}</p>
-            <p className="text-[10px] font-bold text-slate-600">{activeMascot.role}</p>
+              <div className="flex flex-col items-center">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeMascot.name}
+                    initial={{ opacity: 0, scale: 0.9, x: 20 }}
+                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, x: -20 }}
+                    transition={{ duration: 0.22 }}
+                    className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] bg-gradient-to-br from-white/90 to-slate-100/80 border-4 border-[var(--color-arcade-navy)] shadow-2xl overflow-hidden flex items-center justify-center"
+                  >
+                    <img
+                      src={activeMascot.image}
+                      alt={activeMascot.name}
+                      className="w-full h-full object-contain drop-shadow-md scale-105"
+                    />
+                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-xl bg-[var(--color-arcade-navy)] shadow-md whitespace-nowrap">
+                      <span className="text-[10px] font-black uppercase tracking-wide text-[var(--color-arcade-yellow)]">
+                        {activeMascot.name}
+                      </span>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+                <p className="mt-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                  {activeMascot.role}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={nextMascot}
+                aria-label="Siguiente mascota"
+                className="w-9 h-9 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
