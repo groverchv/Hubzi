@@ -79,7 +79,8 @@ export default function LandingPage() {
 
       {/* Contenido de una sola pantalla — si el contenido excede el alto
           disponible, el scroll queda dentro de este contenedor */}
-      <main className="relative z-10 mx-auto w-full max-w-[1600px] flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 pt-1 pb-3 text-center flex flex-col justify-center">
+      <main className="relative z-10 mx-auto w-full max-w-[1600px] flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 pt-1 pb-3 text-center flex flex-col">
+        <div className="my-auto w-full">
         {/* Hero: información a la izquierda (~70%), mascota a la derecha (~30%) */}
         <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
           <motion.div
@@ -409,6 +410,7 @@ export default function LandingPage() {
         <div className="mx-auto mt-3 flex max-w-xl items-center gap-2 rounded-xl bg-white/70 px-3 py-1.5 text-left text-[10px] text-slate-600">
           <HeartHandshake className="w-4 h-4 shrink-0 text-rose-500" />
           <p>{t("landing.disclaimer")}</p>
+        </div>
         </div>
       </main>
 
