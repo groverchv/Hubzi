@@ -1105,7 +1105,9 @@ export default function StudyFolderManagerModal({
                 </div>
               )}
 
-              {(!activeFolderView.documents || activeFolderView.documents.length === 0) ? (
+              {/* La lista de archivos pertenece al paso anterior: se oculta
+                  mientras el archipiélago está visible para elegir campaña. */}
+              {!showIslandPicker && ((!activeFolderView.documents || activeFolderView.documents.length === 0) ? (
                 <div className="py-12 px-4 rounded-3xl border-2 border-dashed border-slate-300 bg-white/70 text-center flex flex-col items-center justify-center">
                   <div className="w-16 h-16 rounded-3xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
                     <UploadCloud className="w-8 h-8 text-cyan-500" />
@@ -1239,7 +1241,7 @@ export default function StudyFolderManagerModal({
                     ))}
                   </div>
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Barra Inferior con Opciones de Juego */}
