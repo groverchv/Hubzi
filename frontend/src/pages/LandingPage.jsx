@@ -77,7 +77,7 @@ export default function LandingPage() {
 
       {/* Contenido de una sola pantalla — si el contenido excede el alto
           disponible, el scroll queda dentro de este contenedor */}
-      <main className="relative z-10 mx-auto w-full max-w-5xl flex-1 min-h-0 overflow-y-auto px-6 pt-1 pb-3 text-center flex flex-col justify-center">
+      <main className="relative z-10 mx-auto w-full max-w-[1600px] flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 pt-1 pb-3 text-center flex flex-col justify-center">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -172,7 +172,7 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3 max-w-6xl mx-auto text-left items-stretch">
+          <div className="grid gap-5 md:grid-cols-3 w-full mx-auto text-left items-stretch">
             {/* PLAN GRATUITO */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

@@ -370,10 +370,9 @@ html.low-power .drop-shadow-xl {
   .landing-stage .sm\:flex-row {
     flex-direction: row !important;
   }
-  /* El contenedor principal del landing usa el ancho ampliado (laptop
-     ~1534px) en vez de quedar centrado en 1024px con márgenes vacíos. */
-  .landing-stage .max-w-5xl {
-    max-width: 1360px !important;
+  /* En móvil horizontal el landing usa todo el ancho del layout ampliado */
+  .landing-stage .max-w-\[1600px\] {
+    max-width: none !important;
   }
   .arena-stage,
   .welcome-stage {
