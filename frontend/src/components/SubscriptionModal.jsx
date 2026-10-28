@@ -119,7 +119,7 @@ export default function SubscriptionModal({
                 $2.99
               </span>
               <span className="text-xs font-bold text-slate-300">
-                USD / mes <span className="text-emerald-400">(~20 Bs)</span>
+                USD / mes
               </span>
             </div>
           </div>

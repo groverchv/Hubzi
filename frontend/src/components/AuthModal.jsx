@@ -152,7 +152,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         avatar: 'capy_fan',
         voice_preference: 'auto',
         assigned_voice_gender: (mode === 'register' ? gender : 'masculino') === 'masculino' ? 'female' : 'male',
-        created_at: 'now'
+        created_at: new Date().toISOString()
       };
       localStorage.setItem('hubzy_current_user', JSON.stringify(fallbackUser));
       useAuthStore.getState().setUser(fallbackUser);

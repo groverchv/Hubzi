@@ -81,6 +81,9 @@ export default function StudyFolderManagerModal({
   onUpgradeToPro
 }) {
   const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
+  // Carpeta abierta al recargar: el baúl recuerda dentro de cuál estabas
+  const folderViewKey = currentUser?.id ? `hubzy_folder_view_${currentUser.id}` : 'hubzy_folder_view';
+  const restoredViewRef = useRef(false);
 
   const [folders, setFolders] = useState(() => {
     try {
@@ -171,8 +174,20 @@ export default function StudyFolderManagerModal({
 
   // Cargar las carpetas privadas del usuario activo desde el backend o localStorage
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      restoredViewRef.current = false;
+      return;
+    }
     const currentKey = folderStorageKey(currentUser);
+    const savedViewId = localStorage.getItem(folderViewKey) || '';
+    const restoreView = (list) => {
+      if (restoredViewRef.current || !savedViewId) return;
+      const match = (list || []).find((f) => f.id === savedViewId);
+      if (match) {
+        setActiveFolderView(match);
+        restoredViewRef.current = true;
+      }
+    };
     try {
       const saved = localStorage.getItem(currentKey);
       if (saved) {
@@ -181,6 +196,7 @@ export default function StudyFolderManagerModal({
           (f) => f?.id !== 'folder_administracion_default',
         );
         setFolders(cleaned);
+        restoreView(cleaned);
       } else {
         setFolders([]);
       }
@@ -202,11 +218,20 @@ export default function StudyFolderManagerModal({
             used_mb: data.storage_used_mb ?? 0,
             limit_mb: data.storage_limit_mb ?? null,
           });
+          restoreView(list);
         }
       })
       .catch(() => {});
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentUser]);
+
+  // Recordar dentro de qué carpeta estabas (para volver ahí tras recargar)
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      localStorage.setItem(folderViewKey, activeFolderView?.id || '');
+    } catch {}
+  }, [activeFolderView, currentUser, folderViewKey]);
 
   const saveFolders = (updatedList) => {
     setFolders(updatedList);
@@ -322,6 +347,8 @@ export default function StudyFolderManagerModal({
     setConfirmState(null);
     if (action.type === 'delete') {
       await handleDeleteFolder(action.folder.id);
+    } else if (action.type === 'deleteDoc') {
+      await handleDeleteDoc(action.doc.id || action.doc.name);
     } else if (action.type === 'save') {
       await handleUpdateFolder();
     }
@@ -1083,8 +1110,9 @@ export default function StudyFolderManagerModal({
                 </div>
               </div>
 
-              {/* Botón para Subir Más Archivos — oculto a estudiantes en carpetas de colegio */}
-              {(!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
+              {/* Botón para Subir Más Archivos — oculto a estudiantes en carpetas de colegio
+                  y cuando el archipiélago está visible (ahí solo se elige isla) */}
+              {!showIslandPicker && (!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="px-4 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
@@ -1371,7 +1399,7 @@ export default function StudyFolderManagerModal({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteDoc(doc.id || doc.name);
+                              setConfirmState({ type: 'deleteDoc', doc });
                             }}
                             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-200"
                             title="Quitar archivo de la carpeta"
@@ -1386,7 +1414,8 @@ export default function StudyFolderManagerModal({
               ))}
             </div>
 
-            {/* Barra Inferior con Opciones de Juego */}
+            {/* Barra Inferior con Opciones de Juego — oculta cuando el archipiélago está visible (ahí se elige isla) */}
+            {!showIslandPicker && (
             <div className="p-5 border-t-2 border-slate-200 bg-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-600">
                 {(() => {
@@ -1449,7 +1478,7 @@ export default function StudyFolderManagerModal({
                       ) : (
                         <>
                           <Gamepad2 className="w-5 h-5 stroke-[2.5] text-white" />
-                          <span>Iniciar Juego Directamente</span>
+                          <span>Iniciar Juego</span>
                         </>
                       )}
                     </button>
@@ -1457,6 +1486,7 @@ export default function StudyFolderManagerModal({
                 })()}
               </div>
             </div>
+            )}
           </>
         )}
 
@@ -1544,23 +1574,27 @@ export default function StudyFolderManagerModal({
                 aria-modal="true"
               >
                 <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center border-2 mb-3 ${
-                  confirmState.type === 'delete'
-                    ? 'bg-rose-50 border-rose-300 text-rose-500'
-                    : 'bg-emerald-50 border-emerald-300 text-emerald-600'
+                  confirmState.type === 'save'
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-600'
+                    : 'bg-rose-50 border-rose-300 text-rose-500'
                 }`}>
-                  {confirmState.type === 'delete'
-                    ? <AlertTriangle className="w-7 h-7" />
-                    : <CheckCircle2 className="w-7 h-7" />}
+                  {confirmState.type === 'save'
+                    ? <CheckCircle2 className="w-7 h-7" />
+                    : <AlertTriangle className="w-7 h-7" />}
                 </div>
                 <h3 className="text-base font-black text-slate-800">
-                  {confirmState.type === 'delete'
-                    ? '¿Eliminar esta carpeta?'
-                    : '¿Guardar los cambios?'}
+                  {confirmState.type === 'save'
+                    ? '¿Guardar los cambios?'
+                    : confirmState.type === 'deleteDoc'
+                    ? '¿Eliminar este archivo?'
+                    : '¿Eliminar esta carpeta?'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                  {confirmState.type === 'delete'
-                    ? `"${confirmState.folder?.name}" y todo su contenido se eliminarán permanentemente.`
-                    : `La carpeta se actualizará con el nuevo nombre "${editingFolder?.name}".`}
+                  {confirmState.type === 'save'
+                    ? `La carpeta se actualizará con el nuevo nombre "${editingFolder?.name}".`
+                    : confirmState.type === 'deleteDoc'
+                    ? `"${confirmState.doc?.name}" se eliminará permanentemente de esta carpeta y liberará espacio de tu plan.`
+                    : `"${confirmState.folder?.name}" y todo su contenido se eliminarán permanentemente.`}
                 </p>
                 <div className="flex gap-2 mt-5">
                   <button
@@ -1574,12 +1608,12 @@ export default function StudyFolderManagerModal({
                     type="button"
                     onClick={handleConfirmAction}
                     className={`flex-1 px-4 py-2.5 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer active:translate-y-0.5 ${
-                      confirmState.type === 'delete'
-                        ? 'bg-rose-500 hover:bg-rose-400 shadow-[0_4px_0_#9f1239] active:shadow-none'
-                        : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:shadow-none'
+                      confirmState.type === 'save'
+                        ? 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:shadow-none'
+                        : 'bg-rose-500 hover:bg-rose-400 shadow-[0_4px_0_#9f1239] active:shadow-none'
                     }`}
                   >
-                    {confirmState.type === 'delete' ? 'Sí, eliminar' : 'Sí, guardar'}
+                    {confirmState.type === 'save' ? 'Sí, guardar' : 'Sí, eliminar'}
                   </button>
                 </div>
               </motion.div>

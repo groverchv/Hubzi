@@ -290,17 +290,101 @@ export default function ArcadeArena() {
 
   // Con sesión iniciada y sin partida/mapa/menú visible, la arena no debe
   // quedar vacía: el baúl de carpetas se abre solo (p. ej. tras "Empezar").
+  // Persistencia de vista de la arena: al recargar la página el jugador
+  // vuelve exactamente donde estaba (menú, baúl, mapa o tablero) en vez de
+  // caer siempre en la bienvenida.
+  const ARENA_SESSION_KEY = "hubzy_arena_session";
+  const arenaRestoreRef = useRef(false); // ya se intentó restaurar
+  const sessionReadyRef = useRef(false); // la sesión ya puede sobrescribirse
+
   useEffect(() => {
-    if (
-      currentUser &&
-      !isWelcomeScreenVisible &&
-      !isMapVisible &&
-      !isFolderModalOpen &&
-      Object.keys(nodes).length === 0
-    ) {
-      setIsFolderModalOpen(true);
+    if (!currentUser || arenaRestoreRef.current) return;
+    arenaRestoreRef.current = true;
+    let sess = null;
+    try {
+      sess = JSON.parse(localStorage.getItem(ARENA_SESSION_KEY) || "null");
+    } catch {}
+    if (!sess || !sess.view || sess.view === "menu") {
+      sessionReadyRef.current = true;
+      return;
     }
-  }, [currentUser, isWelcomeScreenVisible, isMapVisible, isFolderModalOpen, nodes]);
+    (async () => {
+      try {
+        setIsWelcomeScreenVisible(false);
+        if (sess.view === "folders") {
+          setIsFolderModalOpen(true);
+          return;
+        }
+        // game / map: reconstruir la carpeta desde el backend o la caché local
+        let folders = [];
+        try {
+          const res = await fetchWithAuth("/api/v1/folders");
+          if (res.ok) folders = (await res.json())?.folders || [];
+        } catch {}
+        if (!folders.length) {
+          try {
+            const key = currentUser?.id
+              ? `hubzy_user_study_folders_${currentUser.id}`
+              : "hubzy_user_study_folders";
+            folders = JSON.parse(localStorage.getItem(key) || "[]");
+          } catch {}
+        }
+        const folder = folders.find((f) => f.id === sess.folderId);
+        if (!folder) {
+          setIsFolderModalOpen(true);
+          return;
+        }
+        const island =
+          (folder.islands || []).find((i) => i.id === sess.islandId) || null;
+        hydrateCachedBoards(folder);
+        setActiveFolder(folder);
+        setActiveIsland(island);
+        const lvl = sess.level || getResumeLevel(folder, island);
+        setCurrentLevel(lvl);
+        if (sess.view === "map") {
+          setIsMapVisible(true);
+        } else {
+          await loadGameForLevel(lvl, folder, false, island);
+        }
+      } finally {
+        sessionReadyRef.current = true;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      localStorage.removeItem(ARENA_SESSION_KEY);
+      return;
+    }
+    if (!sessionReadyRef.current) return; // no pisar la sesión antes de restaurarla
+    let view = "menu";
+    if (Object.keys(nodes).length > 0 || isGeneratingArena) view = "game";
+    else if (isMapVisible) view = "map";
+    else if (isFolderModalOpen) view = "folders";
+    try {
+      localStorage.setItem(
+        ARENA_SESSION_KEY,
+        JSON.stringify({
+          view,
+          folderId: activeFolder?.id || null,
+          islandId: activeIsland?.id || null,
+          level: currentLevel,
+        }),
+      );
+    } catch {}
+  }, [
+    currentUser,
+    nodes,
+    isGeneratingArena,
+    isMapVisible,
+    isFolderModalOpen,
+    isWelcomeScreenVisible,
+    activeFolder,
+    activeIsland,
+    currentLevel,
+  ]);
 
   // Accesibilidad (A11y): Cerrar cualquier modal activo al presionar la tecla Escape
   useEffect(() => {

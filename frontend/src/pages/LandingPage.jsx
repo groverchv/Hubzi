@@ -294,7 +294,7 @@ export default function LandingPage() {
 
                 <div className="mt-5 mb-6 flex items-baseline gap-1.5">
                   <span className="text-4xl sm:text-5xl font-black text-[var(--color-arcade-yellow)] drop-shadow">$2.99</span>
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">USD / mes <span className="text-emerald-400 font-extrabold">(~20 Bs)</span></span>
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">USD / mes</span>
                 </div>
 
                 <div className="space-y-3 text-xs font-bold text-slate-200 border-t border-[var(--color-arcade-navy-light)] pt-5">

@@ -151,6 +151,16 @@ async def _resolve_user(user_id: str) -> dict | None:
         user = await db_manager.db["users"].find_one(query)
         if user:
             user["id"] = str(user["_id"])
+            # Auto-curación: docs antiguos con created_at inválido ("now", null,
+            # o formato viejo) reciben una fecha real para que la prueba funcione.
+            try:
+                datetime.fromisoformat(str(user.get("created_at", "")).replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                user["created_at"] = utcnow_iso()
+                await db_manager.db["users"].update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"created_at": user["created_at"]}},
+                )
             return user
 
     for u in in_memory_auth_users.values():
