@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Flame,
-  School,
 } from "lucide-react";
 
 import QuestionModal from "../components/QuestionModal";
@@ -29,7 +28,6 @@ import TutorialModal from "../components/TutorialModal";
 import VictoryModal from "../components/VictoryModal";
 import WelcomeScreen from "../components/WelcomeScreen";
 import GenerationOverlay from "../components/GenerationOverlay";
-import CoachMark from "../components/CoachMark";
 import AdventureMap from "../components/AdventureMap";
 import LegalModal from "../components/LegalModal";
 import CookieConsentBanner from "../components/CookieConsentBanner";
@@ -156,7 +154,7 @@ export default function ArcadeArena() {
     setIsAuthModalOpen(true);
   };
 
-  // Confirmación de cierre de sesión (cuenta en bienvenida / botón Salir)
+  // Confirmación de cierre de sesión (botón de cuenta en la bienvenida)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   // Modal de Suscripción Stripe (Hubzy Pro)
@@ -252,19 +250,6 @@ export default function ArcadeArena() {
   // Modales (Flujo: 1. Autenticación -> 2. Carpetas/Material -> 3. Zen Relax -> 4. Juego en Vivo)
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isInstitutionModalOpen, setIsInstitutionModalOpen] = useState(false);
-  const [hasInstitution, setHasInstitution] = useState(false);
-
-  // El botón COLEGIO solo existe si la cuenta ya pertenece a una institución
-  useEffect(() => {
-    if (!currentUser) {
-      setHasInstitution(false);
-      return;
-    }
-    fetchWithAuth("/api/v1/institutions/mine")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setHasInstitution(Boolean(d?.institution)))
-      .catch(() => setHasInstitution(false));
-  }, [currentUser]);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
   const [victoryStats, setVictoryStats] = useState({
@@ -1694,8 +1679,8 @@ export default function ArcadeArena() {
     </AnimatePresence>
   );
 
-  // Confirmación de cierre de sesión — se comparte entre la bienvenida
-  // (botón de cuenta) y la barra del juego (botón Salir).
+  // Confirmación de cierre de sesión — se abre desde el botón de cuenta
+  // de la bienvenida y desde el modal de perfil.
   const logoutConfirmModal = (
     <AnimatePresence>
       {isLogoutConfirmOpen && (
@@ -2171,24 +2156,7 @@ export default function ArcadeArena() {
           <span className="hidden lg:inline">Carpetas</span>
         </button>
 
-        {/* BOTÓN COLEGIO / INSTITUCIÓN — solo cuentas ya afiliadas a un colegio */}
-        {currentUser && hasInstitution && (
-          <span className="relative inline-flex">
-            <CoachMark id="school">
-              ¿Eres docente? Crea tu colegio, genera códigos de clase y mira el progreso de tus estudiantes aquí.
-            </CoachMark>
-            <button
-              onClick={() => setIsInstitutionModalOpen(true)}
-              className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer"
-              title="Hubzy para Colegios: grados, materias y panel docente"
-              aria-label="Abrir Hubzy para Colegios"
-            >
-              <School className="w-4 h-4 text-emerald-300" />
-              <span className="hidden lg:inline">Colegio</span>
-            </button>
-          </span>
-        )}
-        {/* BOTÓN PERFIL / INICIAR SESIÓN / CERRAR SESIÓN */}
+        {/* BOTÓN PERFIL / INICIAR SESIÓN */}
         {currentUser ? (
           <div className="flex items-center gap-1 bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] rounded-2xl p-1 shadow-[0_4px_0_var(--color-arcade-ink)]">
             <button
@@ -2211,14 +2179,6 @@ export default function ArcadeArena() {
                     : `${currentUser?.age}a • ${currentUser?.gender === "femenino" ? "Voz Masc." : "Voz Fem."}`}
                 </span>
               </div>
-            </button>
-            <button
-              onClick={() => setIsLogoutConfirmOpen(true)}
-              className="px-2.5 py-1.5 hover:bg-rose-900/80 hover:text-rose-200 text-slate-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-              title="Cerrar sesión de esta cuenta"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wide">Salir</span>
             </button>
           </div>
         ) : (
