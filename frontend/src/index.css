@@ -347,7 +347,7 @@ html.low-power .drop-shadow-xl {
   height: 112px;
 }
 
-@media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) {
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 640px) {
   /* Escenario completo escalado: cada vista se dibuja como una ventana de
      laptop (~1500×700) y se reduce uniformemente a la pantalla real del
      teléfono. Tablero, cartas, HUD, Hubzi, landing y bienvenida conservan
