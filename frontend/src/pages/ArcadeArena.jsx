@@ -31,6 +31,7 @@ import LegalModal from "../components/LegalModal";
 import CookieConsentBanner from "../components/CookieConsentBanner";
 import CapyCompanion from "../components/CapyCompanion";
 import RestartOptionsModal from "../components/RestartOptionsModal";
+import A11yControls from "../components/A11yControls";
 import HandTray from "../components/HandTray";
 import BoardConsole from "../components/BoardConsole";
 import { capyAudio } from "../utils/capyAudio";
@@ -43,6 +44,7 @@ import { fetchWithAuth } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { useCrisis, checkCrisisFlag } from "../lib/crisis.jsx";
 import { GAME_LEVELS } from "../utils/gameConfig";
+import { DEMO_BOARD, DEMO_FOLDER } from "../utils/demoBoard";
 import { analyzeIntentLocally } from "../utils/localNlp";
 import { getDynamicLayout } from "../utils/boardLayout";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
@@ -271,6 +273,20 @@ export default function ArcadeArena() {
   const victoryConsumedRef = useRef(false); // true mientras el tablero completado siga en pantalla (anti victoria fantasma)
   const failedNodesRef = useRef(new Set()); // nodos con ≥1 intento fallido → precisión real
   const failStreakRef = useRef(0); // fallos consecutivos → trigger de apoyo Zen
+  const lastFailedNodeRef = useRef(null); // último nodo fallado → pista dirigida
+
+  // PRIMERA PARTIDA GUIADA: overlay paso a paso sobre el tablero real —
+  // 1: toca una carta · 2: colócala en su casilla · 3: felicitación.
+  // Solo se muestra la primera vez que se genera un tablero.
+  const [guideStep, setGuideStep] = useState(0);
+  const GUIDED_KEY = "hubzy_guided_done";
+  const finishGuided = () => {
+    try {
+      localStorage.setItem(GUIDED_KEY, "1");
+    } catch {}
+    setGuideStep(0);
+  };
+  const streakGreetedRef = useRef(false); // saludo de racha 1× por sesión
   const masteryRef = useRef({}); // topic → {p_mastery, mastered, recommendation} (BKT)
   const chatHistoryRef = useRef([]); // memoria conversacional de Hubzi [{role, text}]
   const breakOfferedRef = useRef(false); // micro-pausa sugerida una vez por sesión
@@ -420,9 +436,25 @@ export default function ArcadeArena() {
   const [hintNodeId, setHintNodeId] = useState(null);
   const lastActionTimestampRef = React.useRef(Date.now());
 
+  // Feedback visual del nodo ante un intento: { nodeId, kind, seq }.
+  // 'wrong' → pulso ámbar + sacudida suave; 'correct' → estrella que salta.
+  // seq incrementa por evento para re-disparar la animación en el mismo nodo.
+  const [nodeFx, setNodeFx] = useState(null);
+  const nodeFxSeqRef = useRef(0);
+  const fireNodeFx = (nodeId, kind) => {
+    nodeFxSeqRef.current += 1;
+    setNodeFx({ nodeId, kind, seq: nodeFxSeqRef.current });
+  };
+
+  // Hubzi reactiva: nudge suave si llevas >40s sin actuar (una vez por
+  // racha de inactividad). idleBlinkSeq re-dispara su parpadeo.
+  const idleNudgeRef = useRef(false);
+  const [idleBlinkSeq, setIdleBlinkSeq] = useState(0);
+
   // Reiniciar temporizador con cualquier interacción
   const registerUserActivity = () => {
     lastActionTimestampRef.current = Date.now();
+    idleNudgeRef.current = false;
     if (hintCardId) {
       setHintCardId(null);
       setHintNodeId(null);
@@ -465,6 +497,18 @@ export default function ArcadeArena() {
             }
           }
         }
+
+        // NUDGE DE COMPAÑÍA (>40s inactivo): Hubzi parpadea y pregunta
+        // "¿seguimos?" — presencia sin presión, una vez por racha de calma.
+        if (elapsed >= 40 && !idleNudgeRef.current) {
+          idleNudgeRef.current = true;
+          setIdleBlinkSeq((s) => s + 1);
+          triggerCapyVoice("hint", {
+            customText:
+              "¿Seguimos? Sin prisa — respira, mira tus cartas y si quieres te doy una pista.",
+            profile: "loving_psychologist",
+          });
+        }
       }
     }, 1000);
 
@@ -484,7 +528,11 @@ export default function ArcadeArena() {
         if (capySpeechTimeoutRef.current)
           clearTimeout(capySpeechTimeoutRef.current);
         capySpeechTimeoutRef.current = setTimeout(() => {
-          setCapySpeech((prev) => ({ ...prev, isVisible: false }));
+          // La oferta de pista (tras 2 fallos) espera al jugador: no se
+          // auto-oculta — desaparece al aceptarla o con la siguiente frase.
+          setCapySpeech((prev) =>
+            prev.showHintButton ? prev : { ...prev, isVisible: false },
+          );
           setCapyMood("idle");
           setIsCapySad(false);
         }, 3200);
@@ -716,6 +764,8 @@ export default function ArcadeArena() {
       }
       return { ...prev, campaign_progress: progress };
     });
+    // La carpeta demo es efímera: el progreso solo vive en memoria/local.
+    if (activeFolder.is_demo) return;
     fetchWithAuth(`/api/v1/folders/${activeFolder.id}/campaign-progress`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -912,6 +962,26 @@ export default function ArcadeArena() {
     });
   };
 
+  // Aceptar la oferta de pista de la burbuja (2 fallos seguidos): pista
+  // dirigida al nodo que costó trabajo, no aleatoria como el clic normal.
+  const acceptHintOffer = () => {
+    const node =
+      lastFailedNodeRef.current && nodes[lastFailedNodeRef.current];
+    if (node && !node.placedCard) {
+      const hintSnippet =
+        node.hint ||
+        node.question ||
+        "Observa las opciones disponibles en tus cartas";
+      triggerCapyVoice("hint", {
+        label: node.label,
+        hintText: `para analizar "${node.label}": ${hintSnippet.slice(0, 90)}. Concéntrate en la función principal.`,
+        profile: "loving_psychologist",
+      });
+    } else {
+      handleCapyClick();
+    }
+  };
+
   // Manejo de la pregunta por voz — NLP backend + fallback NLP estático local inteligente
   const handleUserVoiceQuery = async (transcript) => {
     setIsThinkingHint(true);
@@ -1082,7 +1152,19 @@ export default function ArcadeArena() {
         });
 
         sfx.victory();
-        triggerCapyVoice("victory", { level: currentLevel });
+        // Hubzi celebra la ESTRELLA NUEVA: solo cuando el récord del nivel
+        // mejora (primera vez o más estrellas que antes) — repetir con el
+        // mismo resultado usa la celebración normal.
+        const earnedStars =
+          accuracyCalc >= 90 ? 3 : accuracyCalc >= 70 ? 2 : 1;
+        const isNewStarRecord =
+          earnedStars > (levelStars[currentLevel] || 0);
+        triggerCapyVoice("victory", {
+          level: currentLevel,
+          customText: isNewStarRecord
+            ? `¡${earnedStars === 1 ? "Una estrella nueva" : `${earnedStars} estrellas nuevas`} para tu colección! Lo lograste — estoy muy orgullosa de ti.`
+            : undefined,
+        });
         setIsVictoryModalOpen(true);
       }
     }
@@ -1094,7 +1176,12 @@ export default function ArcadeArena() {
 
   // GENERADOR DINÁMICO DE POSICIONES Y TOPOLOGÍA PARA CUALQUIER NÚMERO DE PREGUNTAS (1 A 20)
   // HELPER: Configurar tablero y cartas con enlace 1-a-1 y posiciones dinámicas
-  const applyBoardData = (boardData, folderName, level = currentLevel) => {
+  const applyBoardData = (
+    boardData,
+    folderName,
+    level = currentLevel,
+    island = activeIsland,
+  ) => {
     if (!boardData.cards || boardData.cards.length === 0) return false;
 
     const lvlInfo =
@@ -1278,10 +1365,60 @@ export default function ArcadeArena() {
     setSelectedCardInHand(null);
     setFlyingCard(null);
 
+    // Primera partida: arranca el overlay guiado paso a paso
+    try {
+      if (!localStorage.getItem(GUIDED_KEY)) setGuideStep(1);
+    } catch {}
+
+    // Racha de días estudiando (retención suave): Hubzi la celebra una
+    // sola vez por sesión, unos segundos tras la bienvenida del nivel.
+    const studyStreak =
+      island?.campaign_progress?.study_streak ??
+      activeFolder?.campaign_progress?.study_streak ??
+      0;
+    if (studyStreak >= 3 && !streakGreetedRef.current) {
+      streakGreetedRef.current = true;
+      setTimeout(() => {
+        setCapyMood("love");
+        setCapySpeech({
+          text: `¡${studyStreak} días seguidos estudiando! Tu constancia es tu superpoder — buen ritmo.`,
+          isVisible: true,
+          mood: "love",
+        });
+      }, 5500);
+    }
+
     setTimeout(() => {
-      triggerCapyVoice("welcome", { level });
+      // Isla recién desbloqueada (sin progreso aún): Hubzi se emociona —
+      // la primera visita a un tema nuevo es un momento de descubrimiento.
+      const isNewIsland = Boolean(island && !island.campaign_progress);
+      triggerCapyVoice("welcome", {
+        level,
+        ...(isNewIsland
+          ? {
+              customText: `¡Descubrimos una isla nueva: ${island.name}! Estoy emocionada — vamos a explorarla juntos, paso a paso.`,
+            }
+          : {}),
+      });
     }, 1000);
     return true;
+  };
+
+  // DEMO INMEDIATA: jugar con el documento de ejemplo sin subir nada —
+  // tablero local, sin llamadas a la IA ni a la carpeta del backend.
+  const handlePlayDemo = () => {
+    setIsFolderModalOpen(false);
+    setIsWelcomeScreenVisible(false);
+    setActiveFolder({ ...DEMO_FOLDER });
+    setActiveIsland(null);
+    lockLandscape();
+    const ok = applyBoardData(DEMO_BOARD, DEMO_FOLDER.name, 5, null);
+    if (ok) {
+      setCurrentLevel(5);
+      setSuccessNotif(
+        "Demo lista — así se juega Hubzy. Luego sube tus documentos para crear tus islas.",
+      );
+    }
   };
 
   // CARGAR NIVEL ESPECÍFICO (1 A 5) DESDE EL BACKEND
@@ -1381,6 +1518,7 @@ export default function ArcadeArena() {
           localCachedBoard,
           targetFolder.name,
           targetLevel,
+          targetIsland,
         );
         if (success) {
           setCurrentLevel(targetLevel);
@@ -1445,6 +1583,7 @@ export default function ArcadeArena() {
           boardData,
           targetFolder.name,
           targetLevel,
+          targetIsland,
         );
         if (success) {
           setCurrentLevel(targetLevel);
@@ -1581,13 +1720,19 @@ export default function ArcadeArena() {
     if (!isCorrectCard) {
       // CARTA INCORRECTA O TRAMPA: apoyo sin castigo — el error enseña
       sfx.error();
+      fireNodeFx(targetNodeId, "wrong");
+      // Guía: ya llegó a una casilla → avanza al paso de colocación
+      if (guideStep === 1) setGuideStep(2);
       triggerCapyVoice("wrong");
       recordAdaptiveAttempt(targetNode, false);
       failedNodesRef.current.add(targetNodeId);
       setStreak(0); // la racha se reinicia (feedback visual, no daño)
 
-      // Anti-estrés: 3 fallos seguidos → Hubzi ofrece una pausa Zen
+      // Anti-estrés escalonado: 2 fallos seguidos → Hubzi ofrece una pista
+      // directa en su burbuja; 3 → pausa Zen de respiración.
       failStreakRef.current += 1;
+      lastFailedNodeRef.current = targetNodeId;
+      const wantsHintOffer = failStreakRef.current === 2;
       if (failStreakRef.current >= 3) {
         failStreakRef.current = 0;
         setZenOffer({
@@ -1614,13 +1759,19 @@ export default function ArcadeArena() {
         `Revisa con atención: esta casilla evalúa el principio "${targetNode.label}".`;
       setCapyMood(isTrap ? "surprised" : "encouraging");
       setCapySpeech({
-        text: kidMode
-          ? `¡Casi! "${card.name}" no era esa. ${pedagogicalHint}`
-          : isTrap
-            ? `¡Sorpresa, es una CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
-            : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
+        text: wantsHintOffer
+          ? kidMode
+            ? `¡Casi! "${card.name}" no era esa. Este tema está un poco difícil — ¿quieres una pista?`
+            : `¡Casi! "${card.name}" no va aquí. Este tema está difícil — ¿quieres una pista sobre "${targetNode.label}"?`
+          : kidMode
+            ? `¡Casi! "${card.name}" no era esa. ${pedagogicalHint}`
+            : isTrap
+              ? `¡Sorpresa, es una CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
+              : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
         isVisible: true,
         mood: isTrap ? "surprised" : "encouraging",
+        // Botón "Dame una pista" directo en la burbuja (espera al jugador)
+        showHintButton: wantsHintOffer && !isTrap,
       });
       setSuccessNotif(
         kidMode
@@ -1638,6 +1789,9 @@ export default function ArcadeArena() {
 
     // CARTA CORRECTA: Colocar en el nodo, racha sube y voz de celebración entusiasta
     sfx.success();
+    fireNodeFx(targetNodeId, "correct");
+    // Guía: primera colocación exitosa → felicitación y cierre
+    if (guideStep === 1 || guideStep === 2) setGuideStep(3);
     triggerCapyVoice("correct");
     recordAdaptiveAttempt(targetNode, true);
     setStreak((prev) => prev + 1);
@@ -1657,6 +1811,18 @@ export default function ArcadeArena() {
     );
     return true;
   };
+
+  // Guía paso a paso: al seleccionar la primera carta avanza al paso 2;
+  // el paso 3 (felicitación) se cierra solo a los 4.5s.
+  useEffect(() => {
+    if (guideStep === 1 && selectedCardInHand) setGuideStep(2);
+  }, [selectedCardInHand, guideStep]);
+  useEffect(() => {
+    if (guideStep !== 3) return;
+    const t = setTimeout(finishGuided, 4500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideStep]);
 
   const handleNodeClick = (nodeId) => {
     const node = nodes[nodeId];
@@ -1941,6 +2107,7 @@ export default function ArcadeArena() {
             setIsMapVisible(false);
             setIsWelcomeScreenVisible(true);
           }}
+          onPlayDemo={handlePlayDemo}
           onSelectFolder={async (folder) => {
             lockLandscape();
             const island = folder.selectedIsland || null;
@@ -2017,6 +2184,7 @@ export default function ArcadeArena() {
           setIsFolderModalOpen(false);
           setIsWelcomeScreenVisible(true);
         }}
+        onPlayDemo={handlePlayDemo}
         onSelectFolder={async (folder) => {
           lockLandscape();
           const island = folder.selectedIsland || null;
@@ -2169,12 +2337,14 @@ export default function ArcadeArena() {
           isCapyMuted={isCapyMuted}
           isAmbientPlaying={isAmbientPlaying}
           zenOffer={zenOffer}
+          idleBlinkSeq={idleBlinkSeq}
           nodes={nodes}
           currentLevel={currentLevel}
           boardInfo={boardInfo}
           activeFolder={activeFolder}
           currentUser={currentUser}
           onCapyClick={handleCapyClick}
+          onHintButton={acceptHintOffer}
           onToggleMicrophone={toggleMicrophone}
           onToggleMute={setIsCapyMuted}
           onZenAccept={() => setIsRelaxModalOpen(true)}
@@ -2196,6 +2366,43 @@ export default function ArcadeArena() {
           <span className="text-sm font-black text-white">x{streak}</span>
         </motion.div>
       )}
+
+      {/* GUÍA PASO A PASO DE LA PRIMERA PARTIDA — overlay sobre el tablero
+          real (no modal de texto). Solo aparece una vez en la vida del jugador. */}
+      <AnimatePresence>
+        {guideStep > 0 && Object.keys(nodes).length > 0 && (
+          <motion.div
+            key={`guide-${guideStep}`}
+            initial={{ opacity: 0, y: 12, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: 8, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 24 }}
+            className="absolute left-1/2 bottom-[150px] sm:bottom-[160px] z-50 w-72 p-3 rounded-2xl bg-[var(--color-arcade-navy-dark)]/97 border-2 border-amber-400/80 shadow-[0_10px_30px_rgba(0,0,0,0.55)] text-center pointer-events-auto"
+          >
+            <p className="text-[9px] font-black uppercase tracking-widest text-amber-300 mb-1">
+              Hubzi te guía · paso {guideStep} de 3
+            </p>
+            <p className="text-[11.5px] font-bold text-white leading-snug">
+              {guideStep === 1 &&
+                "Toca (o arrastra) una carta de tu mazo para seleccionarla."}
+              {guideStep === 2 &&
+                "Ahora toca la casilla del tablero donde crees que va."}
+              {guideStep === 3 &&
+                "¡Perfecto! Completa todas las casillas para ganar el nivel."}
+            </p>
+            {guideStep < 3 && (
+              <button
+                onClick={finishGuided}
+                className="mt-1.5 text-[9px] font-bold text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                Saltar guía
+              </button>
+            )}
+            {/* Flecha apuntando al mazo/tablero */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 bg-[var(--color-arcade-navy-dark)] border-r-2 border-b-2 border-amber-400/80" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* BARRA SUPERIOR CON CONTROLES LIMPIOS ESTILO CARD CLASH */}
       <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
@@ -2234,6 +2441,9 @@ export default function ArcadeArena() {
           <span className="hidden lg:inline">Tutorial</span>
         </button>
 
+        {/* ACCESIBILIDAD: alto contraste y texto grande */}
+        <A11yControls />
+
         {/* BOTÓN CARPETAS / MATERIALES */}
         <button
           onClick={() => setIsFolderModalOpen(true)}
@@ -2262,6 +2472,28 @@ export default function ArcadeArena() {
       {/* Marcadores de Nivel y Progreso — solo con partida en curso */}
       {Object.keys(nodes).length > 0 && (
       <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
+        {/* BREADCRUMB PERSISTENTE — el jugador nunca se pierde:
+            Carpeta › Isla › Nivel actual */}
+        {(activeFolder || activeIsland) && (
+          <div
+            className="hud-chip hidden sm:flex items-center gap-1 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)] max-w-[300px]"
+            title={`${activeFolder?.name || "Campaña"} › ${activeIsland?.name || "Isla General"} › Nivel ${currentLevel}`}
+          >
+            <Compass className="w-3.5 h-3.5 text-[var(--color-arcade-cyan)] shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 truncate">
+              {activeFolder?.name || "Campaña"}
+            </span>
+            <span className="text-[10px] font-black text-slate-500">›</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-arcade-cyan)] truncate">
+              {activeIsland?.name || "Isla General"}
+            </span>
+            <span className="text-[10px] font-black text-slate-500">›</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-arcade-yellow)] shrink-0">
+              Nivel {currentLevel}
+            </span>
+          </div>
+        )}
+
         {/* Indicador de Nivel 1 a 20 */}
         {(() => {
           const lvlInfo =
@@ -2353,6 +2585,7 @@ export default function ArcadeArena() {
             currentLevel={currentLevel}
             nodes={nodes}
             hintNodeId={hintNodeId}
+            nodeFx={nodeFx}
             onNodeClick={handleNodeClick}
           />
 

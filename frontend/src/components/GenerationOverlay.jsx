@@ -63,7 +63,28 @@ export default function GenerationOverlay({ stage = null, errorMessage = null, o
             <AlertTriangle className="w-8 h-8 text-rose-400" />
           </div>
         ) : (
-          <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-5" />
+          /* SKELETON del tablero en formación — shimmer sobre siluetas de
+             nodos y cartas: la espera "percibe" el contenido que viene */
+          <div className="w-full mb-5 flex flex-col items-center gap-3" aria-hidden="true">
+            <div className="flex items-center gap-3">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-12 h-14 rounded-xl skeleton-shimmer border border-cyan-500/25"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-9 h-12 rounded-lg skeleton-shimmer border border-cyan-500/20"
+                  style={{ animationDelay: `${0.3 + i * 0.15}s` }}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         <AnimatePresence mode="wait">

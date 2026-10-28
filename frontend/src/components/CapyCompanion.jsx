@@ -40,12 +40,14 @@ export default function CapyCompanion({
   isCapyMuted,
   isAmbientPlaying,
   zenOffer,
+  idleBlinkSeq,
   nodes,
   currentLevel,
   boardInfo,
   activeFolder,
   currentUser,
   onCapyClick,
+  onHintButton,
   onToggleMicrophone,
   onToggleMute,
   onZenAccept,
@@ -136,6 +138,21 @@ export default function CapyCompanion({
               <p className="text-[10.5px] sm:text-[11.5px] font-medium leading-snug break-words">
                 {capySpeech.text}
               </p>
+
+              {/* BOTÓN DE PISTA DIRECTA — aparece tras 2 fallos seguidos
+                  ("este tema está difícil — ¿quieres una pista?") */}
+              {capySpeech.showHintButton && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onHintButton) onHintButton();
+                  }}
+                  className="mt-2 w-full py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 border-2 border-amber-200 border-b-4 border-b-amber-600 text-amber-950 font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 active:border-b-2 transition-all"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Dame una pista
+                </button>
+              )}
 
               {/* Flecha cómic del bocadillo */}
               <div
@@ -371,7 +388,13 @@ export default function CapyCompanion({
               const mascotTitle = resolvedMascot?.name || "Hubzi Compañero";
 
               return (
-                <img
+                <motion.img
+                  /* PARPADEO DE COMPAÑÍA: idleBlinkSeq cambia con cada nudge
+                     de inactividad (>40s) → remonta y re-anim una vez */
+                  key={`mascot-blink-${idleBlinkSeq ?? 0}`}
+                  initial={{ scaleY: 1 }}
+                  animate={{ scaleY: [1, 0.82, 1] }}
+                  transition={{ duration: 0.85, ease: "easeInOut" }}
                   src={mascotSrc}
                   alt={mascotTitle}
                   title={`${mascotTitle} - ${resolvedMascot?.role || "Acompañante de Estudio"}`}
@@ -387,6 +410,7 @@ export default function CapyCompanion({
                 />
               );
             })()}
+
 
             {/* ===== OVERLAYS POR MOOD ===== */}
 
@@ -773,6 +797,24 @@ export default function CapyCompanion({
                 <Music className="w-3 h-3" />
               )}
             </button>
+
+            {/* BOTÓN RESPIRA — acceso directo a la pausa Zen, junto a Hubzi,
+                mientras la oferta anti-estrés está activa (3 fallos seguidos) */}
+            {zenOffer?.show && (
+              <motion.button
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onZenAccept) onZenAccept();
+                }}
+                className="px-2 py-1 rounded-full bg-emerald-600/95 border border-emerald-300 text-white text-[8px] font-black uppercase tracking-wider shadow-[0_0_14px_rgba(52,211,153,0.7)] animate-pulse cursor-pointer flex items-center gap-1"
+                title="Respirar con Hubzi — pausa anti-estrés de 30 segundos"
+              >
+                <Wind className="w-3 h-3" />
+                Respira
+              </motion.button>
+            )}
           </div>
 
           {/* Micro-pista interactiva al pasar el mouse */}

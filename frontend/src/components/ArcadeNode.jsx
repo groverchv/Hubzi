@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, HelpCircle, Sparkles } from 'lucide-react';
+import { CheckCircle2, HelpCircle, Sparkles, Star } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 import KaTeXText from './KaTeXText';
 
@@ -20,6 +20,7 @@ export default function ArcadeNode({
   hint = "",
   index = 0,
   style = {},
+  fx = null, // { kind: 'correct'|'wrong', seq } — feedback empático del último intento
   onClick
 }) {
   // Resolución 100% dinámica de icono adaptada a la temática del documento (abogacía, medicina, psicología, etc.)
@@ -35,7 +36,16 @@ export default function ArcadeNode({
     <div 
       data-node-id={id}
       onClick={() => { if (onClick) onClick(id); }}
-      className="relative flex flex-col items-center select-none cursor-pointer group"
+      role="button"
+      tabIndex={0}
+      aria-label={`Casilla ${label || id}${placedCard ? `, completada con ${placedCard.name}` : ', vacía'}. ${question || 'Toca o arrastra una carta aquí'}`}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && onClick) {
+          e.preventDefault();
+          onClick(id);
+        }
+      }}
+      className="relative flex flex-col items-center select-none cursor-pointer group focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-400/80 rounded-xl"
       style={{ zIndex: 1 }}
     >
       {/* HEXAGONAL SLOT — matches the reference image honeycomb cells */}
@@ -46,6 +56,44 @@ export default function ArcadeNode({
         whileTap={{ scale: 0.95 }}
         className="relative"
       >
+        {/* SACUDIDA SUAVE AL FALLAR — el key remonta y re-dispara la animación
+            en cada intento fallido sobre este nodo */}
+        <motion.div
+          key={fx?.kind === 'wrong' ? `shake-${fx.seq}` : 'idle'}
+          animate={fx?.kind === 'wrong' ? { x: [0, -6, 6, -4, 2, 0] } : { x: 0 }}
+          transition={{ duration: 0.45, ease: 'easeInOut' }}
+          className="relative"
+        >
+        {/* PULSO ÁMBAR EMPÁTICO — "casi, ese no es": nunca rojo agresivo */}
+        {fx?.kind === 'wrong' && (
+          <motion.div
+            key={`pulse-${fx.seq}`}
+            className="absolute -inset-3 rounded-full border-4 border-amber-400/90 pointer-events-none z-20"
+            style={{ boxShadow: '0 0 18px rgba(251,191,36,0.65)' }}
+            initial={{ opacity: 0.9, scale: 0.72 }}
+            animate={{ opacity: 0, scale: 1.45 }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}
+          />
+        )}
+
+        {/* MICRO-CELEBRACIÓN: estrella que salta del nodo al acertar */}
+        {fx?.kind === 'correct' && (
+          <motion.div
+            key={`star-${fx.seq}`}
+            className="absolute left-1/2 top-0 z-40 pointer-events-none"
+            initial={{ opacity: 0, scale: 0.3, y: 10, x: '-50%' }}
+            animate={{
+              opacity: [0, 1, 1, 0],
+              scale: [0.3, 1.5, 1.15, 1.15],
+              y: [10, -30, -44, -44],
+              x: '-50%',
+            }}
+            transition={{ duration: 0.95, ease: 'easeOut' }}
+          >
+            <Star className="w-7 h-7 text-amber-400 fill-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+          </motion.div>
+        )}
+
         {/* Outer hexagonal bezel — white/light with shadow (the board slot) */}
         <svg
           width="60"
@@ -89,7 +137,14 @@ export default function ArcadeNode({
           style={{ minHeight: 44, minWidth: 46 }}
         >
           {placedCard ? (
-            <CheckCircle2 className="w-5 h-5 text-green-600 drop-shadow-sm" />
+            /* La carta "aterriza" con rebote al colocarse bien */
+            <motion.div
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+            >
+              <CheckCircle2 className="w-5 h-5 text-green-600 drop-shadow-sm" />
+            </motion.div>
           ) : (
             <IconComp className="w-4 h-4 text-slate-500 group-hover:text-slate-700 transition-colors" />
           )}
@@ -97,6 +152,7 @@ export default function ArcadeNode({
 
         {/* Spacer to fill SVG height */}
         <div style={{ height: 68, width: 60 }} className="invisible pointer-events-none" />
+        </motion.div>
       </motion.div>
 
       {/* NOMBRE DE LA RESPUESTA COLOCADA — visible bajo la casilla */}

@@ -163,7 +163,16 @@ export default function GameCard({
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       onTap={() => { if (onClick) onClick(id); }}
       onDragEnd={(e, info) => { if (onDragEnd) onDragEnd(id, info); }}
-      className={`relative flex-shrink-0 cursor-grab active:cursor-grabbing select-none ${className}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Carta ${name || id}. Pulsa Enter para seleccionarla y luego toca una casilla del tablero.`}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && onClick) {
+          e.preventDefault();
+          onClick(id);
+        }
+      }}
+      className={`relative flex-shrink-0 cursor-grab active:cursor-grabbing select-none focus:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/80 rounded-2xl ${className}`}
     >
       {/* Selected badge */}
       {isSelected && (

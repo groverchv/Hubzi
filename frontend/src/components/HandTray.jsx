@@ -87,7 +87,7 @@ export default function HandTray({
           </div>
         )}
 
-        <div className="hand-tray relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
+        <div className="hand-tray relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center" role="group" aria-label={`Mazo de cartas: ${hand.length} cartas en mano`}>
           <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
             {visibleCards.map((card, idx) => {
               const isHinted = hintCardId === card.id;

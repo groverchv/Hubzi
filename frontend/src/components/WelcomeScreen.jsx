@@ -28,6 +28,7 @@ import { usePwaInstall } from '../hooks/usePwaInstall';
 import { lobbyAmbient } from '../utils/lobbyAmbient';
 import { isLowPower } from '../utils/lowPower';
 import { lockLandscape } from '../utils/orientation';
+import A11yControls from './A11yControls';
 
 const TRIAL_DAYS = 7;
 
@@ -240,6 +241,7 @@ export default function WelcomeScreen({
           >
             <HelpCircle className="w-5 h-5 text-[var(--color-arcade-yellow)]" />
           </button>
+          <A11yControls />
         </div>
       </div>
 

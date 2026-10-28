@@ -459,3 +459,32 @@ html.low-power .drop-shadow-xl {
 *::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Edge */
 }
+
+/* Skeleton shimmer — las cargas "perciben" más velocidad mostrando la
+   silueta del contenido en lugar de un spinner aislado. */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.16) 25%,
+    rgba(148, 163, 184, 0.38) 50%,
+    rgba(148, 163, 184, 0.16) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+/* Accesibilidad (A11yControls): alto contraste y texto grande */
+html.a11y-contrast {
+  filter: contrast(1.18) saturate(1.05);
+}
+html.a11y-large-text {
+  font-size: 118%;
+}

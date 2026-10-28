@@ -1059,6 +1059,17 @@ async def _run_folder_generation(
                 if cname and not c.get("id", "").startswith("card_distractor"):
                     previously_evaluated_concepts.append(cname)
 
+    # Regeneración del MISMO nivel (force): los reactivos de la versión
+    # anterior también son "ya vistos" — la IA prioriza preguntas nuevas
+    # en lugar de reciclar las mismas.
+    if force:
+        prev_same_level = cached_boards_dict.get(lvl_key)
+        if prev_same_level and "cards" in prev_same_level:
+            for c in prev_same_level["cards"]:
+                cname = c.get("concept_name")
+                if cname and not c.get("id", "").startswith("card_distractor"):
+                    previously_evaluated_concepts.append(cname)
+
     logger.info(
         f"Generando juego para carpeta '{folder_name}' ({folder_id}) [Nivel {level} ({final_diff}), {final_qc} preguntas, force={force}]: "
         f"{len(texts_with_source)} documentos, {len(combined_text)} caracteres. "

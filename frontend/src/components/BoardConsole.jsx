@@ -12,6 +12,7 @@ export default function BoardConsole({
   currentLevel,
   nodes,
   hintNodeId,
+  nodeFx,
   onNodeClick,
 }) {
   const nodeArr = Object.values(nodes);
@@ -123,7 +124,7 @@ export default function BoardConsole({
           </div>
 
           {/* ÁREA CENTRAL DE NODOS */}
-          <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center">
+          <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center" role="group" aria-label={`Tablero de casillas: ${nodeArr.filter((n) => n.placedCard).length} de ${totalNodes} completadas`}>
             {/* Conexiones de red con flechas de flujo */}
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
@@ -216,6 +217,7 @@ export default function BoardConsole({
                     questionLatex={node.questionLatex}
                     hint={node.hint}
                     placedCard={node.placedCard}
+                    fx={nodeFx?.nodeId === node.id ? nodeFx : null}
                     onClick={onNodeClick}
                   />
                 </div>
