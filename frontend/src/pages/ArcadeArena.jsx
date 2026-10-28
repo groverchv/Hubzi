@@ -310,6 +310,16 @@ export default function ArcadeArena() {
   const [selectedCardForDetail, setSelectedCardForDetail] = useState(null);
   const [selectedCardInHand, setSelectedCardInHand] = useState(null);
 
+  // Cerrar el baúl de carpetas: sin partida en curso la pantalla nunca
+  // queda vacía — vuelve al menú principal (WelcomeScreen).
+  const closeFolderModal = () => {
+    setIsFolderModalOpen(false);
+    if (Object.keys(nodes).length === 0) {
+      setIsMapVisible(false);
+      setIsWelcomeScreenVisible(true);
+    }
+  };
+
   // Accesibilidad (A11y): Cerrar cualquier modal activo al presionar la tecla Escape
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -317,7 +327,7 @@ export default function ArcadeArena() {
         if (isLegalModalOpen) setIsLegalModalOpen(false);
         else if (selectedNodeForQuestion) setSelectedNodeForQuestion(null);
         else if (selectedCardForDetail) setSelectedCardForDetail(null);
-        else if (isFolderModalOpen) setIsFolderModalOpen(false);
+        else if (isFolderModalOpen) closeFolderModal();
         else if (isTutorialOpen) setIsTutorialOpen(false);
         else if (isSubscriptionModalOpen) setIsSubscriptionModalOpen(false);
         else if (isRelaxModalOpen) setIsRelaxModalOpen(false);
@@ -1791,7 +1801,7 @@ export default function ArcadeArena() {
         <StudyFolderManagerModal
           isOpen={isFolderModalOpen}
           currentUser={currentUser}
-          onClose={() => setIsFolderModalOpen(false)}
+          onClose={closeFolderModal}
           onUpgradeToPro={() => {
             setIsSubscriptionModalOpen(true);
           }}
@@ -1867,7 +1877,7 @@ export default function ArcadeArena() {
       <StudyFolderManagerModal
         isOpen={isFolderModalOpen}
         currentUser={currentUser}
-        onClose={() => setIsFolderModalOpen(false)}
+        onClose={closeFolderModal}
         onUpgradeToPro={() => {
           setIsSubscriptionModalOpen(true);
         }}
