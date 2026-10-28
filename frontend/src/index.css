@@ -310,59 +310,55 @@ html.low-power .drop-shadow-xl {
 }
 
 @media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) {
-  /* Tablero: ocupa el alto real disponible entre barra (~36px) y mazo (~100px) */
+  /* Tablero: alto real disponible entre barra (~38px) y mazo (~115px),
+     conservando la carcasa decorativa completa como en laptop */
   .board-table-3d {
-    height: calc(100dvh - 172px) !important;
-    max-height: calc(100dvh - 172px) !important;
-    padding: 6px !important;
+    height: calc(100dvh - 152px) !important;
+    max-height: calc(100dvh - 152px) !important;
+    padding: 8px !important;
   }
-  /* Módulos decorativos de la carcasa: fuera — liberan el área jugable */
-  .board-deco {
-    display: none !important;
-  }
-  /* Mazo: slots y cartas compactos */
+  /* Mazo: cartas casi del tamaño normal, mismas proporciones que desktop */
   .hand-slot {
-    width: 64px;
-    height: 82px;
+    width: 72px;
+    height: 94px;
   }
   .hand-tray {
-    padding: 4px 10px !important;
+    padding: 5px 12px !important;
   }
   .game-card {
-    width: 56px !important;
-    height: 74px !important;
-    padding: 4px !important;
-    border-radius: 12px !important;
+    width: 64px !important;
+    height: 84px !important;
+    padding: 5px !important;
+    border-radius: 14px !important;
   }
   .game-card-icon {
-    width: 26px !important;
-    height: 26px !important;
-    border-radius: 8px !important;
+    width: 30px !important;
+    height: 30px !important;
   }
   .game-card-icon svg {
-    width: 15px !important;
-    height: 15px !important;
+    width: 17px !important;
+    height: 17px !important;
   }
   .game-card-name {
-    font-size: 7px !important;
+    font-size: 7.5px !important;
     line-height: 1.05 !important;
   }
-  /* HUD: píldoras de nivel/progreso compactas */
+  /* HUD: mismas píldoras, algo más compactas */
   .hud-chip {
-    padding: 4px 8px !important;
-    gap: 4px !important;
-    border-radius: 12px !important;
+    padding: 5px 10px !important;
+    gap: 5px !important;
+    border-radius: 14px !important;
   }
   .hud-chip span {
-    font-size: 8px !important;
+    font-size: 9px !important;
   }
   .hud-chip svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 14px !important;
+    height: 14px !important;
   }
-  /* Hubzi: la mascota se encoge, no tapa el tablero */
+  /* Hubzi: visible como en laptop, solo un poco más pequeño */
   .capy-companion {
-    scale: 0.58;
+    scale: 0.75;
     transform-origin: left center;
   }
   /* Tap targets mínimos de 40px */
