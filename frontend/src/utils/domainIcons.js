@@ -377,7 +377,7 @@ export function getDomainIcon(textOrCategory) {
   if (/(market|ventas|client|campana|publicid|meta|objetivo)/i.test(str)) {
     return Target;
   }
-  if (/(recursos humanos|rrhh|personal|equipo|colaborador)/i.test(str)) {
+  if (/(recursos humanos|rrhh|personal|equipo|colaborador|comunidad|sociedad|sociolog|etnia|etnico|indigen|pueblo|tribu|poblacion|ciudadania|organizacion social)/i.test(str)) {
     return Users;
   }
 
@@ -393,7 +393,7 @@ export function getDomainIcon(textOrCategory) {
   }
 
   // Ciencias Exactas & Naturales
-  if (/(quimic|molecul|reaccion|compuest|solucion|laboratorio quimico)/i.test(str)) {
+  if (/(quimic|molecul|reaccion|compuest|solucion|laboratorio quimico|ciencia|cientific|experimento|investig|metodo)/i.test(str)) {
     return FlaskConical;
   }
   if (/(fisic|atom|particul|cuantic|newton|energia)/i.test(str)) {

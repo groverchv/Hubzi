@@ -30,8 +30,20 @@ import {
   Star,
   RotateCw
 } from 'lucide-react';
+import { resolveDynamicIcon } from '../utils/domainIcons';
 
 const STORAGE_KEY = 'hubzy_user_study_folders';
+
+// Paleta rotativa de identidad visual por isla: cada isla del archipiélago
+// recibe su propio color + el icono se resuelve por el tema de su nombre.
+const ISLAND_STYLES = [
+  { icon: 'text-cyan-300',    blob: 'from-cyan-500/45 to-cyan-700/10 border-cyan-400/50',       ring: 'hover:border-cyan-400/80',    badge: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' },
+  { icon: 'text-violet-300',  blob: 'from-violet-500/45 to-violet-700/10 border-violet-400/50', ring: 'hover:border-violet-400/80',  badge: 'bg-violet-500/15 text-violet-300 border-violet-500/30' },
+  { icon: 'text-orange-300',  blob: 'from-orange-500/45 to-orange-700/10 border-orange-400/50', ring: 'hover:border-orange-400/80',  badge: 'bg-orange-500/15 text-orange-300 border-orange-500/30' },
+  { icon: 'text-emerald-300', blob: 'from-emerald-500/45 to-emerald-700/10 border-emerald-400/50', ring: 'hover:border-emerald-400/80', badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+  { icon: 'text-rose-300',    blob: 'from-rose-500/45 to-rose-700/10 border-rose-400/50',       ring: 'hover:border-rose-400/80',    badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+  { icon: 'text-amber-300',   blob: 'from-amber-500/45 to-amber-700/10 border-amber-400/50',    ring: 'hover:border-amber-400/80',   badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+];
 // Clave de storage por usuario: las carpetas de una cuenta logueada NUNCA
 // se escriben en la clave genérica — esa es del invitado y las filtraría a
 // quien use el navegador después sin sesión.
@@ -974,8 +986,14 @@ export default function StudyFolderManagerModal({
                     Cada isla es un tema detectado en tus documentos, con su propia campaña de niveles. Las preguntas nunca mezclan temas.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(activeFolderView.islands || []).map((isl) => {
+                    {(activeFolderView.islands || []).map((isl, islIdx) => {
                       const p = isl.campaign_progress || {};
+                      const style = ISLAND_STYLES[islIdx % ISLAND_STYLES.length];
+                      const IslIcon = resolveDynamicIcon({
+                        label: isl.name,
+                        theme: activeFolderView.name,
+                        index: islIdx,
+                      });
                       const stars = Object.values(p.level_stars || {}).reduce((a, b) => a + b, 0);
                       const lvl = p.current_level || p.unlocked_level || 1;
                       return (
@@ -1000,10 +1018,12 @@ export default function StudyFolderManagerModal({
                               });
                             }
                           }}
-                          className="group text-left rounded-2xl border-2 border-[#2b3f5f] hover:border-cyan-400/70 bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none"
+                          className={`group text-left rounded-2xl border-2 border-[#2b3f5f] ${style.ring} bg-[#111c30] hover:bg-[#152441] p-4 transition-all cursor-pointer shadow-[0_3px_0_var(--color-arcade-ink)] active:translate-y-0.5 active:shadow-none`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <Palmtree className="w-6 h-6 text-cyan-300 group-hover:text-cyan-100 transition-colors" />
+                            <span className={`w-11 h-11 rounded-xl bg-gradient-to-br border flex items-center justify-center shrink-0 shadow-inner transition-transform group-hover:scale-110 ${style.blob}`}>
+                              <IslIcon className={`w-5 h-5 ${style.icon}`} />
+                            </span>
                             <span className="flex items-center gap-1.5">
                               {/* Recargar preguntas de esta isla */}
                               <button
@@ -1026,7 +1046,7 @@ export default function StudyFolderManagerModal({
                                   <Pin className="w-2.5 h-2.5" /> Tarea
                                 </span>
                               )}
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${style.badge}`}>
                                 {isl.total_levels} niveles
                               </span>
                             </span>
