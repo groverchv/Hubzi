@@ -78,8 +78,10 @@ export default function SubscriptionModal({
         className="relative w-full max-w-lg rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.8)] overflow-hidden"
       >
         {/* Glow dorado de fondo */}
-        <div className="absolute -top-24 -right-24 w-52 h-52 bg-[var(--color-arcade-yellow)]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-52 h-52 bg-[var(--color-arcade-orange)]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute -top-24 -right-24 w-52 h-52 bg-[var(--color-arcade-yellow)]/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 w-52 h-52 bg-[var(--color-arcade-orange)]/15 rounded-full blur-3xl" />
+        </div>
 
         {/* Botón Cerrar (X) */}
         <button

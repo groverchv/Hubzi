@@ -21,6 +21,13 @@ export default function HandTray({
 }) {
   if (!hand.length) return null;
 
+  // En móvil horizontal el escenario está zoomeado (0.55) — framer-motion
+  // no corrige los deltas del puntero y la carta se separa del dedo.
+  // El juego ya soporta tocar carta → tocar nodo, así que ahí se apaga el drag.
+  const isZoomedMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia("(orientation: landscape) and (max-height: 640px)").matches;
+
   const totalPages = Math.ceil(hand.length / CARDS_PER_PAGE);
   // Si la carta sugerida por la pista está en otra página, saltar a ella
   const hintedIndex = hintCardId
@@ -126,7 +133,7 @@ export default function HandTray({
                     zIndex={
                       isHandSelected ? 60 : isHinted ? 50 : card.zIndex
                     }
-                    isDraggable={isActualTurn}
+                    isDraggable={isActualTurn && !isZoomedMobile}
                     isSelected={isHinted || isHandSelected}
                     onDragEnd={onCardDragEnd}
                     onClick={() => onCardClick(card)}

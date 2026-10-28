@@ -180,11 +180,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 20 }}
-        className="relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_12px_0_var(--color-arcade-ink),0_20px_35px_rgba(0,0,0,0.6)] overflow-y-auto max-h-[94dvh]"
+        className="stage-modal-panel relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_12px_0_var(--color-arcade-ink),0_20px_35px_rgba(0,0,0,0.6)] overflow-y-auto max-h-[94dvh]"
       >
         {/* Glow de fondo */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-[var(--color-arcade-orange)]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[var(--color-arcade-green)]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-48 h-48 bg-[var(--color-arcade-orange)]/15 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[var(--color-arcade-green)]/15 rounded-full blur-3xl" />
+        </div>
 
         {/* Botón Cerrar (X) */}
         <button

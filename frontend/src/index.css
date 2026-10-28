@@ -339,6 +339,14 @@ html.low-power .drop-shadow-xl {
   50%      { transform: rotate(90deg); }
 }
 
+/* En móviles/tablets las nubes animadas a tamaño real tapan el contenido —
+   se ocultan en cualquier dispositivo táctil o pantalla chica. */
+@media (max-width: 1100px), (pointer: coarse) {
+  .clouds-bg {
+    display: none !important;
+  }
+}
+
 /* === MODO LANDSCAPE COMPACTO (teléfonos horizontales) ===
    Solo dispositivos táctiles en horizontal con poca altura (~390px).
    Desktop y tablets no se ven afectados. */
@@ -351,7 +359,14 @@ html.low-power .drop-shadow-xl {
   /* Escenario completo escalado: cada vista se dibuja como una ventana de
      laptop (~1500×700) y se reduce uniformemente a la pantalla real del
      teléfono. Tablero, cartas, HUD, Hubzi, landing y bienvenida conservan
-     proporciones idénticas a la versión de escritorio. */
+     proporciones idénticas a la versión de escritorio.
+     transform (no zoom) para que los fixed internos usen el escenario
+     como containing block — modales y toasts se posicionan y escalan
+     igual que el resto, sin espacios vacíos deslizables. */
+  html, body {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
   /* Fallback: aunque el zoom no aplique (navegador viejo/caché), el landing
      mantiene las tarjetas y planes en fila como en escritorio. */
   .landing-stage .sm\:grid-cols-3,
@@ -375,18 +390,27 @@ html.low-power .drop-shadow-xl {
   }
   .arena-stage,
   .welcome-stage {
-    zoom: 0.55;
+    transform: scale(0.55);
+    transform-origin: top left;
     width: calc(100vw / 0.55) !important;
     height: calc(100dvh / 0.55) !important;
   }
   .landing-stage {
-    zoom: 0.55;
+    transform: scale(0.55);
+    transform-origin: top left;
     width: calc(100vw / 0.55) !important;
     min-height: calc(100dvh / 0.55) !important;
   }
   /* max-h usa el vh real; en el espacio ampliado el tablero debe poder
      crecer hasta su tamaño de laptop (~485px del layout). */
   .arena-stage .board-table-3d {
+    max-height: none !important;
+  }
+  /* Los caps dvh miden el viewport real, no el layout escalado — se quitan
+     para que el contenido del modal se vea completo en pantallas bajas. */
+  .arena-stage .fixed .stage-modal-panel,
+  .landing-stage .fixed .stage-modal-panel,
+  .welcome-stage .fixed .stage-modal-panel {
     max-height: none !important;
   }
   /* El baúl de carpetas ocupa toda la pantalla en móvil horizontal */
@@ -417,4 +441,14 @@ html.low-power .drop-shadow-xl {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Sin barras de scroll visibles — el contenido sigue siendo deslizable
+   (scroll funcional, track oculto en todos los navegadores). */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
 }

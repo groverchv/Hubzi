@@ -34,6 +34,7 @@ export default function VictoryModal({
   onGoToMenu
 }) {
   const [showSummary, setShowSummary] = React.useState(false);
+  const [showDetails, setShowDetails] = React.useState(false);
   React.useEffect(() => {
     if (isOpen && !isLowPower()) {
       try {
@@ -64,11 +65,13 @@ export default function VictoryModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.88, y: 30 }}
         transition={{ type: 'spring', stiffness: 320, damping: 25 }}
-        className="relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-y-auto max-h-[94dvh]"
+        className="stage-modal-panel relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-y-auto max-h-[94dvh]"
       >
-        {/* Glow de fondo */}
-        <div className="absolute -top-16 -right-16 w-44 h-44 bg-[var(--color-arcade-yellow)]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-[var(--color-arcade-green)]/20 rounded-full blur-3xl pointer-events-none" />
+        {/* Glow de fondo — recortado al panel para no crear área deslizable */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute -top-16 -right-16 w-44 h-44 bg-[var(--color-arcade-yellow)]/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-[var(--color-arcade-green)]/20 rounded-full blur-3xl" />
+        </div>
 
         {/* Badge superior Arcade */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-arcade-navy-dark)] border-2 border-[var(--color-arcade-navy-light)] mb-3">
@@ -150,6 +153,17 @@ export default function VictoryModal({
           </div>
         </div>
 
+        {/* Detalles de la ronda — colapsados: el resumen solo muestra lo esencial */}
+        <button
+          type="button"
+          onClick={() => setShowDetails(prev => !prev)}
+          className="w-full mb-4 py-2 px-3 rounded-xl bg-[var(--color-arcade-navy-dark)] hover:bg-[#152747] border border-[var(--color-arcade-navy-light)] text-[11px] font-black text-cyan-300 uppercase tracking-wider flex items-center justify-between cursor-pointer transition-colors"
+        >
+          <span>Detalles de la ronda</span>
+          <span className="text-xs text-slate-400">{showDetails ? '▲ Ocultar' : '▼ Ver'}</span>
+        </button>
+
+        {showDetails && (<>
         {/* Lo que dominaste a la primera — métrica positiva antes que el error */}
         {firstTry !== null && totalQuestions > 0 && (
           <p className="w-full text-left text-[11px] font-bold text-emerald-300/90 -mt-1 mb-3 flex items-center gap-1.5">
@@ -262,6 +276,7 @@ export default function VictoryModal({
             )}
           </div>
         )}
+        </>)}
 
         {/* Botones de Acción Estilo Card Clash */}
         <div className="flex flex-col gap-2 w-full">

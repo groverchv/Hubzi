@@ -26,11 +26,17 @@ export default function AnimatedCloudsBackground() {
   const prefersReducedMotion =
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // En móviles/tablets las nubes a tamaño real tapan el contenido — se apagan
+  // en cualquier dispositivo táctil o pantalla chica, sin depender del CSS.
+  const isTouchOrSmall =
+    typeof window !== "undefined" &&
+    (window.matchMedia?.("(pointer: coarse)").matches ||
+     window.matchMedia?.("(max-width: 1100px)").matches);
 
-  if (lowPower) return null;
+  if (lowPower || isTouchOrSmall) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="clouds-bg fixed inset-0 pointer-events-none z-0 overflow-hidden">
       {CLOUDS_CONFIG.map((cloud) => (
         <motion.div
           key={cloud.id}
