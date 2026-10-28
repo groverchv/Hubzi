@@ -1505,6 +1505,8 @@ export default function ArcadeArena() {
         setHand((prev) =>
           prev.filter((c) => String(c.id) !== String(card.id)),
         );
+        setSelectedCardInHand((prev) => (prev?.id === card.id ? null : prev));
+        setSelectedCardForDetail((prev) => (prev?.id === card.id ? null : prev));
       }
 
       const pedagogicalHint =
@@ -1578,10 +1580,12 @@ export default function ArcadeArena() {
     // Modo Táctil / Accesibilidad: si tocas una carta ya seleccionada, deseleccionar
     if (selectedCardInHand?.id === card.id) {
       setSelectedCardInHand(null);
-      setSelectedCardForDetail(card);
+      setSelectedCardForDetail(null);
     } else {
       sfx.flip();
       setSelectedCardInHand(card);
+      // Mostrar la respuesta completa en el panel lateral para leerla
+      setSelectedCardForDetail(card);
       setSuccessNotif(
         `Carta "${card.name}" seleccionada. Toca la casilla correspondiente en el tablero.`,
       );
