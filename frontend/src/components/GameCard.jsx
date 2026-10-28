@@ -109,9 +109,6 @@ export default function GameCard({
     index
   }) || getDomainIcon(domain || name) || DOMAIN_ICONS[sourceType] || Sparkles;
   const cardTheme = CARD_THEMES[type] || CARD_THEMES.blue;
-  const label = (domain || sourceType || 'Concepto').replace(/_/g, ' ');
-  // Short label like "Concepto A" on cards
-  const shortName = name?.length > 14 ? name.slice(0, 13) + '…' : name;
 
   return (
     <motion.div
@@ -154,11 +151,20 @@ export default function GameCard({
         {/* Brillo especular superior simulando plástico curvo de ficha */}
         <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-white/35 to-transparent rounded-t-2xl pointer-events-none" />
 
-        {/* Contenedor de Icono en relieve */}
-        <div className="flex-1 flex flex-col items-center justify-center w-full">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-inner">
-            <IconComponent className={`w-7 h-7 ${cardTheme.iconColor} drop-shadow-md`} />
+        {/* Contenedor de Icono en relieve + nombre de la respuesta */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full gap-1 min-h-0">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-inner shrink-0">
+            <IconComponent className={`w-6 h-6 ${cardTheme.iconColor} drop-shadow-md`} />
           </div>
+          {name && (
+            <span
+              className={`w-full text-center font-black leading-[1.1] ${cardTheme.textColor} drop-shadow-sm line-clamp-3`}
+              style={{ fontSize: '8.5px' }}
+              title={name}
+            >
+              {name}
+            </span>
+          )}
         </div>
       </div>
     </motion.div>

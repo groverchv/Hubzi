@@ -99,6 +99,16 @@ export default function ArcadeNode({
         <div style={{ height: 68, width: 60 }} className="invisible pointer-events-none" />
       </motion.div>
 
+      {/* NOMBRE DE LA RESPUESTA COLOCADA — visible bajo la casilla */}
+      {placedCard?.name && (
+        <span
+          className="mt-1 max-w-[130px] text-center text-[8.5px] font-black leading-tight text-green-800 bg-green-100/95 border border-green-300 rounded-md px-1.5 py-0.5 shadow-sm line-clamp-2"
+          title={placedCard.name}
+        >
+          {placedCard.name}
+        </span>
+      )}
+
       {/* HOVER TOOLTIP FLOTANTE DE LECTURA RÁPIDA (SIEMPRE LEGIBLE) */}
       {question && (
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3 rounded-2xl bg-[var(--color-arcade-navy)]/98 border-2 border-amber-400/80 shadow-[0_12px_32px_rgba(0,0,0,0.85)] text-slate-100 opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
@@ -107,6 +117,11 @@ export default function ArcadeNode({
             <span>{label ? `Casilla: ${label}` : 'Reactivo:'}</span>
           </p>
           <p className="leading-snug text-slate-200 font-semibold text-[10.5px] max-h-24 overflow-y-auto">{question}</p>
+          {placedCard?.name && (
+            <p className="mt-1.5 text-[10px] font-black text-green-300 border-t border-green-500/30 pt-1">
+              Respuesta: {placedCard.name}
+            </p>
+          )}
           {questionLatex && (
             <div className="mt-1.5 text-cyan-100 text-[11px] overflow-x-auto">
               <KaTeXText tex={questionLatex} displayMode />
