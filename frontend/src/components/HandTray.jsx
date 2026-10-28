@@ -101,7 +101,7 @@ export default function HandTray({
                       : isHinted
                         ? "bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]"
                         : "bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner"
-                  } flex items-center justify-center`}
+                  } ${hintCardId && !isHinted && !isHandSelected ? "opacity-35" : ""} flex items-center justify-center`}
                 >
                   {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
                   {isHinted && (

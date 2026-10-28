@@ -1556,7 +1556,6 @@ export default function ArcadeArena() {
     const targetNode = nodes[targetNodeId];
 
     if (targetNode.placedCard) {
-      setSuccessNotif(`Este nodo ya tiene su respuesta colocada.`);
       return false;
     }
 
