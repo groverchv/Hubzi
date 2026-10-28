@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, BookOpen, Swords, Wind, ArrowRight, HeartHandshake, GraduationCap, Crown, Check, School, ChevronLeft, ChevronRight } from "lucide-react";
+import { Sparkles, BookOpen, Swords, Wind, ArrowRight, HeartHandshake, GraduationCap, Crown, Check, School, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
 import SubscriptionModal from "../components/SubscriptionModal";
@@ -33,9 +33,22 @@ export default function LandingPage() {
   const { t } = useTranslation();
   const [selectedMascotIndex, setSelectedMascotIndex] = useState(0);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isPlansOpen, setIsPlansOpen] = useState(false);
   const activeMascot = SHOWCASE_MASCOTS[selectedMascotIndex];
+
+  useEffect(() => {
+    if (!isPlansOpen) return;
+    const onKey = (e) => e.key === "Escape" && setIsPlansOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isPlansOpen]);
   const nextMascot = () => setSelectedMascotIndex((i) => (i + 1) % SHOWCASE_MASCOTS.length);
   const prevMascot = () => setSelectedMascotIndex((i) => (i - 1 + SHOWCASE_MASCOTS.length) % SHOWCASE_MASCOTS.length);
+
+  // Última palabra del título en color de acento ("...EN UN JUEGO")
+  const heroWords = t("landing.hero_title").split(" ");
+  const heroHead = heroWords.slice(0, -1).join(" ");
+  const heroTail = heroWords[heroWords.length - 1];
 
   const planCheck = (cls, iconCls) => (
     <div className={`w-4 h-4 rounded-md ${cls} flex items-center justify-center shrink-0`}>
@@ -56,18 +69,19 @@ export default function LandingPage() {
       <AnimatedCloudsBackground />
 
       {/* Nav */}
-      <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-3">
+      <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-3 xl:py-4">
         <div className="flex items-center gap-2.5">
-          <span className="text-xl font-black uppercase tracking-wider text-[var(--color-arcade-navy)]">Hubzi</span>
+          <span className="text-xl xl:text-2xl font-black uppercase tracking-wider text-[var(--color-arcade-navy)]">Hubzi</span>
         </div>
         <div className="flex items-center gap-3">
-          <a
-            href="#planes"
+          <button
+            type="button"
+            onClick={() => setIsPlansOpen(true)}
             className="rounded-2xl bg-white/80 hover:bg-white px-3.5 py-1.5 text-xs font-black uppercase text-[var(--color-arcade-navy)] border-2 border-slate-300 hover:border-[var(--color-arcade-navy)] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
           >
             <Crown className="w-4 h-4 text-amber-500 fill-current" />
             <span>Planes</span>
-          </a>
+          </button>
           <Link
             to="/arena"
             className="rounded-2xl bg-[var(--color-arcade-navy)] px-5 py-1.5 text-xs font-black uppercase text-white border-b-4 border-[var(--color-arcade-ink)] hover:bg-[var(--color-arcade-navy-hover)] transition-colors shadow-md"
@@ -82,35 +96,36 @@ export default function LandingPage() {
       <main className="relative z-10 mx-auto w-full max-w-[1600px] flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 pt-1 pb-3 text-center flex flex-col">
         <div className="my-auto w-full">
         {/* Hero: información a la izquierda (~70%), mascota a la derecha (~30%) */}
-        <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex-1 text-center lg:text-left"
+            className="flex-1 text-center"
           >
-            <div className="mb-2.5 inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
+            <div className="mb-2.5 inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1 text-[11px] xl:text-xs font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
               <Sparkles className="w-3.5 h-3.5" /> {t("app.tagline")}
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-black uppercase leading-tight text-[var(--color-arcade-navy)] drop-shadow-sm">
-              {t("landing.hero_title")}
+            <h1 className="text-3xl sm:text-5xl xl:text-6xl font-black uppercase leading-tight text-[var(--color-arcade-navy)] drop-shadow-sm">
+              {heroHead}{" "}
+              <span className="text-[var(--color-arcade-orange)] drop-shadow-sm">{heroTail}</span>
             </h1>
-            <p className="mx-auto lg:mx-0 mt-2.5 max-w-3xl text-sm sm:text-base font-semibold text-slate-700">
+            <p className="mx-auto mt-2.5 max-w-3xl text-sm sm:text-base xl:text-lg font-semibold text-slate-700">
               {t("landing.hero_subtitle")}
             </p>
 
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+            <div className="mt-4 xl:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 to="/arena"
-                className="group inline-flex items-center gap-2 rounded-3xl bg-[var(--color-arcade-orange)] px-7 py-3 text-base font-black uppercase text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
+                className="group inline-flex items-center gap-2 rounded-3xl bg-[var(--color-arcade-orange)] px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
               >
                 {t("landing.cta_start")}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
                 to="/zen"
-                className="inline-flex items-center gap-2 rounded-3xl bg-white/80 px-7 py-3 text-base font-black uppercase text-[var(--color-arcade-navy)] border-b-6 border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
+                className="inline-flex items-center gap-2 rounded-3xl bg-white/80 px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-[var(--color-arcade-navy)] border-b-6 border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
               >
                 <Wind className="w-5 h-5" /> {t("nav.zen")}
               </Link>
@@ -118,21 +133,25 @@ export default function LandingPage() {
           </motion.div>
 
           {/* Showcase de Mascota (~30% derecha) con anterior/siguiente */}
-          <div className="w-full lg:w-[30%] flex flex-col items-center shrink-0">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] text-white text-[10px] font-black uppercase tracking-wider shadow-md mb-2">
+          <div className="w-full sm:w-[30%] flex flex-col items-center shrink-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] text-white text-[10px] xl:text-xs font-black uppercase tracking-wider shadow-md mb-2 xl:mb-3">
               <GraduationCap className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
               <span>Compañeros Hubzi</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 xl:gap-3">
               <button
                 type="button"
                 onClick={prevMascot}
                 aria-label="Mascota anterior"
-                className="w-9 h-9 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-5 h-5 xl:w-6 xl:h-6" />
               </button>
-              <div className="flex flex-col items-center">
+              <motion.div
+                animate={{ y: [0, -8, 0] }}
+                transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
+                className="flex flex-col items-center"
+              >
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeMascot.name}
@@ -140,7 +159,7 @@ export default function LandingPage() {
                     animate={{ opacity: 1, scale: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.9, x: -20 }}
                     transition={{ duration: 0.22 }}
-                    className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] bg-gradient-to-br from-white/90 to-slate-100/80 border-4 border-[var(--color-arcade-navy)] shadow-2xl overflow-hidden flex items-center justify-center"
+                    className="relative w-36 h-36 sm:w-44 sm:h-44 xl:w-60 xl:h-60 rounded-[2rem] bg-gradient-to-br from-white/90 to-slate-100/80 border-4 border-[var(--color-arcade-navy)] shadow-2xl overflow-hidden flex items-center justify-center"
                   >
                     <img
                       src={activeMascot.image}
@@ -154,56 +173,83 @@ export default function LandingPage() {
                     </div>
                   </motion.div>
                 </AnimatePresence>
-                <p className="mt-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wide">
+                <p className="mt-1.5 xl:mt-2.5 text-[10px] xl:text-xs font-bold text-slate-600 uppercase tracking-wide">
                   {activeMascot.role}
                 </p>
-              </div>
+              </motion.div>
               <button
                 type="button"
                 onClick={nextMascot}
                 aria-label="Siguiente mascota"
-                className="w-9 h-9 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 xl:w-6 xl:h-6" />
               </button>
             </div>
           </div>
         </div>
 
         {/* Features */}
-        <section className="mt-5 grid gap-4 sm:grid-cols-3 text-left">
+        <section className="mt-5 xl:mt-7 grid gap-4 xl:gap-5 sm:grid-cols-3 text-left">
           {FEATURES.map((f, i) => (
             <motion.div
               key={i}
-              className="rounded-2xl bg-white/85 p-4 border-b-4 border-slate-200 shadow-lg flex items-start gap-3"
+              className="rounded-2xl bg-white/85 p-4 xl:p-5 border-b-4 border-slate-200 shadow-lg flex items-start gap-3 hover:-translate-y-1 hover:shadow-xl transition-transform"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12 }}
             >
-              <div className="inline-flex rounded-xl bg-[var(--color-arcade-yellow)]/20 p-2 shrink-0">
-                <f.icon className="w-5 h-5 text-[var(--color-arcade-orange)]" />
+              <div className="inline-flex rounded-xl bg-[var(--color-arcade-yellow)]/20 p-2 xl:p-2.5 shrink-0">
+                <f.icon className="w-5 h-5 xl:w-6 xl:h-6 text-[var(--color-arcade-orange)]" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-[var(--color-arcade-navy)] leading-snug">{t(f.titleKey)}</h3>
-                <p className="mt-1 text-[11px] font-medium text-slate-600 leading-snug">{t(f.descKey)}</p>
+                <h3 className="text-sm xl:text-base font-black text-[var(--color-arcade-navy)] leading-snug">{t(f.titleKey)}</h3>
+                <p className="mt-1 text-[11px] xl:text-xs font-medium text-slate-600 leading-snug">{t(f.descKey)}</p>
               </div>
             </motion.div>
           ))}
         </section>
 
-        {/* SECCIÓN PLANES Y PRECIOS */}
-        <section id="planes" className="mt-6 scroll-mt-4">
-          <div className="mx-auto max-w-2xl text-center mb-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md mb-2">
-              <Crown className="w-3.5 h-3.5 fill-current" /> Planes y Precios
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black uppercase text-[var(--color-arcade-navy)] tracking-tight">
-              Planes que Ofrecemos
-            </h2>
-          </div>
+        {/* Mental health note */}
+        <div className="mx-auto mt-3 xl:mt-5 flex max-w-xl items-center gap-2 rounded-xl bg-white/70 px-3 py-1.5 xl:py-2.5 text-left text-[10px] xl:text-xs text-slate-600">
+          <HeartHandshake className="w-4 h-4 shrink-0 text-rose-500" />
+          <p>{t("landing.disclaimer")}</p>
+        </div>
+        </div>
+      </main>
 
-          <div className="grid gap-5 md:grid-cols-3 w-full mx-auto text-left items-stretch">
+      {/* MODAL PLANES Y PRECIOS — se abre desde el botón PLANES */}
+      {isPlansOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[var(--color-arcade-navy-dark)]/60 backdrop-blur-sm"
+          onClick={() => setIsPlansOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.22 }}
+            className="relative w-full max-w-6xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-gradient-to-b from-sky-200 to-emerald-100 p-5 sm:p-7 shadow-2xl border-4 border-white/70"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
+                <Crown className="w-3.5 h-3.5 fill-current" /> Planes y Precios
+              </div>
+              <h2 className="hidden sm:block text-xl sm:text-2xl font-black uppercase text-[var(--color-arcade-navy)] tracking-tight">
+                Planes que Ofrecemos
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsPlansOpen(false)}
+                aria-label="Cerrar"
+                className="w-9 h-9 rounded-xl bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-3 w-full mx-auto text-left items-stretch">
             {/* PLAN GRATUITO */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -331,7 +377,7 @@ export default function LandingPage() {
               <div className="mt-4">
                 <button
                   type="button"
-                  onClick={() => setIsSubscriptionModalOpen(true)}
+                  onClick={() => { setIsPlansOpen(false); setIsSubscriptionModalOpen(true); }}
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-2xl bg-gradient-to-r from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] hover:from-[var(--color-arcade-orange-bright)] hover:to-[#ffbf1a] text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-4 border-b-[#8c3b00] shadow-[0_4px_0_#8c3b00] hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                 >
                   <Crown className="w-4 h-4 fill-current" />
@@ -404,22 +450,16 @@ export default function LandingPage() {
               </div>
             </motion.div>
           </div>
-        </section>
-
-        {/* Mental health note */}
-        <div className="mx-auto mt-3 flex max-w-xl items-center gap-2 rounded-xl bg-white/70 px-3 py-1.5 text-left text-[10px] text-slate-600">
-          <HeartHandshake className="w-4 h-4 shrink-0 text-rose-500" />
-          <p>{t("landing.disclaimer")}</p>
+          </motion.div>
         </div>
-        </div>
-      </main>
+      )}
 
       {/* Footer legal */}
-      <footer className="relative z-10 border-t border-[var(--color-arcade-navy)]/10 py-2 text-center text-[10px] font-semibold text-slate-600">
+      <footer className="relative z-10 border-t border-[var(--color-arcade-navy)]/10 py-2 xl:py-3 text-center text-[10px] xl:text-xs font-semibold text-slate-600">
         <div className="flex items-center justify-center gap-3">
-          <a href="#planes" className="hover:text-[var(--color-arcade-navy)] transition-colors">
+          <button type="button" onClick={() => setIsPlansOpen(true)} className="hover:text-[var(--color-arcade-navy)] transition-colors cursor-pointer">
             Planes y Precios
-          </a>
+          </button>
           <span>·</span>
           <Link to="/legal/terminos" className="hover:text-[var(--color-arcade-navy)] transition-colors">
             Términos de Servicio
