@@ -140,7 +140,7 @@ export default function WelcomeScreen({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between select-none font-sans overflow-hidden bg-transparent">
+    <div className="fixed inset-0 z-50 flex flex-col justify-between select-none font-sans overflow-y-auto overflow-x-hidden bg-transparent">
       {/* ── BARRA SUPERIOR: AJUSTES & ACCESO ── */}
       <div className="relative w-full px-4 sm:px-8 pt-4 flex items-center justify-between z-20">
 

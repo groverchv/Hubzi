@@ -64,7 +64,7 @@ export default function VictoryModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.88, y: 30 }}
         transition={{ type: 'spring', stiffness: 320, damping: 25 }}
-        className="relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-hidden"
+        className="relative w-full max-w-md rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 sm:p-7 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_50px_rgba(0,0,0,0.7)] flex flex-col items-center text-center overflow-y-auto max-h-[94dvh]"
       >
         {/* Glow de fondo */}
         <div className="absolute -top-16 -right-16 w-44 h-44 bg-[var(--color-arcade-yellow)]/20 rounded-full blur-3xl pointer-events-none" />

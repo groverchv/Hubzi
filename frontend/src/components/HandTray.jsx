@@ -54,7 +54,7 @@ export default function HandTray({
               type="button"
               onClick={() => setHandPage((prev) => Math.max(0, prev - 1))}
               disabled={activePage === 0}
-              className={`p-1 rounded-lg border transition-all cursor-pointer ${
+              className={`touch-target p-1 rounded-lg border transition-all cursor-pointer ${
                 activePage === 0
                   ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
                   : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
@@ -75,7 +75,7 @@ export default function HandTray({
                 setHandPage((prev) => Math.min(totalPages - 1, prev + 1))
               }
               disabled={activePage >= totalPages - 1}
-              className={`p-1 rounded-lg border transition-all cursor-pointer ${
+              className={`touch-target p-1 rounded-lg border transition-all cursor-pointer ${
                 activePage >= totalPages - 1
                   ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
                   : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
@@ -87,7 +87,7 @@ export default function HandTray({
           </div>
         )}
 
-        <div className="relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
+        <div className="hand-tray relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center">
           <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
             {visibleCards.map((card, idx) => {
               const isHinted = hintCardId === card.id;
@@ -95,17 +95,13 @@ export default function HandTray({
               return (
                 <div
                   key={`slot-${card.id || idx}`}
-                  className={`relative rounded-2xl p-1 transition-all ${
+                  className={`hand-slot relative rounded-2xl p-1 transition-all ${
                     isHandSelected
                       ? "bg-cyan-400/40 border-2 border-cyan-400 shadow-[0_0_22px_#22d3ee] scale-105"
                       : isHinted
                         ? "bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]"
                         : "bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner"
                   } flex items-center justify-center`}
-                  style={{
-                    width: "86px",
-                    height: "112px",
-                  }}
                 >
                   {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}
                   {isHinted && (

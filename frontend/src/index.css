@@ -34,10 +34,11 @@ body {
   color: #1e293b;
   font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   user-select: none;
   position: relative;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Capa de Nubes Suaves Animadas Flotantes */
@@ -298,6 +299,80 @@ html.low-power .drop-shadow-xl {
 @keyframes rotateHint {
   0%, 100% { transform: rotate(0deg); }
   50%      { transform: rotate(90deg); }
+}
+
+/* === MODO LANDSCAPE COMPACTO (teléfonos horizontales) ===
+   Solo dispositivos táctiles en horizontal con poca altura (~390px).
+   Desktop y tablets no se ven afectados. */
+.hand-slot {
+  width: 86px;
+  height: 112px;
+}
+
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) {
+  /* Tablero: ocupa el alto real disponible entre barra (~36px) y mazo (~100px) */
+  .board-table-3d {
+    height: calc(100dvh - 172px) !important;
+    max-height: calc(100dvh - 172px) !important;
+    padding: 6px !important;
+  }
+  /* Módulos decorativos de la carcasa: fuera — liberan el área jugable */
+  .board-deco {
+    display: none !important;
+  }
+  /* Mazo: slots y cartas compactos */
+  .hand-slot {
+    width: 64px;
+    height: 82px;
+  }
+  .hand-tray {
+    padding: 4px 10px !important;
+  }
+  .game-card {
+    width: 56px !important;
+    height: 74px !important;
+    padding: 4px !important;
+    border-radius: 12px !important;
+  }
+  .game-card-icon {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 8px !important;
+  }
+  .game-card-icon svg {
+    width: 15px !important;
+    height: 15px !important;
+  }
+  .game-card-name {
+    font-size: 7px !important;
+    line-height: 1.05 !important;
+  }
+  /* HUD: píldoras de nivel/progreso compactas */
+  .hud-chip {
+    padding: 4px 8px !important;
+    gap: 4px !important;
+    border-radius: 12px !important;
+  }
+  .hud-chip span {
+    font-size: 8px !important;
+  }
+  .hud-chip svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  /* Hubzi: la mascota se encoge, no tapa el tablero */
+  .capy-companion {
+    scale: 0.58;
+    transform-origin: left center;
+  }
+  /* Tap targets mínimos de 40px */
+  .touch-target {
+    min-width: 40px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 /* Accesibilidad: usuarios con sensibilidad al movimiento (vestibular) —

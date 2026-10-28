@@ -52,7 +52,7 @@ export default function CapyCompanion({
   onZenDismiss,
 }) {
   return (
-      <div className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center select-none pointer-events-auto">
+      <div className="capy-companion absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center select-none pointer-events-auto">
         {/* BOCADILLO DE DIÁLOGO FLOTANTE (ESTILO CÓMIC NEÓN CON TEXTO SINTÉTICO Y MOTIVADOR) */}
         <AnimatePresence>
           {capySpeech.isVisible && capySpeech.text && (

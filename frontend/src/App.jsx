@@ -19,7 +19,7 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 
 function RouteFallback() {
   return (
-    <div className="w-screen h-screen flex items-center justify-center bg-[var(--color-arcade-navy-dark)]">
+    <div className="w-screen h-[100dvh] flex items-center justify-center bg-[var(--color-arcade-navy-dark)]">
       <div className="flex flex-col items-center gap-3">
         <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
         <span className="text-[var(--color-arcade-yellow)] font-mono text-xs font-black uppercase tracking-widest">
@@ -50,7 +50,7 @@ function App() {
             <Route
               path="/arena"
               element={
-                <div className="w-screen h-screen overflow-hidden relative">
+                <div className="w-screen h-[100dvh] overflow-hidden relative">
                   <AnimatedCloudsBackground />
                   <ArcadeArena />
                 </div>

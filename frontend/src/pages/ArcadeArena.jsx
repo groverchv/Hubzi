@@ -645,6 +645,11 @@ export default function ArcadeArena() {
     return () => clearTimeout(t);
   }, [hasActiveBoard]);
 
+  // Horizontal también al entrar al tablero directo (isla → Jugar, sin mapa)
+  useEffect(() => {
+    if (hasActiveBoard) lockLandscape();
+  }, [hasActiveBoard]);
+
   // Nivel desde el que continuar: del progreso del servidor o del espejo local
   const getResumeLevel = (folder, island = null) => {
     const cap = island?.total_levels || 20;
@@ -1819,7 +1824,7 @@ export default function ArcadeArena() {
   const showWelcome = !currentUser || isWelcomeScreenVisible;
   if (showWelcome) {
     return (
-      <div className="relative w-screen h-screen overflow-hidden select-none">
+      <div className="relative w-screen h-[100dvh] overflow-hidden select-none">
         <WelcomeScreen
           isLoggedIn={Boolean(currentUser)}
           username={currentUser?.username || currentUser?.email?.split("@")[0]}
@@ -1882,7 +1887,7 @@ export default function ArcadeArena() {
   // RENDERIZADO DEL MAPA DE AVENTURA (MUNDOS E ISLAS ESTILO MONSTER LEGENDS)
   if (isMapVisible) {
     return (
-      <div className="relative w-screen h-screen overflow-hidden select-none">
+      <div className="relative w-screen h-[100dvh] overflow-hidden select-none">
         <AdventureMap
           folderName={
             activeIsland
@@ -1972,7 +1977,7 @@ export default function ArcadeArena() {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden flex flex-col justify-between select-none">
+    <div className="relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none">
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
       <AuthModal
         isOpen={isAuthModalOpen}
@@ -2262,7 +2267,7 @@ export default function ArcadeArena() {
             GAME_LEVELS.find((l) => l.level === currentLevel) || GAME_LEVELS[0];
           return (
             <div
-              className="flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
+              className="hud-chip flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
               title={`Nivel ${currentLevel} de 20: ${lvlInfo.name}`}
             >
               <Trophy className="w-4 h-4 text-[var(--color-arcade-yellow)] animate-bounce" />
@@ -2277,7 +2282,7 @@ export default function ArcadeArena() {
         })()}
 
         <div
-          className="flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
+          className="hud-chip flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
           title="Progreso del Circuito"
         >
           <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">

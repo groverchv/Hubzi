@@ -118,7 +118,7 @@ export default function AdventureMap({
   }, "");
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden select-none font-sans bg-radial from-[#1e88e5] via-[#1565c0] to-[#0a2756]">
+    <div className="relative w-screen h-[100dvh] overflow-hidden select-none font-sans bg-radial from-[#1e88e5] via-[#1565c0] to-[#0a2756]">
       {/* ── AMBIENTE DE FONDO CON NUBES FLOTANTES ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:28px_28px]" />
