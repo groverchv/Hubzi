@@ -135,28 +135,10 @@ export default function ArcadeArena() {
       .catch(() => {});
   };
 
-  // Pantalla Inicial de Bienvenida (Estilo Card Clash).
-  // Solo se muestra si no hay sesión previa y el usuario nunca entró:
-  // quien ya conoce Hubzy vuelve directo a la arena (resume sin fricción).
-  const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(() => {
-    try {
-      if (localStorage.getItem("hubzy_current_user")) return false;
-      return !localStorage.getItem("hubzy_seen_welcome");
-    } catch {
-      return true;
-    }
-  });
-
-  // Al salir de la bienvenida una vez, queda vista para siempre.
-  useEffect(() => {
-    if (!isWelcomeScreenVisible) {
-      try {
-        localStorage.setItem("hubzy_seen_welcome", "1");
-      } catch {
-        /* almacenamiento no disponible */
-      }
-    }
-  }, [isWelcomeScreenVisible]);
+  // Pantalla Inicial de Bienvenida — actúa como MENÚ PRINCIPAL de la arena.
+  // Siempre arranca visible (haya sesión o no): se oculta al entrar a
+  // carpetas/juego con CONTINUAR y vuelve al cerrar carpetas o tocar MENÚ.
+  const [isWelcomeScreenVisible, setIsWelcomeScreenVisible] = useState(true);
 
   // Modal de Login / Registro
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -173,6 +155,9 @@ export default function ArcadeArena() {
     setCurrentUser(null);
     setIsAuthModalOpen(true);
   };
+
+  // Confirmación de cierre de sesión (cuenta en bienvenida / botón Salir)
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   // Modal de Suscripción Stripe (Hubzy Pro)
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
@@ -338,7 +323,8 @@ export default function ArcadeArena() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        if (isLegalModalOpen) setIsLegalModalOpen(false);
+        if (isLogoutConfirmOpen) setIsLogoutConfirmOpen(false);
+        else if (isLegalModalOpen) setIsLegalModalOpen(false);
         else if (selectedNodeForQuestion) setSelectedNodeForQuestion(null);
         else if (selectedCardForDetail) setSelectedCardForDetail(null);
         else if (isFolderModalOpen) closeFolderModal();
@@ -351,6 +337,7 @@ export default function ArcadeArena() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    isLogoutConfirmOpen,
     isLegalModalOpen,
     selectedNodeForQuestion,
     selectedCardForDetail,
@@ -1707,6 +1694,59 @@ export default function ArcadeArena() {
     </AnimatePresence>
   );
 
+  // Confirmación de cierre de sesión — se comparte entre la bienvenida
+  // (botón de cuenta) y la barra del juego (botón Salir).
+  const logoutConfirmModal = (
+    <AnimatePresence>
+      {isLogoutConfirmOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[var(--color-arcade-navy-dark)]/70 backdrop-blur-sm"
+          onClick={() => setIsLogoutConfirmOpen(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 16 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 16 }}
+            transition={{ type: "spring", damping: 25, stiffness: 320 }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white rounded-3xl border-4 border-[var(--color-arcade-navy)] shadow-[0_10px_0_var(--color-arcade-navy)] p-6 text-center"
+          >
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 border-2 border-rose-300 flex items-center justify-center mb-3">
+              <LogOut className="w-7 h-7 text-rose-500" />
+            </div>
+            <h3 className="text-lg font-black text-[var(--color-arcade-navy)] uppercase tracking-wide mb-1">
+              ¿Cerrar sesión?
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mb-5 leading-relaxed">
+              {currentUser?.username || currentUser?.email || "Tu cuenta"} — tu
+              progreso y carpetas quedan guardados.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsLogoutConfirmOpen(false)}
+                className="flex-1 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-700 font-black text-xs uppercase tracking-wide cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  setIsLogoutConfirmOpen(false);
+                  handleLogout();
+                }}
+                className="flex-1 py-2.5 rounded-2xl bg-rose-500 hover:bg-rose-600 border-b-4 border-rose-700 text-white font-black text-xs uppercase tracking-wide cursor-pointer transition-all active:translate-y-0.5 active:border-b-2"
+              >
+                Sí, cerrar sesión
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   // SI LA PANTALLA DE BIENVENIDA ESTÁ ACTIVA, SE MUESTRA EXCLUSIVAMENTE ELLA (SIN EL TABLERO NI EL JUEGO ABAJO)
   // Sin sesión la bienvenida es obligatoria: es la única puerta de entrada (login/registro).
   const showWelcome = !currentUser || isWelcomeScreenVisible;
@@ -1716,7 +1756,10 @@ export default function ArcadeArena() {
         <WelcomeScreen
           isLoggedIn={Boolean(currentUser)}
           username={currentUser?.username || currentUser?.email?.split("@")[0]}
-          onOpenLogin={() => setIsAuthModalOpen(true)}
+          onOpenLogin={() => {
+            if (currentUser) setIsLogoutConfirmOpen(true);
+            else setIsAuthModalOpen(true);
+          }}
           onOpenTutorial={() => setIsTutorialOpen(true)}
           onContinue={() => {
             if (!currentUser) {
@@ -1759,6 +1802,8 @@ export default function ArcadeArena() {
           onClose={() => setIsLegalModalOpen(false)}
           initialTab={legalModalTab}
         />
+
+        {logoutConfirmModal}
 
         {/* Banner de Consentimiento de Cookies */}
         <CookieConsentBanner onOpenLegal={handleOpenLegal} />
@@ -1883,7 +1928,7 @@ export default function ArcadeArena() {
         }}
         onLogout={() => {
           setIsUserModalOpen(false);
-          handleLogout();
+          setIsLogoutConfirmOpen(true);
         }}
       />
 
@@ -2167,7 +2212,7 @@ export default function ArcadeArena() {
               </div>
             </button>
             <button
-              onClick={handleLogout}
+              onClick={() => setIsLogoutConfirmOpen(true)}
               className="px-2.5 py-1.5 hover:bg-rose-900/80 hover:text-rose-200 text-slate-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
               title="Cerrar sesión de esta cuenta"
             >
@@ -2324,6 +2369,8 @@ export default function ArcadeArena() {
         isOpen={isTutorialOpen}
         onClose={() => setIsTutorialOpen(false)}
       />
+
+      {logoutConfirmModal}
 
       {/* MODAL DE VICTORIA Y ESTRELLAS CON EFECTO CONFETTI */}
       <VictoryModal
