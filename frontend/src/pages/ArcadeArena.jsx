@@ -2048,15 +2048,17 @@ export default function ArcadeArena() {
 
       {/* BARRA SUPERIOR CON CONTROLES LIMPIOS ESTILO CARD CLASH */}
       <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
-        {/* BOTÓN VOLVER AL MAPA DE NIVELES */}
-        <button
-          onClick={() => setIsMapVisible(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-green)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:translate-y-1 active:shadow-none cursor-pointer"
-          title="Ver Mapa de Aventura y Niveles"
-        >
-          <Compass className="w-4 h-4 text-[var(--color-arcade-green)]" />
-          <span className="hidden sm:inline">Mapa</span>
-        </button>
+        {/* BOTÓN VOLVER AL MAPA DE NIVELES — solo con partida en curso */}
+        {Object.keys(nodes).length > 0 && (
+          <button
+            onClick={() => setIsMapVisible(true)}
+            className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-green)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:translate-y-1 active:shadow-none cursor-pointer"
+            title="Ver Mapa de Aventura y Niveles"
+          >
+            <Compass className="w-4 h-4 text-[var(--color-arcade-green)]" />
+            <span className="hidden sm:inline">Mapa</span>
+          </button>
+        )}
 
         {/* BOTÓN VOLVER AL MENÚ PRINCIPAL */}
         <button
@@ -2152,20 +2154,23 @@ export default function ArcadeArena() {
           </button>
         )}
 
-        {/* BOTÓN REINICIAR (ESTILO CARD CLASH CON VERDE ESMERALDA Y BORDE GRUESO) */}
-        <button
-          onClick={handleRestartWithNewQuestions}
-          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-4 border-b-[var(--color-arcade-green-shadow)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-navy)] active:translate-y-1 active:shadow-none cursor-pointer"
-          title="Reiniciar partida y generar un nuevo conjunto de preguntas de este documento"
-        >
-          <RotateCcw className="w-4 h-4 text-white" />
-          <span className="hidden sm:inline font-black tracking-wide">
-            Reiniciar
-          </span>
-        </button>
+        {/* BOTÓN REINICIAR — solo cuando hay una partida que reiniciar */}
+        {Object.keys(nodes).length > 0 && (
+          <button
+            onClick={handleRestartWithNewQuestions}
+            className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-4 border-b-[var(--color-arcade-green-shadow)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-navy)] active:translate-y-1 active:shadow-none cursor-pointer"
+            title="Reiniciar partida y generar un nuevo conjunto de preguntas de este documento"
+          >
+            <RotateCcw className="w-4 h-4 text-white" />
+            <span className="hidden sm:inline font-black tracking-wide">
+              Reiniciar
+            </span>
+          </button>
+        )}
       </div>
 
-      {/* Marcadores de Puntuación, Nivel Actual y Progreso del Estudiante estilo Card Clash */}
+      {/* Marcadores de Nivel y Progreso — solo con partida en curso */}
+      {Object.keys(nodes).length > 0 && (
       <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
         {/* Indicador de Nivel 1 a 20 */}
         {(() => {
@@ -2200,6 +2205,7 @@ export default function ArcadeArena() {
           </span>
         </div>
       </div>
+      )}
 
       {/* CARTA VOLADORA EN VIVO (MOVIMIENTO EN TIEMPO REAL AL JUGAR LA MÁQUINA O EL RIVAL) */}
       <AnimatePresence>
