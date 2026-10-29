@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import CoachMark from "./CoachMark";
 import capyFallback from "../assets/mascots/capy_escolar_nino_m.webp";
-import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
 import { getMascotByDomain } from "../utils/mascotCatalog";
 
@@ -39,7 +38,10 @@ export default function CapyCompanion({
   isThinkingHint,
   isCapyMuted,
   isAmbientPlaying,
+  compact = false, // móvil: versión reducida pegada al borde inferior
   zenOffer,
+  hubziStatus = "idle", // estado macro consolidado (3.2)
+  chatOpen = false,
   idleBlinkSeq,
   nodes,
   currentLevel,
@@ -50,11 +52,18 @@ export default function CapyCompanion({
   onHintButton,
   onToggleMicrophone,
   onToggleMute,
+  onToggleChat,
   onZenAccept,
   onZenDismiss,
 }) {
   return (
-      <div className="capy-companion absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center select-none pointer-events-auto">
+      <div
+        className={`capy-companion absolute z-40 flex flex-col items-center select-none pointer-events-auto ${
+          compact
+            ? "left-0.5 bottom-[118px] top-auto scale-[0.62] origin-bottom-left"
+            : "left-2 sm:left-4 top-1/2 -translate-y-1/2"
+        }`}
+      >
         {/* BOCADILLO DE DIÁLOGO FLOTANTE (ESTILO CÓMIC NEÓN CON TEXTO SINTÉTICO Y MOTIVADOR) */}
         <AnimatePresence>
           {capySpeech.isVisible && capySpeech.text && (
@@ -77,7 +86,9 @@ export default function CapyCompanion({
                 <div className="flex items-center gap-1.5">
                   <span
                     className={`text-[8.5px] font-mono font-black uppercase flex items-center gap-1 ${
-                      capyMood === "encouraging" || isCapySad
+                      capySpeech.interim
+                        ? "text-rose-300"
+                        : capyMood === "encouraging" || isCapySad
                         ? "text-rose-300"
                         : capyMood === "happy"
                           ? "text-emerald-300"
@@ -86,17 +97,27 @@ export default function CapyCompanion({
                             : "text-cyan-300"
                     }`}
                   >
-                    <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                    {capySpeech.interim ? (
+                      <Mic className="w-2.5 h-2.5 text-rose-400 animate-pulse" />
+                    ) : (
+                      <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                    )}
                     <span>
-                      HUBZI{" "}
-                      {capyMood === "hint"
-                        ? "PISTA"
-                        : capyMood === "happy"
-                          ? "CELEBRA"
-                          : capyMood === "encouraging"
-                            ? "TE ANIMA"
-                            : "DICE"}
-                      :
+                      {capySpeech.interim ? (
+                        "ESCUCHANDO:"
+                      ) : (
+                        <>
+                          HUBZI{" "}
+                          {capyMood === "hint"
+                            ? "PISTA"
+                            : capyMood === "happy"
+                              ? "CELEBRA"
+                              : capyMood === "encouraging"
+                                ? "TE ANIMA"
+                                : "DICE"}
+                          :
+                        </>
+                      )}
                     </span>
                   </span>
                 </div>
@@ -135,8 +156,12 @@ export default function CapyCompanion({
                 )}
               </div>
 
-              <p className="text-[10.5px] sm:text-[11.5px] font-medium leading-snug break-words">
-                {capySpeech.text}
+              <p
+                className={`text-[10.5px] sm:text-[11.5px] leading-snug break-words ${
+                  capySpeech.interim ? "italic font-semibold opacity-90" : "font-medium"
+                }`}
+              >
+                {capySpeech.interim ? `“${capySpeech.text}”` : capySpeech.text}
               </p>
 
               {/* BOTÓN DE PISTA DIRECTA — aparece tras 2 fallos seguidos
@@ -755,18 +780,20 @@ export default function CapyCompanion({
             </button>
             </span>
 
-            {/* Botón Silenciar / Activar Voz Tierna */}
+            {/* Botón Silenciar / Activar TODO el sonido (persistente) */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const nextMuted = !isCapyMuted;
-                onToggleMute(nextMuted);
-                capyVoice.isMuted = nextMuted;
-                if (nextMuted) capyVoice.stop();
+                onToggleMute(!isCapyMuted);
               }}
               className="p-2.5 rounded-full bg-slate-900/90 border-2 border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
               title={
-                isCapyMuted ? "Activar voz de Hubzi" : "Silenciar voz de Hubzi"
+                isCapyMuted
+                  ? "Activar el sonido (voz, efectos y música)"
+                  : "Silenciar todo el sonido (voz, efectos y música)"
+              }
+              aria-label={
+                isCapyMuted ? "Activar sonido" : "Silenciar todo el sonido"
               }
             >
               {isCapyMuted ? (
@@ -801,6 +828,23 @@ export default function CapyCompanion({
               )}
             </button>
 
+            {/* Botón CHAT — historial visible de la conversación (3.1) */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleChat?.();
+              }}
+              className={`p-2.5 rounded-full border-2 transition-all duration-300 shadow-md cursor-pointer ${
+                chatOpen
+                  ? "bg-cyan-900/90 border-cyan-400 text-cyan-200 ring-2 ring-cyan-400/40"
+                  : "bg-slate-900/90 border-slate-700 hover:border-cyan-400 text-slate-400 hover:text-cyan-300"
+              }`}
+              title="Ver la conversación con Hubzi"
+              aria-label="Abrir chat con Hubzi"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </button>
+
             {/* BOTÓN RESPIRA — acceso directo a la pausa Zen, junto a Hubzi,
                 mientras la oferta anti-estrés está activa (3 fallos seguidos) */}
             {zenOffer?.show && (
@@ -829,11 +873,13 @@ export default function CapyCompanion({
                 : "text-cyan-300/80 group-hover:text-cyan-200"
             }`}
           >
-            {isListening
+            {hubziStatus === "listening"
               ? "Hubzi te escucha..."
-              : isThinkingHint
-                ? "Hubzi preparando sus palabras con calidez..."
-                : "Toca el micrófono para hablar con Hubzi"}
+              : hubziStatus === "thinking"
+                ? "Hubzi pensando con calidez..."
+                : hubziStatus === "alert"
+                  ? "Hubzi te acompaña 💙"
+                  : "Toca el micrófono para hablar con Hubzi"}
           </span>
         </motion.div>
       </div>

@@ -13,6 +13,7 @@
  */
 
 import { fetchWithAuth } from '../lib/api';
+import { isGlobalMuted, onGlobalMuteChange } from './globalMute';
 
 // Los emojis del texto visible se quitan antes del TTS: Edge-TTS/speechSynthesis
 // los pronunciarían como "emoji corazón azul" y arruinarían la voz de Hubzi.
@@ -25,7 +26,13 @@ class CapyVoiceEngine {
     this.audioCache = new Map();
     this.isSpeaking = false;
     this.listeners = new Set();
-    this.isMuted = false;
+    // Mute global persistente: una sola preferencia silencia toda la app.
+    // Al mutear se corta cualquier voz en curso al instante.
+    this.isMuted = isGlobalMuted();
+    onGlobalMuteChange((m) => {
+      this.isMuted = m;
+      if (m) this.stop();
+    });
     this.currentRequestId = 0;
     this.abortController = null;
     this.historySet = new Set();

@@ -4,7 +4,7 @@ import { CheckCircle2, HelpCircle, Sparkles, Star } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 import KaTeXText from './KaTeXText';
 
-export default function ArcadeNode({
+function ArcadeNode({
   id,
   icon = null,
   color = "blue",
@@ -20,7 +20,9 @@ export default function ArcadeNode({
   hint = "",
   index = 0,
   style = {},
-  fx = null, // { kind: 'correct'|'wrong', seq } — feedback empático del último intento
+  fx = null, // { kind: 'correct'|'wrong', seq, points } — feedback empático del último intento
+  afford = null, // 'match'|'open' — affordance de drop con carta seleccionada/en arrastre
+  preview = null, // 'correct'|'wrong' — preview en vivo del resultado si se suelta aquí
   onClick
 }) {
   // Resolución 100% dinámica de icono adaptada a la temática del documento (abogacía, medicina, psicología, etc.)
@@ -43,6 +45,14 @@ export default function ArcadeNode({
         if ((e.key === 'Enter' || e.key === ' ') && onClick) {
           e.preventDefault();
           onClick(id);
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          // Navegación por flechas entre casillas (input sin mouse)
+          e.preventDefault();
+          const cells = [...document.querySelectorAll('[data-node-id][role="button"]')];
+          const idx = cells.indexOf(e.currentTarget);
+          if (idx === -1 || !cells.length) return;
+          const step = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
+          cells[(idx + step + cells.length) % cells.length]?.focus();
         }
       }}
       className="relative flex flex-col items-center select-none cursor-pointer group focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-400/80 rounded-xl"
@@ -64,6 +74,21 @@ export default function ArcadeNode({
           transition={{ duration: 0.45, ease: 'easeInOut' }}
           className="relative"
         >
+        {/* AFFORDANCE DE MATCH — con una carta seleccionada/en arrastre:
+            la casilla compatible pulsa ámbar suave (pista sutil) y las
+            demás vacías muestran un anillo tenue de "puedes soltar aquí". */}
+        {afford === 'match' && !placedCard && (
+          <motion.div
+            className="absolute -inset-2.5 rounded-full border-[3px] border-amber-400/80 pointer-events-none z-20"
+            style={{ boxShadow: '0 0 14px rgba(251,191,36,0.55)' }}
+            animate={{ opacity: [0.45, 1, 0.45], scale: [0.96, 1.04, 0.96] }}
+            transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
+          />
+        )}
+        {afford === 'open' && !placedCard && (
+          <div className="absolute -inset-1.5 rounded-full border-2 border-dashed border-cyan-400/50 pointer-events-none z-20 animate-pulse" />
+        )}
+
         {/* PULSO ÁMBAR EMPÁTICO — "casi, ese no es": nunca rojo agresivo */}
         {fx?.kind === 'wrong' && (
           <motion.div
@@ -76,7 +101,21 @@ export default function ArcadeNode({
           />
         )}
 
-        {/* MICRO-CELEBRACIÓN: estrella que salta del nodo al acertar */}
+        {/* MICRO-CELEBRACIÓN: estrella que salta del nodo al acertar +
+            puntos ganados flotando hacia arriba */}
+        {fx?.kind === 'correct' && fx?.points > 0 && (
+          <motion.div
+            key={`pts-${fx.seq}`}
+            className="absolute left-1/2 -top-2 z-40 pointer-events-none"
+            initial={{ opacity: 0, y: 6, x: '-50%', scale: 0.7 }}
+            animate={{ opacity: [0, 1, 1, 0], y: [6, -26, -40, -46], scale: [0.7, 1.15, 1, 1], x: '-50%' }}
+            transition={{ duration: 1.15, ease: 'easeOut' }}
+          >
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500 border border-emerald-200 text-white text-[10px] font-black shadow-[0_0_12px_rgba(52,211,153,0.8)] whitespace-nowrap">
+              +{fx.points} pts
+            </span>
+          </motion.div>
+        )}
         {fx?.kind === 'correct' && (
           <motion.div
             key={`star-${fx.seq}`}
@@ -100,20 +139,20 @@ export default function ArcadeNode({
           height="68"
           viewBox="0 0 60 68"
           className="absolute inset-0"
-          style={{ filter: isOver ? 'drop-shadow(0 0 8px #f97316)' : placedCard ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.18))' }}
+          style={{ filter: preview === 'wrong' ? 'drop-shadow(0 0 8px #fb7185)' : isOver || preview === 'correct' ? 'drop-shadow(0 0 8px #f97316)' : placedCard ? 'drop-shadow(0 0 6px #22c55e)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.18))' }}
         >
           {/* Outer filled hexagon — bezel */}
           <polygon
             points="30,2 58,17 58,51 30,66 2,51 2,17"
-            fill={placedCard ? '#dcfce7' : isOver ? '#fff7ed' : '#f1f5f9'}
-            stroke={placedCard ? '#22c55e' : isOver ? '#f97316' : '#cbd5e1'}
+            fill={placedCard ? '#dcfce7' : preview === 'wrong' ? '#ffe4e6' : isOver || preview === 'correct' ? '#fff7ed' : '#f1f5f9'}
+            stroke={placedCard ? '#22c55e' : preview === 'wrong' ? '#fb7185' : isOver || preview === 'correct' ? '#f97316' : '#cbd5e1'}
             strokeWidth="2.5"
           />
           {/* Inner inset hexagon — the "slot hole" */}
           <polygon
             points="30,12 50,23 50,45 30,56 10,45 10,23"
-            fill={placedCard ? '#bbf7d0' : '#e2e8f0'}
-            stroke={placedCard ? '#16a34a' : '#94a3b8'}
+            fill={placedCard ? '#bbf7d0' : preview === 'wrong' ? '#fecdd3' : '#e2e8f0'}
+            stroke={placedCard ? '#16a34a' : preview === 'wrong' ? '#fb7185' : '#94a3b8'}
             strokeWidth="1.5"
           />
           {/* Corner rivet dots */}
@@ -130,7 +169,9 @@ export default function ArcadeNode({
           className={`relative z-10 w-[46px] h-[44px] mx-auto mt-[12px] rounded-lg flex flex-col items-center justify-center overflow-hidden transition-all duration-200 ${
             placedCard
               ? 'bg-green-100 border-2 border-green-400'
-              : isOver
+              : preview === 'wrong'
+              ? 'bg-rose-100 border-2 border-rose-400 border-dashed'
+              : isOver || preview === 'correct'
               ? 'bg-orange-100 border-2 border-orange-400 border-dashed'
               : 'bg-slate-200/80 border-2 border-dashed border-slate-400/60 group-hover:border-slate-500'
           }`}
@@ -192,3 +233,7 @@ export default function ArcadeNode({
     </div>
   );
 }
+
+// Memo: la arena re-renderiza ~1/s (timers, voz, hints) y cada nodo es un
+// sub-árbol con SVG + motion — sin memo los 20 nodos se recalculan por tick.
+export default React.memo(ArcadeNode);

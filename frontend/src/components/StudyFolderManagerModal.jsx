@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchWithAuth, uploadWithProgress } from '../lib/api';
+import { track } from '../utils/uxTelemetry';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderPlus,
@@ -332,6 +333,7 @@ export default function StudyFolderManagerModal({
 
     const updated = [folderItem, ...folders];
     saveFolders(updated);
+    track("folder_created", { folder: folderItem.id });
     setNewFolderName('');
     setNewFolderDesc('');
     setIsCreating(false);
@@ -463,6 +465,7 @@ export default function StudyFolderManagerModal({
         },
       );
       updateTempDoc(tempDoc.id, { uploaded_at: 'Procesado ✓', isUploading: false, progress: 100 });
+      track("doc_uploaded", { folder: folderId });
     } catch (upErr) {
       removeTempDoc(tempDoc.id);
       if (upErr.status === 402) {

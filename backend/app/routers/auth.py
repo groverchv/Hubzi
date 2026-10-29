@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.core.age_bands import band_for_age, needs_parental_consent
 from app.core.database import db_manager
+from app.core.plans import trial_days_left
 from app.core.rate_limit import limiter
 from app.core.security import (
     consume_purpose_token,
@@ -17,7 +18,6 @@ from app.core.security import (
     utcnow_iso,
     verify_password,
 )
-from app.core.plans import trial_days_left
 from app.core.session_store import in_memory_auth_users
 from app.models.user import (
     AuthResponse,

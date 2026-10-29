@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useMotionValue, animate } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, EyeOff } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 
 // Paleta de cartas / fichas 100% fiel a la imagen de referencia:
@@ -99,8 +99,12 @@ export default function GameCard({
   zIndex = 10,
   isDraggable = true,
   isSelected = false,
+  isTrap = false,
+  compact = false, // layout móvil sin escala: el drag nativo ya es preciso
+  onDrag,
   onDragEnd,
   onClick,
+  onKeyActivate,
   className = ""
 }) {
   const IconComponent = resolveDynamicIcon({
@@ -114,6 +118,7 @@ export default function GameCard({
   // nativo de framer-motion no corrige los deltas y la carta se separa del
   // dedo. Se reemplaza por pan manual compensado por el factor de escala.
   const zoomedMobile =
+    !compact &&
     typeof window !== "undefined" &&
     window.matchMedia?.("(orientation: landscape) and (max-height: 640px)").matches;
   const panX = useMotionValue(0);
@@ -126,6 +131,7 @@ export default function GameCard({
           onPan: (_e, info) => {
             panX.set(panX.get() + info.delta.x / 0.55);
             panY.set(panY.get() + info.delta.y / 0.55);
+            if (onDrag) onDrag(id, { point: { x: info.point.x, y: info.point.y } });
           },
           onPanEnd: (_e, info) => {
             setIsPanning(false);
@@ -162,16 +168,29 @@ export default function GameCard({
       {...manualDragProps}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       onTap={() => { if (onClick) onClick(id); }}
+      onDrag={(e, info) => { if (onDrag) onDrag(id, info); }}
       onDragEnd={(e, info) => { if (onDragEnd) onDragEnd(id, info); }}
       role="button"
       tabIndex={0}
       aria-label={`Carta ${name || id}. Pulsa Enter para seleccionarla y luego toca una casilla del tablero.`}
       onKeyDown={(e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && onClick) {
+        if ((e.key === 'Enter' || e.key === ' ') && (onKeyActivate || onClick)) {
           e.preventDefault();
-          onClick(id);
+          // Activación por teclado: además de seleccionar, el foco salta a
+          // las casillas del tablero para colocar con Enter (flujo sin mouse).
+          if (onKeyActivate) onKeyActivate(id);
+          else onClick(id);
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          // Flechas: mover el foco entre cartas del mazo
+          e.preventDefault();
+          const cards = [...document.querySelectorAll('[data-card-id]')];
+          const idx = cards.indexOf(e.currentTarget);
+          if (idx === -1 || !cards.length) return;
+          const step = e.key === 'ArrowRight' ? 1 : -1;
+          cards[(idx + step + cards.length) % cards.length]?.focus();
         }
       }}
+      data-card-id={id}
       className={`relative flex-shrink-0 cursor-grab active:cursor-grabbing select-none focus:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/80 rounded-2xl ${className}`}
     >
       {/* Selected badge */}
@@ -193,6 +212,18 @@ export default function GameCard({
       >
         {/* Brillo especular superior simulando plástico curvo de ficha */}
         <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-white/35 to-transparent rounded-t-2xl pointer-events-none" />
+
+        {/* SELLO SUTIL DE CARTA TRAMPA — esquina oscura con ojo tachado:
+            pista visual tenue (no regala la respuesta, solo "algo raro") */}
+        {isTrap && (
+          <>
+            <div
+              className="absolute top-0 right-0 w-0 h-0 border-t-[26px] border-l-[26px] border-t-slate-950/85 border-l-transparent pointer-events-none z-10"
+              aria-hidden="true"
+            />
+            <EyeOff className="absolute top-[3px] right-[3px] w-3 h-3 text-slate-400 pointer-events-none z-10" aria-hidden="true" />
+          </>
+        )}
 
         {/* Contenedor de Icono en relieve + nombre de la respuesta */}
         <div className="flex-1 flex flex-col items-center justify-center w-full gap-1 min-h-0">

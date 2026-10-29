@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import deque
 from typing import Any
 
 try:
@@ -21,13 +22,27 @@ except ImportError:
     GROQ_AVAILABLE = False
 
 from app.core.config import settings
+from app.services.llm_telemetry import (
+    record_gemini_usage,
+    record_groq_usage,
+    usage_elapsed_ms,
+    usage_started,
+)
 
 logger = logging.getLogger("hubzy.ai_service")
 
 # Modelos ultrarrápidos de Groq
+# Generación de tableros: 70b primero (calidad sobre docs grandes).
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
+]
+
+# Tareas chicas (speech, psicología, /ask): 8b-instant primero — cuesta ~10x
+# menos por token y para frases de 25 palabras o clasificación sobra.
+GROQ_FAST_MODELS = [
+    "llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
 ]
 
 # Directivas pedagógicas y de progresión curricular a lo largo del documento (100% de cobertura)
@@ -297,6 +312,21 @@ SYSTEM_INSTRUCTION = build_system_instruction(question_count=5, difficulty="norm
 # tamaño del prompt que viaja al LLM en cada generación.
 MAX_DOC_TEXT_CHARS = 200_000
 
+# SLICING POR SECTOR — cada nivel evalúa ~1/5 del documento (ver
+# LEVEL_DESCRIPTIONS.doc_sector). Antes se mandaba el documento COMPLETO
+# en cada nivel: ~5x tokens de input desperdiciados, porque el modelo solo
+# usa el sector indicado. Por debajo de SLICE_MIN_CHARS no compensa cortar.
+SLICE_MIN_CHARS = 45_000
+_SECTOR_RANGES = {
+    1: (0.00, 0.25),
+    2: (0.25, 0.50),
+    3: (0.45, 0.70),
+    4: (0.65, 0.85),
+    5: (0.75, 1.00),
+}
+# Solape para que el LLM no pierda frases justo en los bordes del corte.
+_SECTOR_MARGIN = 0.06
+
 # Modelos en orden de preferencia y cuota disponible. Si uno falla con 429 (cuota agotada) o 503, se usa el siguiente automáticamente.
 # Modelos oficiales de Google Gemini en orden de velocidad y cuota disponible.
 GEMINI_FALLBACK_MODELS = [
@@ -310,6 +340,26 @@ GEMINI_FALLBACK_MODELS = [
     "gemini-1.5-flash",
 ]
 
+# Directivas de estilo rotativas para los phrase-packs: cada relleno cambia
+# el registro para que la voz de Hubzi no repita fórmulas entre packs.
+_PACK_STYLES = [
+    "ESTILO DE ESTE PACK: validación emocional directa y breve.",
+    "ESTILO DE ESTE PACK: una metáfora corta (naturaleza, luz, raíces, agua).",
+    "ESTILO DE ESTE PACK: termina con una pregunta reflexiva que invite a seguir.",
+    "ESTILO DE ESTE PACK: menciona el proceso cognitivo (memoria, atención, conexiones).",
+    "ESTILO DE ESTE PACK: segunda persona, cercana, como un compañero de estudio.",
+]
+
+# OCR: el modelo lite transcribe igual de bien a una fracción del costo.
+GEMINI_OCR_MODELS = [
+    "gemini-flash-lite-latest",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+]
+
 
 class AIService:
     def __init__(self):
@@ -319,6 +369,17 @@ class AIService:
         # primero y no pagar la cascada de fallos en cada request.
         self._last_good_groq: str | None = None
         self._last_good_gemini: str | None = None
+
+        # Phrase-packs: 1 llamada LLM genera N frases por (situación, nivel,
+        # tema); el pack se sirve agotándolo y solo entonces se regenera.
+        # ~80% menos llamadas que 1-por-evento, contenido sigue siendo LLM.
+        self._speech_packs: dict[tuple, deque] = {}
+        # Frases ya servidas por pack_key + contador de rellenos — al
+        # regenerar un pack se prohibe repetir lo ya dicho (no-repetición real).
+        self._pack_served: dict[tuple, set] = {}
+        self._pack_round: dict[tuple, int] = {}
+        # Mensajes triviales: rotación de respuestas para no repetir seguido.
+        self._trivial_cycle = 0
 
         # Groq Client (Ultra fast inference)
         if GROQ_AVAILABLE and settings.GROQ_API_KEY:
@@ -378,6 +439,9 @@ class AIService:
 
         # Analizar el documento COMPLETO sin truncar arbitrariamente (hasta 500k caracteres)
         full_text = study_text[:500000] if len(study_text) > 500000 else study_text
+        # Slicing por sector: el prompt ya sectoriza el nivel; el extracto
+        # enviado ahora coincide con ese sector (ahorro ~60-75% de input).
+        full_text = self._slice_text_for_level(full_text, level)
 
         dynamic_sys_instruction = build_system_instruction(
             question_count=question_count,
@@ -405,12 +469,20 @@ class AIService:
         # =====================================================================
         # 1. PRIORIDAD: GROQ (Velocidad ultrarrápida / baja latencia ~300+ tok/s)
         # =====================================================================
+        # Tope de salida: el JSON de reactivos nunca debería exceder esto —
+        # acota un output desbocado que solo quema cuota.
+        max_out = min(8192, question_count * 140 + 500)
+
+        # =====================================================================
+        # 1. PRIORIDAD: GROQ (Velocidad ultrarrápida / baja latencia ~300+ tok/s)
+        # =====================================================================
         if self.groq_client:
             for g_model in self._ordered_models(GROQ_MODELS, self._last_good_groq):
                 try:
                     logger.info(
                         f"⚡ Invocando Groq ultrarrápido con modelo '{g_model}' (nivel: {level}, {question_count} preguntas)..."
                     )
+                    t0 = usage_started()
                     chat_completion = self.groq_client.chat.completions.create(
                         model=g_model,
                         messages=[
@@ -419,7 +491,11 @@ class AIService:
                         ],
                         response_format={"type": "json_object"},
                         temperature=0.85 if variation_seed > 0 else 0.3,
+                        max_tokens=max_out,
                         timeout=8.0,
+                    )
+                    record_groq_usage(
+                        chat_completion, g_model, "board_gen", usage_elapsed_ms(t0)
                     )
                     raw_text = (chat_completion.choices[0].message.content or "").strip()
                     parsed_json = json.loads(raw_text)
@@ -449,6 +525,7 @@ class AIService:
                     "system_instruction": dynamic_sys_instruction,
                     "temperature": 0.85 if variation_seed > 0 else 0.4,
                     "response_mime_type": "application/json",
+                    "max_output_tokens": max_out,
                 }
 
                 if hasattr(genai_types, "ThinkingConfig"):
@@ -460,6 +537,7 @@ class AIService:
                         logger.debug(f"ThinkingConfig no soportado en este SDK: {tc_err}")
 
                 try:
+                    t0 = usage_started()
                     response = self.client.models.generate_content(
                         model=model_name,
                         contents=prompt,
@@ -469,6 +547,7 @@ class AIService:
                     logger.warning(
                         f"Error inicial con {model_name}: {call_err}. Reintentando sin thinking_config..."
                     )
+                    t0 = usage_started()
                     response = self.client.models.generate_content(
                         model=model_name,
                         contents=prompt,
@@ -476,8 +555,10 @@ class AIService:
                             system_instruction=dynamic_sys_instruction,
                             temperature=0.85 if variation_seed > 0 else 0.4,
                             response_mime_type="application/json",
+                            max_output_tokens=max_out,
                         ),
                     )
+                record_gemini_usage(response, model_name, "board_gen", usage_elapsed_ms(t0))
 
                 raw_text = (response.text or "").strip()
 
@@ -539,6 +620,149 @@ class AIService:
             f"Error de comunicación con el motor de IA (todos los modelos agotados): {last_error!s}"
         )
 
+    def extract_concepts_multi_level(
+        self,
+        study_text: str,
+        specs: list[tuple[int, int, str]],
+        excluded_concepts: list[str] | None = None,
+        age_band: str | None = None,
+        gender: str | None = None,
+    ) -> dict[int, dict[str, Any]]:
+        """
+        UNA llamada LLM genera los reactivos de varios niveles a la vez.
+        specs = [(level, question_count, difficulty), ...] — pensado para
+        documentos chicos donde el costo del prompt de sistema + el texto
+        amortiza generar 2-3 niveles juntos en vez de una llamada por nivel.
+        Devuelve {level: ai_data} (mismo formato que extract_concepts_from_text).
+        """
+        if not specs:
+            return {}
+        if len(specs) == 1:
+            lvl, qc, diff = specs[0]
+            return {
+                lvl: self.extract_concepts_from_text(
+                    study_text,
+                    question_count=qc,
+                    difficulty=diff,
+                    level=lvl,
+                    excluded_concepts=excluded_concepts,
+                    age_band=age_band,
+                    gender=gender,
+                )
+            }
+
+        if not self.groq_client and not self.client:
+            return {}
+
+        level_blocks = []
+        for lvl, qc, diff in specs:
+            info = _level_info(lvl)
+            level_blocks.append(
+                f"NIVEL {lvl} ({info['name']}, dificultad {diff}, {qc} reactivos):\n"
+                f"- Sector: {info.get('doc_sector', 'Todo el documento')}\n"
+                f"- Guía: {info['guideline']}"
+            )
+        audience_directive = _AUDIENCE_DIRECTIVES.get(age_band or "", "")
+        exclusion_clause = ""
+        if excluded_concepts:
+            clean = [f'"{c.strip()}"' for c in excluded_concepts if c and len(c.strip()) > 1][:50]
+            if clean:
+                exclusion_clause = (
+                    "\n🚫 CONCEPTOS YA EVALUADOS (prohibido repetir): "
+                    + ", ".join(clean)
+                )
+
+        sys_instruction = f"""Eres un evaluador pedagógico de élite en Hubzy. Genera reactivos para VARIOS niveles en una sola respuesta.
+{chr(10).join(level_blocks)}
+{audience_directive}
+{exclusion_clause}
+
+⚠️ REGLAS OBLIGATORIAS:
+1. Solo información EXPLÍCITA del texto. Nunca conocimiento externo.
+2. Por nivel genera EXACTAMENTE los reactivos indicados, cada uno con:
+   "concept_name" (máx 4 palabras), "content" (1-2 líneas), "source_quote" (cita textual de 1 renglón),
+   "points_multiplier" ("1x"/"2x"/"3x"), "node_question" (reactivo riguroso), "node_hint" (pista sin revelar la carta).
+3. Entre niveles NO repitas conceptos ni preguntas.
+4. Por nivel, además, distractors = 30% de sus reactivos (mismo campo temático, verosímiles pero incorrectos).
+5. Responde ÚNICAMENTE JSON válido:
+{{"levels":[{{"level":<n>,"title":"Simulacro: tema","difficulty":"<diff>","concepts":[{{"concept_name":"...","content":"...","source_quote":"...","points_multiplier":"1x","node_question":"...","node_hint":"..."}}],"distractors":[{{"concept_name":"...","content":"...","points_multiplier":"1x"}}]}}]}}"""
+
+        prompt = (
+            f"Analiza el documento y genera los reactivos de {len(specs)} niveles "
+            f"({', '.join(str(lv) for lv, _, _ in specs)}):\n\nTexto del documento:\n{study_text[:120_000]}"
+        )
+        total_q = sum(qc for _, qc, _ in specs)
+        max_out = min(16384, total_q * 140 + 800)
+
+        def _unpack(data: dict) -> dict[int, dict[str, Any]]:
+            out: dict[int, dict[str, Any]] = {}
+            for entry in (data or {}).get("levels", []):
+                try:
+                    lv = int(entry.get("level"))
+                except (TypeError, ValueError):
+                    continue
+                if entry.get("concepts"):
+                    out[lv] = entry
+            return out
+
+        if self.groq_client:
+            for g_model in self._ordered_models(GROQ_MODELS, self._last_good_groq):
+                try:
+                    t0 = usage_started()
+                    comp = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[
+                            {"role": "system", "content": sys_instruction},
+                            {"role": "user", "content": prompt},
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.4,
+                        max_tokens=max_out,
+                        timeout=15.0,
+                    )
+                    record_groq_usage(comp, g_model, "board_gen_multi", usage_elapsed_ms(t0))
+                    parsed = _unpack(json.loads((comp.choices[0].message.content or "").strip()))
+                    if parsed:
+                        self._last_good_groq = g_model
+                        return parsed
+                except Exception as ge:
+                    logger.warning(f"Groq multi-nivel ({g_model}) falló: {ge}")
+
+        if self.client:
+            # Cascada acotada a 2 modelos: el batch es una optimización, no
+            # debe duplicar la latencia total de fallos vs el mono-nivel.
+            for model_name in self._ordered_models(
+                GEMINI_FALLBACK_MODELS[:3], self._last_good_gemini
+            )[:2]:
+                try:
+                    t0 = usage_started()
+                    resp = self.client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=sys_instruction,
+                            temperature=0.4,
+                            response_mime_type="application/json",
+                            max_output_tokens=max_out,
+                        ),
+                    )
+                    record_gemini_usage(
+                        resp, model_name, "board_gen_multi", usage_elapsed_ms(t0)
+                    )
+                    raw = (resp.text or "").strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("```")[1]
+                        if raw.startswith("json"):
+                            raw = raw[4:]
+                    parsed = _unpack(json.loads(raw))
+                    if parsed:
+                        self._last_good_gemini = model_name
+                        return parsed
+                except Exception as e:
+                    logger.warning(f"Gemini multi-nivel ({model_name}) falló: {e}")
+
+        return {}
+
     def extract_text_multimodal_ocr(self, file_bytes: bytes, mime_type: str) -> str:
         """
         Motor OCR Multimodal con Gemini:
@@ -564,9 +788,10 @@ class AIService:
         part = genai_types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
         last_error = None
 
-        for model_name in self._ordered_models(GEMINI_FALLBACK_MODELS, self._last_good_gemini):
+        for model_name in self._ordered_models(GEMINI_OCR_MODELS, self._last_good_gemini):
             try:
                 logger.info(f"Ejecutando OCR Multimodal ultra-rápido con modelo '{model_name}'...")
+                t0 = usage_started()
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=[part, prompt],
@@ -577,6 +802,7 @@ class AIService:
                         else None,
                     ),
                 )
+                record_gemini_usage(response, model_name, "ocr", usage_elapsed_ms(t0))
                 extracted = (response.text or "").strip()
                 self._last_good_gemini = model_name
                 logger.info(
@@ -592,6 +818,54 @@ class AIService:
 
         logger.error(f"Error en OCR multimodal en todos los modelos: {last_error}")
         raise RuntimeError(f"Error procesando OCR del archivo: {last_error!s}")
+
+    @staticmethod
+    def _slice_text_for_level(text: str, level: int) -> str:
+        """
+        Recorta el texto al sector pedagógico del nivel (±margen de solape),
+        preservando la cabecera de carpeta (materia + resúmenes de docs).
+        Nivel 20 (síntesis total) y textos chicos reciben el texto completo.
+        """
+        if not text or len(text) <= SLICE_MIN_CHARS or level >= CAMPAIGN_MAX_LEVEL:
+            return text
+        sector = ((max(1, level) - 1) % 5) + 1
+        lo, hi = _SECTOR_RANGES[sector]
+        lo = max(0.0, lo - _SECTOR_MARGIN)
+        hi = min(1.0, hi + _SECTOR_MARGIN)
+
+        header = ""
+        body = text
+        if text.startswith("ASIGNATURA"):
+            split_idx = text.find("\n\n")
+            if 0 < split_idx < 4000:
+                header, body = text[: split_idx + 2], text[split_idx + 2 :]
+
+        n = len(body)
+        s = int(n * lo)
+        e = int(n * hi)
+        # Alinear a bordes de línea para no cortar frases a la mitad
+        if s > 0:
+            b = body.rfind("\n", 0, min(s + 120, n))
+            if b != -1:
+                s = b + 1
+        if e < n:
+            f = body.find("\n", max(e - 120, s))
+            if f != -1:
+                e = f + 1
+
+        sliced = body[s:e].strip()
+        if len(sliced) < 300:
+            return text  # sector demasiado pequeño: mejor mandar todo
+        note = (
+            f"[EXTRACTO: sector {int(lo * 100)}%-{int(hi * 100)}% del documento completo"
+            + (
+                "; el contexto del resto llega en los resúmenes de la cabecera"
+                if "RESUMEN" in header
+                else ""
+            )
+            + "]\n\n"
+        )
+        return header + note + sliced
 
     @staticmethod
     def _ordered_models(models: list[str], last_good: str | None) -> list[str]:
@@ -753,8 +1027,9 @@ class AIService:
             f"{text[:60000]}"
         )
         if self.groq_client:
-            for g_model in self._ordered_models(GROQ_MODELS, self._last_good_groq):
+            for g_model in self._ordered_models(GROQ_FAST_MODELS, self._last_good_groq):
                 try:
+                    t0 = usage_started()
                     comp = self.groq_client.chat.completions.create(
                         model=g_model,
                         messages=[{"role": "user", "content": prompt}],
@@ -762,6 +1037,7 @@ class AIService:
                         max_tokens=500,
                         timeout=10.0,
                     )
+                    record_groq_usage(comp, g_model, "summary", usage_elapsed_ms(t0))
                     out = (comp.choices[0].message.content or "").strip()
                     if out:
                         self._last_good_groq = g_model
@@ -773,11 +1049,13 @@ class AIService:
                 GEMINI_FALLBACK_MODELS[:3], self._last_good_gemini
             ):
                 try:
+                    t0 = usage_started()
                     resp = self.client.models.generate_content(
                         model=model_name,
                         contents=prompt,
                         config=genai_types.GenerateContentConfig(temperature=0.3),
                     )
+                    record_gemini_usage(resp, model_name, "summary", usage_elapsed_ms(t0))
                     out = (resp.text or "").strip()
                     if out:
                         self._last_good_gemini = model_name
@@ -828,7 +1106,8 @@ class AIService:
         else:
             age_tone = f"El estudiante {student_name} tiene {age} años (adulto/profesional). Sé respetuoso, maduro, empático y centrado en la serenidad mental y claridad cognitiva."
 
-        # 1. Evaluación clínica del estado emocional y nivel de estrés
+        # 1. Evaluación heurística rápida (sin LLM): detecta crisis keywords,
+        #    estrés explícito y mensajes triviales sin quemar tokens.
         context_data = {
             "unsolved_nodes": len([n for n in nodes_context if not n.get("isSolved")]),
             "theme": theme,
@@ -837,30 +1116,35 @@ class AIService:
             "gender": gender,
         }
         psych_analysis = psychology_service.analyze_emotional_state(
-            user_message, context=context_data
+            user_message, context=context_data, llm=False
         )
 
-        # Si el cliente no está inicializado, devolver respuesta heurística
-        if not self.client:
-            return {
-                "reply": psych_analysis.empathic_response,
-                "psychology": psych_analysis.model_dump(),
-            }
-
-        # 2. Si detecta crisis o estrés muy agudo, priorizar contención afectiva inmediata
+        # 2. Crisis o estrés muy agudo → contención inmediata (protocolo
+        #    intacto, nunca depende de que un LLM responda).
         if psych_analysis.is_crisis or psych_analysis.stress_level >= 0.85:
             return {
                 "reply": psych_analysis.empathic_response,
                 "psychology": psych_analysis.model_dump(),
             }
 
-        # 3. Construir contexto del tablero pedagógico
+        # 3. Mensaje trivial en calma ("hola", "ok", "gracias") → sin LLM,
+        #    pero rotando variantes personalizadas (nada repetido seguido).
+        if (
+            psych_analysis.stress_level < 0.35
+            and psychology_service.is_trivial_message(user_message)
+        ):
+            return {
+                "reply": self._trivial_reply(user_message, student_name, vocative),
+                "psychology": psych_analysis.model_dump(),
+            }
+
+        # 4. Contexto del tablero acotado: solo nodos pendientes (máx 8),
+        #    label + pista corta — la pregunta completa no aporta al tono.
+        pending = [n for n in nodes_context if not n.get("isSolved")][:8]
         nodes_summary = (
             "\n".join(
-                [
-                    f"- Nodo: {n.get('label', '')} | Pregunta: {n.get('question', '')} | Pista clave: {n.get('hint', '')} | Estado: {'Resuelto' if n.get('isSolved') else 'Pendiente'}"
-                    for n in nodes_context
-                ]
+                f"- {n.get('label', '')}: pista={str(n.get('hint', ''))[:90]}"
+                for n in pending
             )
             or "Nodos del circuito pendientes."
         )
@@ -869,13 +1153,13 @@ class AIService:
             ", ".join(
                 [
                     f"{c.get('name', '')}{' (distractor)' if c.get('isDistractor') else ''}"
-                    for c in hand_context
+                    for c in hand_context[:10]
                 ]
             )
             or "Cartas en mano del usuario."
         )
 
-        # Adaptación del tono según el nivel de estrés
+        # Adaptación del tono según el nivel de estrés (heurística rápida)
         tone_instruction = ""
         if psych_analysis.stress_level >= 0.5:
             tone_instruction = (
@@ -901,45 +1185,34 @@ class AIService:
                 + "\n"
             )
 
-        sys_prompt = (
-            f"Eres Hubzi: una capibara terapeuta gamer de Hubzy. {persona_role}\n"
-            f"Te diriges a tu estudiante {student_name}.\n"
-            f"{age_tone}\n"
-            f"El tema de la sesión es: '{theme}'.\n"
-            f"{tone_instruction}\n"
-            "INFORMACIÓN DEL TABLERO:\n"
-            f"{nodes_summary}\n\n"
-            "CARTAS DISPONIBLES:\n"
-            f"{hand_summary}\n\n"
+        # UNA SOLA LLAMADA LLM (antes eran dos: eval clínica + respuesta).
+        # El eval clínico y la respuesta personalizada se fusionan: el campo
+        # empathic_response del JSON clínico sale ya adaptado al tablero.
+        reply_directives = (
+            f"PERSONA: Eres Hubzi, capibara terapeuta gamer. {persona_role}\n"
+            f"Te diriges a {student_name}. {age_tone}\n"
+            f"Tema de la sesión: '{theme}'. {tone_instruction}\n"
+            f"TABLERO (nodos pendientes):\n{nodes_summary}\n"
+            f"CARTAS EN MANO: {hand_summary}\n"
             f"{history_summary}"
-            "REGLAS OBLIGATORIAS DE TU VOZ Y PERSONALIDAD:\n"
-            f"1. Llena al estudiante de afecto sincero y llámalo a veces por su nombre ({student_name}) o con expresiones como ({vocative}).\n"
-            "2. Sé sintético: máximo 2 oraciones breves (entre 18 y 30 palabras) diseñadas para sonar como un abrazo al corazón.\n"
-            "6. Si el usuario habla de su vida, emociones o cualquier tema fuera del juego, conversa como su amigo cercano — no todo es estudio.\n"
-            "3. Si el usuario tiene miedo o frustración, valida su emoción y hazle sentir que no está solo y que un error no cambia lo valioso e inteligente que es.\n"
-            "4. Si pide una pista, dale la luz pedagógica con mucho cariño y suavidad.\n"
-            "5. Devuelve ÚNICAMENTE el texto limpio para ser pronunciado por voz (sin asteriscos, sin comillas)."
+            "VOZ Y PERSONALIDAD:\n"
+            f"- Afecto sincero; llámalo a veces {student_name} o usa ({vocative}).\n"
+            "- `empathic_response`: máx. 2 oraciones breves (18-30 palabras), cálidas.\n"
+            "- Si habla de su vida/emociones fuera del juego, conversa como amigo cercano.\n"
+            "- Si pide pista, orienta con cariño usando las pistas del tablero.\n"
+            "- `empathic_response` es texto limpio para TTS: sin asteriscos ni comillas."
         )
 
-        user_prompt = f'El usuario {student_name} te dice por micrófono: "{user_message}"'
+        fused = psychology_service.analyze_and_reply(
+            user_message, context=context_data, reply_directives=reply_directives
+        )
+        if fused:
+            return {
+                "reply": fused["reply"],
+                "psychology": fused["psychology"].model_dump(),
+            }
 
-        for model_name in GEMINI_FALLBACK_MODELS:
-            try:
-                response = self.client.models.generate_content(
-                    model=model_name,
-                    contents=user_prompt,
-                    config=genai_types.GenerateContentConfig(
-                        system_instruction=sys_prompt, temperature=0.6, max_output_tokens=120
-                    ),
-                )
-                if response and response.text:
-                    cleaned = response.text.strip().replace('"', "").replace("*", "")
-                    if cleaned:
-                        return {"reply": cleaned, "psychology": psych_analysis.model_dump()}
-            except Exception as e:
-                logger.warning(f"Error generando pista con {model_name}: {e}")
-                continue
-
+        # Fallback total: heurística sin LLM (el LLM está caído)
         return {
             "reply": psych_analysis.empathic_response
             or "¡Confía en tu respiración y en tu mente! Todo saldrá bien.",
@@ -996,9 +1269,49 @@ class AIService:
             situation, "Intervención psicológica de apoyo en el estudio."
         )
 
-        # 1. Intentar primero con Groq (latencia prácticamente instantánea ~80ms)
+        # 1. PHRASE-PACK: servir del pack cacheado o regenerar N frases en
+        #    UNA llamada (clave por situación+nivel efectivo+tema). Al
+        #    rellenar se prohíbe repetir lo ya servido + rota la directiva
+        #    de estilo para variar el registro entre packs.
+        pack_key = (situation, min(max(1, level), 5), (theme or "")[:60])
+        pack = self._speech_packs.get(pack_key)
+        if pack:
+            while pack:
+                candidate = pack.popleft()
+                if candidate and candidate not in history:
+                    self._pack_served.setdefault(pack_key, set()).add(candidate)
+                    return candidate
+            self._speech_packs.pop(pack_key, None)
+
+        served = self._pack_served.get(pack_key, set())
+        avoid_extra = ""
+        if served:
+            avoid_extra = "\nYA DIJISTE ANTES (prohibido repetir ideas ni palabras iniciales): " + "; ".join(
+                f'"{p[:60]}"' for p in list(served)[-12:]
+            )
+        round_n = self._pack_round.get(pack_key, 0)
+        self._pack_round[pack_key] = round_n + 1
+        style = _PACK_STYLES[round_n % len(_PACK_STYLES)]
+        phrases = self._generate_speech_pack(
+            situation,
+            level,
+            theme,
+            psy_desc,
+            sit_desc,
+            avoid_clause + avoid_extra,
+            style_directive=style,
+        )
+        if phrases:
+            self._speech_packs[pack_key] = deque(phrases)
+            while self._speech_packs[pack_key]:
+                candidate = self._speech_packs[pack_key].popleft()
+                if candidate and candidate not in history:
+                    self._pack_served.setdefault(pack_key, set()).add(candidate)
+                    return candidate
+
+        # 2. Respaldo: una sola frase con Groq (8b primero)
         if self.groq_client:
-            for g_model in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]:
+            for g_model in GROQ_FAST_MODELS:
                 try:
                     sys_instruction = (
                         "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
@@ -1013,6 +1326,7 @@ class AIService:
                         "3. Escribe exactamente UNA o DOS oraciones concisas (15 a 25 palabras máximo).\n"
                         "4. Devuelve SOLO el texto plano para síntesis de voz, sin comillas ni asteriscos."
                     )
+                    t0 = usage_started()
                     chat_comp = self.groq_client.chat.completions.create(
                         model=g_model,
                         messages=[
@@ -1025,6 +1339,7 @@ class AIService:
                         max_tokens=65,
                         temperature=0.85,
                     )
+                    record_groq_usage(chat_comp, g_model, "capy_speech", usage_elapsed_ms(t0))
                     content = (
                         (chat_comp.choices[0].message.content or "")
                         .strip()
@@ -1036,7 +1351,7 @@ class AIService:
                 except Exception as ge:
                     logger.debug(f"Groq speech ({g_model}) no disponible: {ge}")
 
-        # 2. Respaldo con Gemini
+        # 3. Respaldo con Gemini
         if self.client:
             sys_instruction = (
                 "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
@@ -1055,6 +1370,7 @@ class AIService:
 
             for model_name in ["gemini-flash-latest", "gemini-2.5-flash"]:
                 try:
+                    t0 = usage_started()
                     resp = self.client.models.generate_content(
                         model=model_name,
                         contents=f"Genera una frase de apoyo psicológico para la situación: {situation} (Nivel {level})",
@@ -1064,6 +1380,7 @@ class AIService:
                             max_output_tokens=65,
                         ),
                     )
+                    record_gemini_usage(resp, model_name, "capy_speech", usage_elapsed_ms(t0))
                     if resp and resp.text:
                         cleaned = resp.text.strip().replace('"', "").replace("*", "")
                         if cleaned and cleaned not in history:
@@ -1076,6 +1393,141 @@ class AIService:
 
         # Fallback procedural psicológico garantizado sin piropos
         return self._generate_procedural_unique_speech(situation, level, history)
+
+    def _generate_speech_pack(
+        self,
+        situation: str,
+        level: int,
+        theme: str,
+        psy_desc: str,
+        sit_desc: str,
+        avoid_clause: str,
+        pack_size: int = 8,
+        style_directive: str = "",
+    ) -> list[str]:
+        """
+        Genera un pack de N frases distintas en UNA llamada LLM y devuelve la
+        lista limpia. Amortiza el costo del prompt de sistema (que domina el
+        gasto de una llamada de speech) sobre N respuestas en vez de 1.
+        """
+        sys_instruction = (
+            "Eres Hubzi: un psicólogo cognitivo sereno, empático, profesional y reconfortante. "
+            "Tu objetivo es reducir la ansiedad ante exámenes y optimizar el rendimiento del estudiante.\n"
+            f"NIVEL COGNITIVO: Nivel {level}/{CAMPAIGN_MAX_LEVEL}. Enfoque: {psy_desc}\n"
+            f"SITUACIÓN: {sit_desc}\n"
+            f"TEMA DE ESTUDIO: '{theme or 'Materia'}'\n"
+            f"{avoid_clause}\n"
+            f"{style_directive}\n"
+            "REGLAS OBLIGATORIAS:\n"
+            "1. NO uses piropos ni apelativos empalagosos.\n"
+            "2. Tono cálido, profesional, sereno y psicológicamente seguro.\n"
+            f"3. Genera EXACTAMENTE {pack_size} frases DISTINTAS entre sí (sin repetir ideas).\n"
+            "4. Cada frase: UNA o DOS oraciones concisas (15 a 25 palabras máximo).\n"
+            "5. Devuelve SOLO un JSON array de strings, sin comillas extra ni markdown. "
+            'Ejemplo: ["frase 1", "frase 2", "frase 3"].'
+        )
+        user_content = f"Genera {pack_size} frases de apoyo para la situación: {situation} (Nivel {level})"
+
+        def _parse_pack(raw: str) -> list[str]:
+            raw = raw.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            try:
+                data = json.loads(raw)
+                if isinstance(data, list):
+                    return [
+                        str(p).strip().replace('"', "").replace("*", "")
+                        for p in data
+                        if isinstance(p, str) and 15 < len(p.strip()) < 300
+                    ]
+            except Exception as pe:
+                logger.debug(f"Parse de pack JSON falló, intentando por líneas: {pe}")
+            # Fallback: separar por líneas numeradas
+            lines = [
+                ln.strip().lstrip("0123456789.-)•* ").strip('"').replace("*", "")
+                for ln in raw.splitlines()
+                if ln.strip()
+            ]
+            return [ln for ln in lines if 15 < len(ln) < 300]
+
+        if self.groq_client:
+            for g_model in GROQ_FAST_MODELS:
+                try:
+                    t0 = usage_started()
+                    comp = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[
+                            {"role": "system", "content": sys_instruction},
+                            {"role": "user", "content": user_content},
+                        ],
+                        temperature=0.9,
+                        max_tokens=pack_size * 60,
+                        timeout=10.0,
+                    )
+                    record_groq_usage(comp, g_model, "capy_speech_pack", usage_elapsed_ms(t0))
+                    phrases = _parse_pack(comp.choices[0].message.content or "")
+                    if len(phrases) >= 2:
+                        return phrases
+                except Exception as ge:
+                    logger.debug(f"Groq speech pack ({g_model}) falló: {ge}")
+
+        if self.client:
+            for model_name in ["gemini-flash-latest", "gemini-2.5-flash"]:
+                try:
+                    t0 = usage_started()
+                    resp = self.client.models.generate_content(
+                        model=model_name,
+                        contents=user_content,
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=sys_instruction,
+                            temperature=0.9,
+                            max_output_tokens=pack_size * 60,
+                            response_mime_type="application/json",
+                        ),
+                    )
+                    record_gemini_usage(
+                        resp, model_name, "capy_speech_pack", usage_elapsed_ms(t0)
+                    )
+                    phrases = _parse_pack(resp.text or "")
+                    if len(phrases) >= 2:
+                        return phrases
+                except Exception as e:
+                    logger.debug(f"Gemini speech pack ({model_name}) falló: {e}")
+
+        return []
+
+    def _trivial_reply(self, message: str, name: str, vocative: str) -> str:
+        """Respuestas rotativas para mensajes triviales (0 tokens) — el
+        contador garantiza no repetir hasta agotar el pool de la categoría."""
+        import random
+
+        t = message.lower().strip()
+        if any(g in t for g in ("hola", "hey", "buenas", "buenos", "qué tal", "saludos")):
+            pool = [
+                f"¡Hola {name}! Qué alegría escucharte — ¿en qué te ayudo hoy?",
+                f"¡{name}! Aquí estoy, lista para lo que necesites en el juego.",
+                f"Hola {name.split()[0] if name else ''}, ¿pregunta, pista o solo charlamos un rato?",
+                "¡Qué gusto tenerte por aquí! Cuéntame qué necesitas.",
+            ]
+        elif "gracias" in t:
+            pool = [
+                f"Para eso estoy, {name}. Seguimos cuando quieras.",
+                "¡Un placer ayudarte! Tu esfuerzo es el que hace la magia.",
+                "Gracias a ti por confiar en mí. ¿Vamos por más?",
+            ]
+        else:  # acks: ok, vale, dale, sí, bien, genial
+            pool = [
+                f"Perfecto, {vocative.split(',')[0] if vocative else name}. Cuando quieras seguimos.",
+                "Entendido — aquí sigo contigo para lo que necesites.",
+                f"Dale, {name}. El tablero te espera cuando estés listo/a.",
+            ]
+        idx = self._trivial_cycle % len(pool)
+        self._trivial_cycle += 1
+        if idx == 0:
+            random.shuffle(pool)
+        return pool[idx]
 
     def _generate_procedural_unique_speech(self, situation: str, level: int, history: list) -> str:
         """Generador procedural combinatorio de enfoque psicológico riguroso, sereno y sin piropos."""

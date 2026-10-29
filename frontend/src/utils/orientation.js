@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 /**
  * Bloqueo de orientación horizontal.
  *
@@ -29,4 +31,48 @@ export async function unlockOrientation() {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
   } catch (_) {}
+}
+
+/* === LAYOUT COMPACTO MÓVIL ===
+   Teléfonos táctiles en horizontal bajo (o pantalla muy angosta): el
+   escenario deja de verse "como laptop escalada" y pasa a un layout
+   real — nodos en lista compacta arriba, mazo horizontal abajo. */
+const MQ_COMPACT_LANDSCAPE =
+  "(pointer: coarse) and (orientation: landscape) and (max-height: 620px)";
+const MQ_COMPACT_NARROW = "(pointer: coarse) and (max-width: 560px)";
+
+function compactMobileNow() {
+  try {
+    return Boolean(
+      window.matchMedia?.(MQ_COMPACT_LANDSCAPE).matches ||
+        window.matchMedia?.(MQ_COMPACT_NARROW).matches,
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+export function useCompactMobile() {
+  return useSyncExternalStore(
+    (cb) => {
+      try {
+        const l = window.matchMedia(MQ_COMPACT_LANDSCAPE);
+        const n = window.matchMedia(MQ_COMPACT_NARROW);
+        l.addEventListener?.("change", cb);
+        n.addEventListener?.("change", cb);
+        window.addEventListener("resize", cb);
+        window.addEventListener("orientationchange", cb);
+        return () => {
+          l.removeEventListener?.("change", cb);
+          n.removeEventListener?.("change", cb);
+          window.removeEventListener("resize", cb);
+          window.removeEventListener("orientationchange", cb);
+        };
+      } catch (_) {
+        return () => {};
+      }
+    },
+    compactMobileNow,
+    () => false,
+  );
 }

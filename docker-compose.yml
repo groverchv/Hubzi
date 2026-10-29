@@ -58,6 +58,9 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_BASE_URL=http://localhost:8000
+      # El bind mount de Docker no propaga eventos del fs en Windows/macOS:
+      # sin polling, vite no detecta cambios dentro del contenedor.
+      - VITE_USE_POLLING=true
     depends_on:
       - backend
 

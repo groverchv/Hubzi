@@ -80,6 +80,11 @@ class DatabaseManager:
                     await self.db["skill_mastery"].create_index(
                         [("user_id", 1), ("domain", 1), ("topic", 1)], unique=True
                     )
+                    # Dedup persistente de embeddings RAG: chunk_hash único
+                    # permite copiar vectores sin re-embeddear texto idéntico.
+                    await self.db["embedding_cache"].create_index(
+                        "chunk_hash", unique=True
+                    )
                     logger.info("Índices de MongoDB optimizados y verificados.")
                 except Exception as ie:
                     logger.warning(f"Aviso al verificar índices de MongoDB: {ie}")

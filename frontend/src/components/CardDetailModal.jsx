@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, X, Zap } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 
-export default function CardDetailModal({ isOpen, card, onClose }) {
+function CardDetailModal({ isOpen, card, onClose }) {
   if (!isOpen || !card) return null;
 
   const IconComponent = resolveDynamicIcon({
@@ -70,4 +70,6 @@ export default function CardDetailModal({ isOpen, card, onClose }) {
     </AnimatePresence>
   );
 }
+
+export default React.memo(CardDetailModal);
 

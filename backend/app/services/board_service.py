@@ -13,11 +13,16 @@ from fastapi import HTTPException, status
 
 from app.builders.builder import GameBoardBuilder
 from app.core.age_bands import get_band
+from app.core.config import settings
 from app.core.database import db_manager
 from app.core.security import utcnow_iso
 from app.schemas.schemas import AnswerSpec, GameBoardResponse, GenerateBoardRequest
 from app.services.ai_service import ai_service
-from app.services.domain_engine import classify_domain, detect_math_topics
+from app.services.domain_engine import (
+    classify_domain,
+    detect_math_topics,
+    has_math_signal,
+)
 from app.services.math_engine import generate_math_problems
 from app.services.physics_engine import generate_physics_problems
 from app.services.safety_filter import filter_board_for_band
@@ -143,6 +148,13 @@ def _build_physics_board(
     return _build_solve_board(problems, band_key, "fisica", "Circuito de Física")
 
 
+# Dominios con generador procedural propio (0 tokens, respuestas exactas).
+PROCEDURAL_BUILDERS = {
+    "matematica": _build_math_board,
+    "fisica": _build_physics_board,
+}
+
+
 async def generate_board(
     payload: GenerateBoardRequest,
     force_refresh: bool = False,
@@ -205,14 +217,17 @@ async def generate_board(
             logger.warning(f"Error consultando caché de análisis: {ce}")
 
     # =====================================================================
-    # DOMINIOS PROCEDURALES (matemática, física) → motores de plantillas:
-    # 0 tokens, respuestas exactas, distractors = misconcepciones reales.
+    # DOMINIOS PROCEDURALES (matemática, física) → motores de plantillas.
+    # GATED: solo con flag activo + confianza alta + señal real del dominio —
+    # generan ejercicios sintéticos, no preguntas del documento.
     # =====================================================================
-    PROCEDURAL_BUILDERS = {
-        "matematica": _build_math_board,
-        "fisica": _build_physics_board,
-    }
-    if domain in PROCEDURAL_BUILDERS:
+    procedural_ok = (
+        domain in PROCEDURAL_BUILDERS
+        and settings.PROCEDURAL_ENGINES_ENABLED
+        and domain_info["confidence"] >= settings.PROCEDURAL_MIN_CONFIDENCE
+        and (domain != "matematica" or has_math_signal(payload.text))
+    )
+    if procedural_ok:
         try:
             board_result = PROCEDURAL_BUILDERS[domain](
                 payload,
@@ -280,74 +295,7 @@ async def generate_board(
             f"level={level} domain={domain}"
         )
 
-        concepts = ai_data.get("concepts", [])
-        if not concepts:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No se pudieron identificar conceptos válidos en el texto provisto.",
-            )
-
-        builder = GameBoardBuilder(title=ai_data.get("title", "Tablero de Aprendizaje"))
-
-        seen_names = set()
-        for idx, item in enumerate(concepts, start=1):
-            card_id = f"card_{idx}"
-            node_id = f"node_{idx}"
-            raw_cname = (item.get("concept_name") or f"Concepto {idx}").strip()
-            cname = raw_cname[:38].strip()
-            if cname in seen_names:
-                cname = f"{cname} ({idx})"
-            seen_names.add(cname)
-
-            builder.add_card(
-                card_id=card_id,
-                concept_name=cname,
-                content=item.get("content", ""),
-                points_multiplier=item.get("points_multiplier", "1x"),
-            )
-
-            builder.add_node(
-                node_id=node_id,
-                correct_card_id=card_id,
-                description=item.get("node_hint", f"Pista para el concepto {idx}"),
-                question=item.get("node_question", None),
-            )
-
-        # REGLA: 30% del total de preguntas como cartas distractoras
-        distractor_count = max(1, round(len(concepts) * 0.30))
-        ai_distractors = ai_data.get("distractors", [])
-
-        for d_idx in range(distractor_count):
-            card_id = f"card_distractor_{d_idx + 1}"
-            if d_idx < len(ai_distractors) and ai_distractors[d_idx].get("concept_name"):
-                d_item = ai_distractors[d_idx]
-                raw_dname = (d_item.get("concept_name") or f"Distractor {d_idx + 1}").strip()
-                concept_name = raw_dname[:38].strip()
-                if concept_name in seen_names:
-                    concept_name = f"{concept_name} (Alt)"
-                content = d_item.get(
-                    "content", "Concepto distractor no aplicable a los reactivos planteados."
-                )
-                mult = d_item.get("points_multiplier", "1x")
-            else:
-                concept_name = f"Enfoque Alternativo {d_idx + 1}"
-                content = "Concepto no correspondiente a las preguntas del circuito."
-                mult = "1x"
-            seen_names.add(concept_name)
-
-            builder.add_card(
-                card_id=card_id, concept_name=concept_name, content=content, points_multiplier=mult
-            )
-
-        board_result = builder.build()
-        board_result = board_result.model_copy(
-            update={
-                "domain": domain,
-                "age_band": band_key,
-                "board_version": 2,
-            }
-        )
-        board_result = filter_board_for_band(board_result, band_key)
+        board_result = assemble_board_from_ai_data(ai_data, domain, band_key)
 
         if db_manager.db is not None:
             try:
@@ -442,3 +390,152 @@ async def generate_board(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ocurrió un error inesperado al generar el tablero de juego.",
         ) from ex
+
+
+def assemble_board_from_ai_data(
+    ai_data: dict, domain: str, band_key: str
+) -> GameBoardResponse:
+    """Convierte el JSON del LLM (concepts + distractors) en GameBoardResponse.
+    Compartido por generate_board y el modo multi-nivel."""
+    concepts = ai_data.get("concepts", [])
+    if not concepts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se pudieron identificar conceptos válidos en el texto provisto.",
+        )
+
+    builder = GameBoardBuilder(title=ai_data.get("title", "Tablero de Aprendizaje"))
+
+    seen_names = set()
+    for idx, item in enumerate(concepts, start=1):
+        card_id = f"card_{idx}"
+        node_id = f"node_{idx}"
+        raw_cname = (item.get("concept_name") or f"Concepto {idx}").strip()
+        cname = raw_cname[:38].strip()
+        if cname in seen_names:
+            cname = f"{cname} ({idx})"
+        seen_names.add(cname)
+
+        builder.add_card(
+            card_id=card_id,
+            concept_name=cname,
+            content=item.get("content", ""),
+            points_multiplier=item.get("points_multiplier", "1x"),
+        )
+
+        builder.add_node(
+            node_id=node_id,
+            correct_card_id=card_id,
+            description=item.get("node_hint", f"Pista para el concepto {idx}"),
+            question=item.get("node_question", None),
+        )
+
+    # REGLA: 30% del total de preguntas como cartas distractoras
+    distractor_count = max(1, round(len(concepts) * 0.30))
+    ai_distractors = ai_data.get("distractors", [])
+
+    for d_idx in range(distractor_count):
+        card_id = f"card_distractor_{d_idx + 1}"
+        if d_idx < len(ai_distractors) and ai_distractors[d_idx].get("concept_name"):
+            d_item = ai_distractors[d_idx]
+            raw_dname = (d_item.get("concept_name") or f"Distractor {d_idx + 1}").strip()
+            concept_name = raw_dname[:38].strip()
+            if concept_name in seen_names:
+                concept_name = f"{concept_name} (Alt)"
+            content = d_item.get(
+                "content", "Concepto distractor no aplicable a los reactivos planteados."
+            )
+            mult = d_item.get("points_multiplier", "1x")
+        else:
+            concept_name = f"Enfoque Alternativo {d_idx + 1}"
+            content = "Concepto no correspondiente a las preguntas del circuito."
+            mult = "1x"
+        seen_names.add(concept_name)
+
+        builder.add_card(
+            card_id=card_id, concept_name=concept_name, content=content, points_multiplier=mult
+        )
+
+    board_result = builder.build()
+    board_result = board_result.model_copy(
+        update={
+            "domain": domain,
+            "age_band": band_key,
+            "board_version": 2,
+        }
+    )
+    return filter_board_for_band(board_result, band_key)
+
+
+async def generate_boards_batch(
+    text: str,
+    specs: list[tuple[int, int, str]],
+    excluded_concepts: list[str] | None,
+    band_key: str,
+    gender: str | None,
+    user_id: str | None,
+) -> dict[int, GameBoardResponse]:
+    """
+    Genera los tableros de VARIOS niveles con UNA llamada LLM (docs chicos).
+    specs = [(level, question_count, difficulty), ...].
+    Cachea cada nivel en L1/L2 con su propia firma — las siguientes
+    visitas a esos niveles salen del caché sin tocar la API.
+    """
+    domain = classify_domain(text)["domain"]
+    # Dominios procedurales (matemática/física) ya son 0-token — el batch
+    # con LLM solo aplicaría costo donde no hace falta.
+    if domain in PROCEDURAL_BUILDERS and settings.PROCEDURAL_ENGINES_ENABLED:
+        return {}
+    ai_multi = await asyncio.to_thread(
+        ai_service.extract_concepts_multi_level,
+        text,
+        specs,
+        excluded_concepts,
+        band_key,
+        gender,
+    )
+    boards: dict[int, GameBoardResponse] = {}
+    for lvl, qc, diff in specs:
+        ai_data = ai_multi.get(lvl)
+        if not ai_data or not ai_data.get("concepts"):
+            continue
+        excl_sig = ",".join(sorted(excluded_concepts)) if excluded_concepts else "none"
+        content_hash = hashlib.sha256(
+            f"{text.strip()}_lvl{lvl}_qc{qc}_{diff}_excl_{excl_sig}_band_{band_key}_dom_{domain}_v2".encode()
+        ).hexdigest()
+        try:
+            board = assemble_board_from_ai_data(ai_data, domain, band_key)
+        except Exception as be:
+            logger.warning(f"Ensamblaje de tablero multi-nivel {lvl} falló: {be}")
+            continue
+        boards[lvl] = board
+        save_to_l1_cache(content_hash, board)
+        if db_manager.db is not None:
+            try:
+                board_dict = {
+                    "id_tablero": board.id_tablero,
+                    "title": board.title,
+                    "domain": board.domain,
+                    "age_band": board.age_band,
+                    "nodes": [n.model_dump() for n in board.nodes],
+                    "cards": [c.model_dump() for c in board.cards],
+                    "created_at": utcnow_iso(),
+                }
+                await db_manager.db["game_boards"].insert_one(board_dict)
+                await db_manager.db["cached_analyses"].update_one(
+                    {"content_hash": content_hash},
+                    {
+                        "$set": {
+                            "content_hash": content_hash,
+                            "title": board.title,
+                            "board": board_dict,
+                            "ai_data": ai_data,
+                            "generator": "multi_level",
+                            "updated_at": utcnow_iso(),
+                        }
+                    },
+                    upsert=True,
+                )
+            except Exception as dbe:
+                logger.warning(f"Error persistiendo tablero multi-nivel {lvl}: {dbe}")
+    return boards

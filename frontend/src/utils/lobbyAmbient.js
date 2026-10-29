@@ -10,6 +10,7 @@
 
 import { watchVisibility } from './audioLifecycle';
 import { isLowPower } from './lowPower';
+import { isGlobalMuted, onGlobalMuteChange } from './globalMute';
 
 class LobbyAmbientEngine {
   constructor() {
@@ -42,6 +43,35 @@ class LobbyAmbientEngine {
         this.isMuted = localStorage.getItem('hubzy_lobby_muted') === 'true';
       } catch (_) {}
     }
+
+    // Mute global persistente: fade inmediato a 0; al desmutear se
+    // restaura el volumen o arranca el paisaje si quedó "en espera"
+    // (start() marcó isPlaying sin audio mientras estaba muteado).
+    onGlobalMuteChange((muted) => {
+      if (muted) {
+        if (this.ctx && this.masterGain) {
+          const now = this.ctx.currentTime;
+          this.masterGain.gain.cancelScheduledValues(now);
+          this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+          this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.3);
+        }
+      } else if (this.isPlaying && !this.isMuted) {
+        if (!this.ctx) {
+          this.isPlaying = false;
+          void this.start();
+        } else if (this.masterGain) {
+          const now = this.ctx.currentTime;
+          this.masterGain.gain.cancelScheduledValues(now);
+          this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+          this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 0.5);
+        }
+      }
+      this._notify();
+    });
+  }
+
+  _effectiveMuted() {
+    return this.isMuted || isGlobalMuted();
   }
 
   _init() {
@@ -97,7 +127,7 @@ class LobbyAmbientEngine {
   }
 
   playWelcomeChime() {
-    if (this.isMuted) return;
+    if (this._effectiveMuted()) return;
     if (!this._init()) return;
     this._resume();
 
@@ -224,7 +254,9 @@ class LobbyAmbientEngine {
       this._notify();
       return;
     }
-    if (this.isMuted) {
+    if (this._effectiveMuted()) {
+      // Queda "en espera": al desmutear el listener de globalMute
+      // arranca el audio de verdad.
       this.isPlaying = true;
       this._notify();
       return;

@@ -20,6 +20,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.core.database import db_manager
 from app.core.plans import (
     enforce_docs_limit,
@@ -45,8 +46,8 @@ from app.routers.institutions import (
     save_student_progress,
 )
 from app.schemas.schemas import GameBoardResponse, GenerateBoardRequest
-from app.services.ai_service import _level_info, ai_service
-from app.services.board_service import generate_board
+from app.services.ai_service import CAMPAIGN_MAX_LEVEL, _level_info, ai_service
+from app.services.board_service import generate_board, generate_boards_batch
 from app.services.document_store import (
     folder_query as _folder_query,
 )
@@ -59,6 +60,11 @@ from app.services.document_store import (
     load_folder as _load_folder,
 )
 from app.services.job_service import create_job, execute_job, stage_updater
+from app.services.llm_telemetry import (
+    record_groq_usage,
+    usage_elapsed_ms,
+    usage_started,
+)
 from app.services.rag_service import rag_service
 from app.services.topic_detector import (
     _similar,
@@ -840,7 +846,8 @@ async def upload_document_to_folder(
     # Pre-warm: si es el primer documento de la carpeta, pre-generar el nivel 1
     # en background para que "jugar ahora" sea instantáneo.
     if is_first_doc:
-        background_tasks.add_task(_prewarm_level1, folder_id, current_user)
+        if settings.PREWARM_LEVEL1_ENABLED:
+            background_tasks.add_task(_prewarm_level1, folder_id, current_user)
 
     return {
         "status": "uploaded",
@@ -861,6 +868,10 @@ async def upload_document_to_folder(
 # preserva el orden (las directivas sectoriales por nivel 0-25%, 25-50%…
 # dependen de la posición del texto, por eso no se usa RAG top-k aquí).
 GENERATION_TEXT_BUDGET = 150_000
+
+# Umbral del modo multi-nivel: con documentos chicos una sola llamada LLM
+# genera 2 niveles (el prompt de sistema + contexto se amortiza entre ambos).
+MULTI_LEVEL_MAX_CHARS = 30_000
 
 def _level_defaults(level: int) -> tuple[int, str]:
     """(preguntas, dificultad) por defecto del nivel — derivado de
@@ -1082,20 +1093,54 @@ async def _run_folder_generation(
     uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
     age_band = user_band if current_user else None
     gender = current_user.get("gender") if current_user else None
-    board_response = await generate_board(
-        GenerateBoardRequest(
-            text=combined_text,
-            level=level,
-            question_count=final_qc,
-            difficulty=final_diff,
-            excluded_concepts=previously_evaluated_concepts,
-            age_band=age_band,
-            gender=gender,
-        ),
-        force_refresh=force,
-        variation_seed=seed,
-        user_id=uid,
-    )
+
+    # MULTI-NIVEL: si el documento es chico, una sola llamada LLM genera
+    # este nivel y el siguiente — amortiza prompt de sistema + contexto.
+    extra_boards: dict[int, GameBoardResponse] = {}
+    board_response = None
+    if (
+        not force
+        and island_id is None  # islas: texto ya acotado por tema, batch no compensa
+        and len(combined_text) <= MULTI_LEVEL_MAX_CHARS
+        and level < CAMPAIGN_MAX_LEVEL
+    ):
+        nxt = level + 1
+        next_key = f"{island_id}__level_{nxt}" if island_id else f"level_{nxt}"
+        if next_key not in (folder_doc.get("cached_boards") or {}):
+            nxt_qc, nxt_diff = _level_defaults(nxt)
+            specs = [(level, final_qc, final_diff), (nxt, nxt_qc, nxt_diff)]
+            try:
+                extra_boards = await generate_boards_batch(
+                    combined_text,
+                    specs,
+                    previously_evaluated_concepts,
+                    user_band if current_user else "scholar",
+                    gender,
+                    uid,
+                )
+            except Exception as be:
+                logger.warning(f"Generación multi-nivel falló, volviendo a mono-nivel: {be}")
+            if level in extra_boards:
+                board_response = extra_boards[level]
+                logger.info(
+                    f"⚡ Multi-nivel: niveles {sorted(extra_boards)} generados en UNA llamada LLM."
+                )
+
+    if board_response is None:
+        board_response = await generate_board(
+            GenerateBoardRequest(
+                text=combined_text,
+                level=level,
+                question_count=final_qc,
+                difficulty=final_diff,
+                excluded_concepts=previously_evaluated_concepts,
+                age_band=age_band,
+                gender=gender,
+            ),
+            force_refresh=force,
+            variation_seed=seed,
+            user_id=uid,
+        )
     timings["generate_ms"] = round((time.perf_counter() - t_llm) * 1000)
 
     await _stage("saving", 90)
@@ -1122,6 +1167,32 @@ async def _run_folder_generation(
             logger.info(
                 f"Análisis guardado en la carpeta '{folder_name}' (Nivel {level}) en MongoDB."
             )
+
+            # Persistir niveles extra del modo multi-nivel (1 llamada → N niveles)
+            for extra_lvl, extra_board in extra_boards.items():
+                if extra_lvl == level:
+                    continue
+                extra_key = (
+                    f"{island_id}__level_{extra_lvl}"
+                    if island_id
+                    else f"level_{extra_lvl}"
+                )
+                e_qc, e_diff = _level_defaults(extra_lvl)
+                extra_hash = hashlib.sha256(
+                    f"{island_id or ''}_{combined_text.strip()}_lvl{extra_lvl}_qc{e_qc}_{e_diff}_band{user_band}".encode()
+                ).hexdigest()
+                try:
+                    await db_manager.db["study_folders"].update_one(
+                        _folder_query(folder_id),
+                        {
+                            "$set": {
+                                f"cached_boards.{extra_key}": extra_board.model_dump(),
+                                f"cached_board_hashes.{extra_key}": extra_hash,
+                            }
+                        },
+                    )
+                except Exception as ee:
+                    logger.warning(f"Error guardando nivel extra {extra_lvl}: {ee}")
         except Exception as fe:
             logger.warning(f"Error guardando cached_board en la carpeta: {fe}")
 
@@ -1131,6 +1202,13 @@ async def _run_folder_generation(
         in_memory_folder.setdefault("cached_board_hashes", {})[lvl_key] = folder_content_hash
         in_memory_folder["cached_board"] = board_response.model_dump()
         in_memory_folder["cached_board_key"] = lvl_key
+        for extra_lvl, extra_board in extra_boards.items():
+            if extra_lvl == level:
+                continue
+            extra_key = (
+                f"{island_id}__level_{extra_lvl}" if island_id else f"level_{extra_lvl}"
+            )
+            in_memory_folder["cached_boards"][extra_key] = extra_board.model_dump()
 
     timings["total_ms"] = round((time.perf_counter() - t_start) * 1000)
     logger.info(f"⏱️ pipeline generate-game {folder_id} lvl{level}: {timings}")
@@ -1554,9 +1632,12 @@ async def ask_folder_documents(
         from app.services.ai_service import ai_service as _ai
 
         if getattr(_ai, "groq_client", None):
+            # 8b-instant: para responder con contexto RAG acotado sobra —
+            # ~10x más barato que el 70b por token.
+            t0 = usage_started()
             comp = await asyncio.to_thread(
                 _ai.groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
+                model="llama-3.1-8b-instant",
                 messages=[
                     {
                         "role": "system",
@@ -1575,6 +1656,7 @@ async def ask_folder_documents(
                 max_tokens=400,
                 timeout=10.0,
             )
+            record_groq_usage(comp, "llama-3.1-8b-instant", "ask_rag", usage_elapsed_ms(t0))
             answer = (comp.choices[0].message.content or "").strip()
     except Exception as e:
         logger.warning(f"Groq no respondió para /ask: {e}")

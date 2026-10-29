@@ -20,6 +20,12 @@ import logging
 import re
 from difflib import SequenceMatcher
 
+from app.services.llm_telemetry import (
+    record_gemini_usage,
+    usage_elapsed_ms,
+    usage_started,
+)
+
 logger = logging.getLogger("hubzy.topics")
 
 MIN_SECTION_CHARS = 800  # una sección con menos texto se fusiona
@@ -196,11 +202,13 @@ def detect_topics_llm(text: str, filename: str = "") -> list[dict]:
         f"DOCUMENTO ({filename}):\n{sample}"
     )
     try:
+        t0 = usage_started()
         resp = client.models.generate_content(
             model="gemini-2.5-flash-lite",
             contents=prompt,
             config=genai_types.GenerateContentConfig(temperature=0.1, max_output_tokens=600),
         )
+        record_gemini_usage(resp, "gemini-2.5-flash-lite", "topics", usage_elapsed_ms(t0))
         raw = (resp.text or "").strip()
         raw = re.sub(r"^```(?:json)?|```$", "", raw).strip()
         data = json.loads(raw)

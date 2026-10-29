@@ -7,12 +7,15 @@ import { GAME_LEVELS } from "../utils/gameConfig";
  * Consola octogonal 3D del tablero: carcasa decorativa, conexiones de red
  * entre nodos, render de ArcadeNode e indicador de pista.
  */
-export default function BoardConsole({
+function BoardConsole({
   boardInfo,
   currentLevel,
   nodes,
   hintNodeId,
   nodeFx,
+  hasActiveCard = false, // hay carta seleccionada o en arrastre → affordance de drop
+  matchNodeId = null, // id de la casilla compatible con la carta activa (pista sutil)
+  dragPreview = null, // { nodeId, correct } — preview del resultado al soltar
   onNodeClick,
 }) {
   const nodeArr = Object.values(nodes);
@@ -217,7 +220,24 @@ export default function BoardConsole({
                     questionLatex={node.questionLatex}
                     hint={node.hint}
                     placedCard={node.placedCard}
+                    isOver={dragPreview?.nodeId === node.id && dragPreview.correct}
                     fx={nodeFx?.nodeId === node.id ? nodeFx : null}
+                    afford={
+                      node.placedCard || dragPreview?.nodeId === node.id
+                        ? null
+                        : matchNodeId === node.id
+                          ? "match"
+                          : hasActiveCard
+                            ? "open"
+                            : null
+                    }
+                    preview={
+                      dragPreview?.nodeId === node.id
+                        ? dragPreview.correct
+                          ? "correct"
+                          : "wrong"
+                        : null
+                    }
                     onClick={onNodeClick}
                   />
                 </div>
@@ -235,3 +255,5 @@ export default function BoardConsole({
     </div>
   );
 }
+
+export default React.memo(BoardConsole);

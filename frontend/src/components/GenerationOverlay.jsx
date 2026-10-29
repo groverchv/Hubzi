@@ -29,7 +29,7 @@ const STAGE_LABELS = {
 
 const STEP_MS = 2600;
 
-export default function GenerationOverlay({ stage = null, errorMessage = null, onCancel = null, onRetry = null }) {
+export default function GenerationOverlay({ stage = null, progress = null, errorMessage = null, onCancel = null, onRetry = null, onPlayDemo = null }) {
   const [step, setStep] = useState(0);
   const isError = stage === 'error';
 
@@ -42,8 +42,11 @@ export default function GenerationOverlay({ stage = null, errorMessage = null, o
   }, [stage]);
 
   const label = stage ? STAGE_LABELS[stage] || 'Procesando…' : GENERATION_STEPS[step];
+  // Con job real: % exacto reportado por el backend (fallback al mapa por
+  // etapa si el campo aún no llega). Sin job: rotación cosmética.
   const progressPct = stage
-    ? { queued: 8, reading: 25, cache: 35, generating: 65, saving: 90, done: 100, error: 100 }[stage] ?? 50
+    ? (typeof progress === 'number' ? progress
+      : { queued: 8, reading: 25, cache: 35, generating: 65, saving: 90, done: 100, error: 100 }[stage] ?? 50)
     : ((step + 1) / GENERATION_STEPS.length) * 100;
 
   return (
@@ -101,13 +104,27 @@ export default function GenerationOverlay({ stage = null, errorMessage = null, o
         </AnimatePresence>
 
         {/* Barra de progreso por fases */}
-        <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mb-4">
-          <motion.div
-            className={`h-full rounded-full ${isError ? 'bg-rose-400' : 'bg-cyan-400'}`}
-            initial={{ width: '5%' }}
-            animate={{ width: `${progressPct}%` }}
-            transition={{ duration: 0.4 }}
-          />
+        <div className="w-full flex items-center gap-2 mb-4">
+          <div
+            className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden"
+            role="progressbar"
+            aria-valuenow={Math.round(progressPct)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progreso de la generación"
+          >
+            <motion.div
+              className={`h-full rounded-full ${isError ? 'bg-rose-400' : 'bg-cyan-400'}`}
+              initial={{ width: '5%' }}
+              animate={{ width: `${progressPct}%` }}
+              transition={{ duration: 0.4 }}
+            />
+          </div>
+          {stage && !isError && (
+            <span className="text-[10px] font-black font-mono text-cyan-300/90 tabular-nums w-8 text-right">
+              {Math.round(progressPct)}%
+            </span>
+          )}
         </div>
 
         {isError ? (
@@ -121,7 +138,15 @@ export default function GenerationOverlay({ stage = null, errorMessage = null, o
           </p>
         )}
 
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-5 flex items-center gap-3 flex-wrap justify-center">
+          {isError && onPlayDemo && (
+            <button
+              onClick={onPlayDemo}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-cyan-500/90 hover:bg-cyan-400 border border-cyan-300/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#155e75]"
+            >
+              Jugar demo local
+            </button>
+          )}
           {isError && onRetry && (
             <button
               onClick={onRetry}

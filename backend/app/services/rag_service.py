@@ -14,6 +14,11 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.database import db_manager
+from app.services.llm_telemetry import (
+    record_llm_usage,
+    usage_elapsed_ms,
+    usage_started,
+)
 
 try:
     from google import genai
@@ -33,6 +38,12 @@ logger = logging.getLogger("hubzy.rag_service")
 EMBEDDING_MODEL = "text-embedding-004"
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
+
+# Dedup de embeddings: el vector de un chunk se cachea por su hash —
+# el mismo texto en otra carpeta (o re-indexado) copia el vector sin
+# volver a llamar a la API. Documentos triviales no se indexan.
+MIN_INDEX_CHARS = 300
+_VEC_CACHE_MAX = 4000
 
 
 def _chunk_text(text: str) -> list[str]:
@@ -61,6 +72,8 @@ def _chunk_text(text: str) -> list[str]:
 class RagService:
     def __init__(self):
         self._genai_client = None
+        # chunk_sha256 -> vector (memoria; Mongo 'embedding_cache' persiste)
+        self._vec_cache: dict[str, list[float]] = {}
         if GENAI_AVAILABLE and settings.GEMINI_API_KEY:
             try:
                 self._genai_client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -84,15 +97,84 @@ class RagService:
         """Vectoriza un documento y lo indexa en Qdrant. Retorna # de chunks indexados."""
         if not self.available:
             return 0
+        if not text or len(text) < MIN_INDEX_CHARS:
+            return 0
         chunks = _chunk_text(text)
         if not chunks:
             return 0
         try:
+            # DEDUP POR CHUNK-HASH: solo se llaman embeddings para los chunks
+            # que nunca se han visto (memoria → Mongo → API, en ese orden).
+            hashes = [hashlib.sha256(c.encode("utf-8")).hexdigest() for c in chunks]
+            vectors: list[list[float] | None] = [None] * len(chunks)
+            missing = []
+            for i, h in enumerate(hashes):
+                cached = self._vec_cache.get(h)
+                if cached is not None:
+                    vectors[i] = cached
+                else:
+                    missing.append(i)
+
+            if missing and db_manager.db is not None:
+                try:
+                    found = await db_manager.db["embedding_cache"].find(
+                        {"chunk_hash": {"$in": [hashes[i] for i in missing]}},
+                        {"chunk_hash": 1, "vector": 1},
+                    ).to_list(None)
+                    found_map = {d["chunk_hash"]: d["vector"] for d in found}
+                    still_missing = []
+                    for i in missing:
+                        v = found_map.get(hashes[i])
+                        if v is not None:
+                            vectors[i] = v
+                            self._vec_cache[hashes[i]] = v
+                        else:
+                            still_missing.append(i)
+                    missing = still_missing
+                except Exception as e:
+                    logger.debug(f"Lectura de embedding_cache falló: {e}")
+
             # Embeddings en lotes de 50 para no saturar la API.
             # Las llamadas al SDK son síncronas → threads para no bloquear el loop.
-            embeddings: list[list[float]] = []
-            for i in range(0, len(chunks), 50):
-                embeddings.extend(await asyncio.to_thread(self._embed, chunks[i : i + 50]))
+            new_vectors: dict[int, list[float]] = {}
+            for i in range(0, len(missing), 50):
+                batch_idx = missing[i : i + 50]
+                t0 = usage_started()
+                batch_emb = await asyncio.to_thread(
+                    self._embed, [chunks[j] for j in batch_idx]
+                )
+                record_llm_usage(
+                    "gemini",
+                    EMBEDDING_MODEL,
+                    "embed",
+                    input_tokens=sum(len(chunks[j]) for j in batch_idx) // 4,
+                    ms=usage_elapsed_ms(t0),
+                )
+                for j, v in zip(batch_idx, batch_emb, strict=False):
+                    vectors[j] = v
+                    new_vectors[j] = v
+                    if len(self._vec_cache) >= _VEC_CACHE_MAX:
+                        self._vec_cache.pop(next(iter(self._vec_cache)), None)
+                    self._vec_cache[hashes[j]] = v
+
+            # Persistir vectores nuevos (ordered=False → duplicados se ignoran)
+            if new_vectors and db_manager.db is not None:
+                try:
+                    await db_manager.db["embedding_cache"].insert_many(
+                        [
+                            {"chunk_hash": hashes[j], "vector": new_vectors[j]}
+                            for j in new_vectors
+                        ],
+                        ordered=False,
+                    )
+                except Exception as e:
+                    # hashes duplicados por concurrencia: ya existen
+                    logger.debug(f"Persistencia parcial de embedding_cache: {e}")
+
+            embeddings = vectors
+            if any(v is None for v in embeddings):
+                logger.warning("Embedding incompleto tras dedup; abortando indexado del doc.")
+                return 0
 
             points = []
             for idx, (chunk, vector) in enumerate(zip(chunks, embeddings, strict=False)):

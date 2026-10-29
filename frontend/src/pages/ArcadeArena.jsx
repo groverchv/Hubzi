@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCcw,
@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Flame,
+  EyeOff,
+  Star,
+  SkipForward,
 } from "lucide-react";
 
 import QuestionModal from "../components/QuestionModal";
@@ -34,6 +37,8 @@ import RestartOptionsModal from "../components/RestartOptionsModal";
 import A11yControls from "../components/A11yControls";
 import HandTray from "../components/HandTray";
 import BoardConsole from "../components/BoardConsole";
+import CompactBoard from "../components/CompactBoard";
+import HubziChatPanel from "../components/HubziChatPanel";
 import { capyAudio } from "../utils/capyAudio";
 import { capyVoice } from "../utils/capyVoice";
 import { hubziAmbient } from "../utils/hubziAmbient";
@@ -49,8 +54,11 @@ import { DEMO_BOARD, DEMO_FOLDER } from "../utils/demoBoard";
 import { analyzeIntentLocally } from "../utils/localNlp";
 import { getDynamicLayout } from "../utils/boardLayout";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { useHubziState, deriveHubziStatus } from "../hooks/useHubziState";
+import { track } from "../utils/uxTelemetry";
 import { bandForAge, getBand } from "../utils/ageConfig";
-import { lockLandscape } from "../utils/orientation";
+import { lockLandscape, useCompactMobile } from "../utils/orientation";
+import { useGlobalMuted, setGlobalMuted, isGlobalMuted } from "../utils/globalMute";
 
 export default function ArcadeArena() {
   const { reportCrisis } = useCrisis();
@@ -78,17 +86,20 @@ export default function ArcadeArena() {
   const [streak, setStreak] = useState(0);
   const [successNotif, setSuccessNotif] = useState(null);
   const [errorNotif, setErrorNotif] = useState(null);
-  const [isCapySad, setIsCapySad] = useState(false); // Capibara llora cuando la carta es incorrecta
-
-  // Reacciones Emocionales y Voz Tierna de Capibara (ElevenLabs)
-  const [capyMood, setCapyMood] = useState("idle"); // 'idle' | 'happy' | 'encouraging' | 'hint' | 'surprised' | 'welcome'
-  const [capySpeech, setCapySpeech] = useState({
-    text: "",
-    isVisible: false,
-    mood: "idle",
-  });
+  // Estado consolidado de Hubzi (Fase 3.2): burbuja + mood + tristeza en
+  // una sola fuente — useHubziState devuelve los mismos setters.
+  const {
+    capySpeech,
+    setCapySpeech,
+    capyMood,
+    setCapyMood,
+    isCapySad,
+    setIsCapySad,
+  } = useHubziState();
   const [isCapySpeaking, setIsCapySpeaking] = useState(false);
-  const [isCapyMuted, setIsCapyMuted] = useState(false);
+  // Mute GLOBAL persistente (voz + sfx + música) — vive en localStorage,
+  // los motores de audio se suscriben solos a utils/globalMute.
+  const isCapyMuted = useGlobalMuted();
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
   const capySpeechTimeoutRef = React.useRef(null);
   const speakTimeoutRef = React.useRef(null);
@@ -150,6 +161,7 @@ export default function ArcadeArena() {
     localStorage.removeItem("hubzy_current_user");
     localStorage.removeItem("hubzy_auth_token");
     chatHistoryRef.current = []; // la memoria de Hubzi es privada por sesión
+    setChatLog([]);
     useAuthStore.getState().logout();
     setCurrentUser(null);
     setIsAuthModalOpen(true);
@@ -260,14 +272,20 @@ export default function ArcadeArena() {
   const [activeFolder, setActiveFolder] = useState(null);
   const [activeIsland, setActiveIsland] = useState(null); // isla temática activa (null = campaña general)
   const [isRelaxModalOpen, setIsRelaxModalOpen] = useState(false);
-  const [zenOffer, setZenOffer] = useState({
-    show: false,
+  // Intervención emocional UNIFICADA (Fase 3.3): un solo sistema
+  // escalonado — stage 0 nada · 1 sugerencia (banner) · 2 pausa Zen · 3 crisis.
+  const [wellbeing, setWellbeing] = useState({
+    stage: 0,
     category: "",
     distortion: "",
     emotion: "",
   });
+  // Publica una oferta de apoyo sin degradar una etapa más alta activa.
+  const offerSupport = (meta, stage = 1) =>
+    setWellbeing((w) => (w.stage > stage ? w : { stage, ...meta }));
   const [isGeneratingArena, setIsGeneratingArena] = useState(false);
   const [genStage, setGenStage] = useState(null); // Etapa real reportada por el job async
+  const [genProgress, setGenProgress] = useState(null); // % real reportado por el job
   const [genError, setGenError] = useState(null); // { message } — mantiene el overlay con opción de reintentar
   const genAbortRef = useRef(null); // AbortController de la generación en curso
   const lastGenRef = useRef(null); // último intento {level, folder, island, force} para reintentar
@@ -275,6 +293,7 @@ export default function ArcadeArena() {
   const failedNodesRef = useRef(new Set()); // nodos con ≥1 intento fallido → precisión real
   const failStreakRef = useRef(0); // fallos consecutivos → trigger de apoyo Zen
   const lastFailedNodeRef = useRef(null); // último nodo fallado → pista dirigida
+  const firstMoveTrackedRef = useRef(false); // funnel: 1er acierto por tablero
 
   // PRIMERA PARTIDA GUIADA: overlay paso a paso sobre el tablero real —
   // 1: toca una carta · 2: colócala en su casilla · 3: felicitación.
@@ -286,14 +305,26 @@ export default function ArcadeArena() {
       localStorage.setItem(GUIDED_KEY, "1");
     } catch {}
     setGuideStep(0);
+    setGuideTarget(null);
   };
   const streakGreetedRef = useRef(false); // saludo de racha 1× por sesión
   const masteryRef = useRef({}); // topic → {p_mastery, mastered, recommendation} (BKT)
   const chatHistoryRef = useRef([]); // memoria conversacional de Hubzi [{role, text}]
+  // Chat visible (Fase 3.1): espejo en estado del historial para el panel.
+  const [chatLog, setChatLog] = useState([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const pushChat = (role, text) => {
+    chatHistoryRef.current.push({ role, text });
+    if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
+    setChatLog([...chatHistoryRef.current]);
+  };
+  const [guideTarget, setGuideTarget] = useState(null); // {cardId,nodeId} onboarding
   const breakOfferedRef = useRef(false); // micro-pausa sugerida una vez por sesión
   const [selectedNodeForQuestion, setSelectedNodeForQuestion] = useState(null);
   const [selectedCardForDetail, setSelectedCardForDetail] = useState(null);
   const [selectedCardInHand, setSelectedCardInHand] = useState(null);
+  // Referencia estable para el memo de CardDetailModal.
+  const closeCardDetail = useCallback(() => setSelectedCardForDetail(null), []);
 
   // Cerrar el baúl de carpetas: sin partida en curso la pantalla nunca
   // queda vacía — vuelve al menú principal (WelcomeScreen).
@@ -411,6 +442,8 @@ export default function ArcadeArena() {
         else if (isLegalModalOpen) setIsLegalModalOpen(false);
         else if (selectedNodeForQuestion) setSelectedNodeForQuestion(null);
         else if (selectedCardForDetail) setSelectedCardForDetail(null);
+        else if (selectedCardInHand) setSelectedCardInHand(null);
+        else if (isChatOpen) setIsChatOpen(false);
         else if (isFolderModalOpen) closeFolderModal();
         else if (isTutorialOpen) setIsTutorialOpen(false);
         else if (isSubscriptionModalOpen) setIsSubscriptionModalOpen(false);
@@ -425,6 +458,8 @@ export default function ArcadeArena() {
     isLegalModalOpen,
     selectedNodeForQuestion,
     selectedCardForDetail,
+    selectedCardInHand,
+    isChatOpen,
     isFolderModalOpen,
     isTutorialOpen,
     isSubscriptionModalOpen,
@@ -437,15 +472,44 @@ export default function ArcadeArena() {
   const [hintNodeId, setHintNodeId] = useState(null);
   const lastActionTimestampRef = React.useRef(Date.now());
 
-  // Feedback visual del nodo ante un intento: { nodeId, kind, seq }.
-  // 'wrong' → pulso ámbar + sacudida suave; 'correct' → estrella que salta.
+  // Feedback visual del nodo ante un intento: { nodeId, kind, seq, points }.
+  // 'wrong' → pulso ámbar + sacudida suave; 'correct' → estrella + puntos.
   // seq incrementa por evento para re-disparar la animación en el mismo nodo.
   const [nodeFx, setNodeFx] = useState(null);
   const nodeFxSeqRef = useRef(0);
-  const fireNodeFx = (nodeId, kind) => {
+  const fireNodeFx = (nodeId, kind, points = 0) => {
     nodeFxSeqRef.current += 1;
-    setNodeFx({ nodeId, kind, seq: nodeFxSeqRef.current });
+    setNodeFx({ nodeId, kind, seq: nodeFxSeqRef.current, points });
   };
+
+  // Preview de drop en vivo: nodo bajo el puntero durante el arrastre +
+  // si la carta encajaría ahí (feedback pre-drop rojo tenue/naranja).
+  const [dragPreview, setDragPreview] = useState(null); // { cardId, nodeId, correct }
+  const dragPreviewRef = useRef(null);
+  const setDragPreviewIfChanged = (next) => {
+    const prev = dragPreviewRef.current;
+    if (
+      prev?.cardId === next?.cardId &&
+      prev?.nodeId === next?.nodeId &&
+      prev?.correct === next?.correct
+    )
+      return;
+    dragPreviewRef.current = next;
+    setDragPreview(next);
+  };
+
+  // Revelación de carta trampa: micro-animación de "descubrimiento" al
+  // fallar con una distractora — explica qué era falso antes de desvanecer.
+  const [trapReveal, setTrapReveal] = useState(null); // { card, nodeLabel }
+  useEffect(() => {
+    if (!trapReveal) return;
+    const t = setTimeout(() => setTrapReveal(null), 2600);
+    return () => clearTimeout(t);
+  }, [trapReveal]);
+
+  // Layout adaptativo móvil: lista compacta de nodos + deck horizontal
+  // (sin escala de "laptop" — UI real a tamaño táctil).
+  const compactMobile = useCompactMobile();
 
   // Hubzi reactiva: nudge suave si llevas >40s sin actuar (una vez por
   // racha de inactividad). idleBlinkSeq re-dispara su parpadeo.
@@ -679,12 +743,7 @@ export default function ArcadeArena() {
     const t = setTimeout(() => {
       if (breakOfferedRef.current) return;
       breakOfferedRef.current = true;
-      setZenOffer({
-        show: true,
-        category: "pausa activa",
-        distortion: "",
-        emotion: "fatiga",
-      });
+      offerSupport({ category: "pausa activa", emotion: "fatiga" }, 1);
       setCapyMood("encouraging");
       setCapySpeech({
         text: "Llevas un buen rato concentrado — un respiro de 2 minutos ayuda a que todo se fije mejor. ¿Respiramos juntos?",
@@ -872,7 +931,9 @@ export default function ArcadeArena() {
   // Función principal para activar la voz tierna y reacciones de Capibara
   // Control estricto anti-colisión + nuevos moods expresivos
   const triggerCapyVoice = async (situation, customData = {}) => {
-    if (isCapyMuted) return;
+    // Con mute global la burbuja SIGUE informando (accesibilidad: el texto
+    // es el canal de pistas) — solo el audio se silencia.
+    const muted = isGlobalMuted();
 
     capyVoice.stop();
     if (speakTimeoutRef.current) clearTimeout(speakTimeoutRef.current);
@@ -922,6 +983,20 @@ export default function ArcadeArena() {
       user_gender: currentUser?.gender,
       voice_gender: currentUser?.assigned_voice_gender,
     };
+
+    if (muted) {
+      // Mute global: no hay audio — la burbuja se auto-oculta como si la
+      // voz hubiera terminado (capyVoice nunca notificará isSpeaking).
+      setIsCapySad(situation === "wrong");
+      capySpeechTimeoutRef.current = setTimeout(() => {
+        setCapySpeech((prev) =>
+          prev.showHintButton ? prev : { ...prev, isVisible: false },
+        );
+        setCapyMood("idle");
+        setIsCapySad(false);
+      }, 5200);
+      return;
+    }
 
     if (situation === "wrong") {
       setIsCapySad(true);
@@ -1008,8 +1083,7 @@ export default function ArcadeArena() {
     });
 
     // Registrar el mensaje del usuario en la memoria conversacional (máx 12)
-    chatHistoryRef.current.push({ role: "user", text: transcript });
-    if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
+    pushChat("user", transcript);
     const historyPayload = chatHistoryRef.current.slice(0, -1); // sin el actual
 
     // Intentar NLP del backend con timeout de 8s (Gemini necesita más que 3s)
@@ -1046,24 +1120,29 @@ export default function ArcadeArena() {
         const reply =
           data.reply || "¡Revisa los conceptos clave de tus cartas!";
         const psych = data.psychology;
-        checkCrisisFlag(data, reportCrisis);
+        checkCrisisFlag(data, () => {
+          offerSupport({ category: "apoyo inmediato" }, 3);
+          reportCrisis();
+        });
         setIsThinkingHint(false);
 
         // Guardar la respuesta de Hubzi en la memoria
-        chatHistoryRef.current.push({ role: "capi", text: reply });
-        if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
+        pushChat("capi", reply);
 
         if (
           psych?.needs_somatic_intervention ||
           (psych?.stress_level && psych.stress_level >= 0.5)
         ) {
           setCapyMood("love");
-          setZenOffer({
-            show: true,
-            category: psych.stress_category || "tensión acumulada",
-            distortion: psych.cognitive_distortion || "",
-            emotion: psych.emotion_detected || "ansiedad",
-          });
+          offerSupport(
+            {
+              category: psych.stress_category || "tensión acumulada",
+              distortion: psych.cognitive_distortion || "",
+              emotion: psych.emotion_detected || "ansiedad",
+            },
+            psych.needs_somatic_intervention ? 2 : 1,
+          );
+          if (psych.needs_somatic_intervention) setIsRelaxModalOpen(true);
           triggerCapyVoice("encouraging", {
             customText: reply,
             stress_level: psych.stress_level,
@@ -1089,18 +1168,12 @@ export default function ArcadeArena() {
     const local = runLocalIntent(transcript, nodes, hand);
 
     if (local.needsZen) {
-      setZenOffer({
-        show: true,
-        category: "estrés detectado",
-        distortion: "",
-        emotion: "frustración",
-      });
+      offerSupport({ category: "estrés detectado", emotion: "frustración" }, 1);
     }
 
     setCapyMood(local.mood);
     setCapySpeech({ text: local.reply, isVisible: true, mood: local.mood });
-    chatHistoryRef.current.push({ role: "capi", text: local.reply });
-    if (chatHistoryRef.current.length > 12) chatHistoryRef.current.shift();
+    pushChat("capi", local.reply);
     capyVoice.speak(local.reply, {
       mood: local.mood,
       level: currentLevel,
@@ -1113,6 +1186,25 @@ export default function ArcadeArena() {
   // Micrófono con mensajes emotivos y NLP funcional
   const { isListening, toggleMicrophone } = useSpeechRecognition({
     onTranscript: handleUserVoiceQuery,
+    // Transcripción interim EN VIVO dentro de la burbuja de Hubzi — el
+    // jugador ve lo que el micrófono va captando antes del resultado final.
+    onInterim: (text) => {
+      if (text) {
+        setCapyMood("listening");
+        setCapySpeech({
+          text,
+          isVisible: true,
+          mood: "listening",
+          interim: true,
+        });
+      } else {
+        // Solo cerrar si la burbuja visible ES la transcripción viva — no
+        // pisar una frase de Hubzi que llegó entremedio.
+        setCapySpeech((prev) =>
+          prev.interim ? { ...prev, isVisible: false, interim: false } : prev,
+        );
+      }
+    },
     onFeedback: (text) => {
       setCapyMood("love");
       setCapySpeech({ text, isVisible: true, mood: "love" });
@@ -1164,6 +1256,11 @@ export default function ArcadeArena() {
           totalQuestions: totalQ,
           firstTry: Math.max(0, totalQ - failedNodes.length),
           weakNodes: [...weakTopics],
+        });
+        track("level_done", {
+          level: currentLevel,
+          accuracy: accuracyCalc,
+          questions: totalQ,
         });
 
         sfx.victory();
@@ -1332,19 +1429,18 @@ export default function ArcadeArena() {
 
     if (requiredTrapCount > 0 && currentDistractorCount < requiredTrapCount) {
       const missingCount = requiredTrapCount - currentDistractorCount;
-      const fallbackDistractorNames = [
-        "Premisa Contradictoria",
-        "Correlación Falsa",
-        "Hipótesis Descartada",
-        "Axioma Inválido",
-        "Metodología Excluida",
-        "Trampa Conceptual",
-      ];
+      // Distractores derivados del propio tablero (nombres de conceptos
+      // con sufijo de variación) — nunca texto enlatado ajeno al documento.
+      const conceptPool = processedCards
+        .filter((c) => !c.isDistractor)
+        .map((c) => c.name);
+      const trapSuffixes = ["(inverso)", "(falso)", "(parcial)", "(extremo)", "(opuesto)", "(límite)"];
       for (let k = 0; k < missingCount; k++) {
         const dIdx = currentDistractorCount + k;
+        const baseName = conceptPool[dIdx % Math.max(1, conceptPool.length)] || `Concepto ${dIdx + 1}`;
         processedCards.push({
           id: `card_trap_dyn_${dIdx + 1}`,
-          name: fallbackDistractorNames[dIdx % fallbackDistractorNames.length],
+          name: `${baseName} ${trapSuffixes[dIdx % trapSuffixes.length]}`.slice(0, 38),
           cost: "1x",
           type: "dark", // Estilo oscuro / amenaza
           sourceType: "document",
@@ -1368,6 +1464,7 @@ export default function ArcadeArena() {
     // Resetear todo el estado de la partida para el nivel
     victoryConsumedRef.current = false; // tablero nuevo → victoria habilitada otra vez
     failedNodesRef.current = new Set(); // precisión del nivel se mide desde cero
+    firstMoveTrackedRef.current = false; // funnel: first_move se cuenta por tablero
     failStreakRef.current = 0;
     setNodes(newNodes);
     setHand(shuffledHand);
@@ -1382,7 +1479,15 @@ export default function ArcadeArena() {
 
     // Primera partida: arranca el overlay guiado paso a paso
     try {
-      if (!localStorage.getItem(GUIDED_KEY)) setGuideStep(1);
+      if (!localStorage.getItem(GUIDED_KEY)) {
+        setGuideStep(1);
+        // Onboarding dirigido (3.4): Hubzi señala carta y casilla del
+        // primer movimiento con los flags "¡USA ÉSTA!"/"¡COLOCA AQUÍ!".
+        const firstNode = Object.values(newNodes)[0];
+        const firstCard = shuffledHand.find((c) => cardMatchesNode(c, firstNode));
+        if (firstNode && firstCard)
+          setGuideTarget({ cardId: firstCard.id, nodeId: firstNode.id });
+      }
     } catch {}
 
     // Racha de días estudiando (retención suave): Hubzi la celebra una
@@ -1444,6 +1549,7 @@ export default function ArcadeArena() {
     genAbortRef.current = null;
     setIsGeneratingArena(false);
     setGenStage(null);
+    setGenProgress(null);
     setGenError(null);
   };
 
@@ -1469,6 +1575,7 @@ export default function ArcadeArena() {
         throw new Error(`No se pudo consultar el progreso (${jr.status}).`);
       const job = await jr.json();
       setGenStage(job.stage);
+      if (typeof job.progress === "number") setGenProgress(job.progress);
       if (job.status === "done") return job.result;
       if (job.status === "error") {
         const e = new Error(
@@ -1505,7 +1612,13 @@ export default function ArcadeArena() {
     };
     setIsGeneratingArena(true);
     setGenStage("queued");
+    setGenProgress(0);
     setGenError(null);
+    track("gen_started", {
+      level: targetLevel,
+      folder: targetFolder.id,
+      island: targetIsland?.id || null,
+    });
     const controller = new AbortController();
     genAbortRef.current = controller;
     setSuccessNotif(
@@ -1539,6 +1652,7 @@ export default function ArcadeArena() {
           setCurrentLevel(targetLevel);
           setIsGeneratingArena(false);
           setGenStage(null);
+          setGenProgress(null);
           setSuccessNotif(
             `Nivel ${targetLevel} listo al instante (análisis previo en memoria).`,
           );
@@ -1614,6 +1728,15 @@ export default function ArcadeArena() {
       console.warn("Error cargando nivel desde el backend:", e);
       if (e.status === 402) {
         setErrorNotif(e.message);
+      } else if (!e.status) {
+        // 4.7 Degradación offline: sin respuesta del servidor (red caída o
+        // backend abajo) — estado claro + oferta de demo local inmediata.
+        track("offline_gen_fail", { level: targetLevel });
+        setGenError({
+          offline: true,
+          message:
+            "Sin conexión con el servidor de Hubzy. Revisa tu internet — mientras tanto puedes practicar con la demo local.",
+        });
       } else {
         setGenError({
           message:
@@ -1628,6 +1751,7 @@ export default function ArcadeArena() {
         genAbortRef.current = null;
         setIsGeneratingArena(false);
         setGenStage(null);
+        setGenProgress(null);
       }
     }
     return false;
@@ -1704,6 +1828,22 @@ export default function ArcadeArena() {
     setIsRestartOptionsModalOpen(true);
   };
 
+  // ¿La carta corresponde a este nodo? Regla única compartida por
+  // attemptPlayCard, la affordance de drop y el preview de arrastre.
+  const cardMatchesNode = (card, node) => {
+    if (!card || !node) return false;
+    const isDistractor =
+      card.isDistractor || card.isTrap || String(card.id).includes("distractor");
+    if (isDistractor) return false;
+    return Boolean(
+      (node.correctCardId && String(node.correctCardId) === String(card.id)) ||
+        (card.matchesNodeId && String(card.matchesNodeId) === String(node.id)) ||
+        (node.label &&
+          card.name &&
+          node.label.trim().toLowerCase() === card.name.trim().toLowerCase()),
+    );
+  };
+
   // INTENTO UNIFICADO DE JUGAR/COLOCAR CARTA (Arrastrar o Tocar)
   const attemptPlayCard = (cardId, targetNodeId) => {
     if (!targetNodeId || !nodes[targetNodeId]) return false;
@@ -1716,21 +1856,9 @@ export default function ArcadeArena() {
     const card = hand.find((c) => String(c.id) === String(cardId));
     if (!card) return false;
 
-    // Validación precisa: soporta match de ID, de matchesNodeId o por igualdad de texto/concepto
     const isDistractor =
       card.isDistractor || String(card.id).includes("distractor");
-    const isCorrectCard =
-      !isDistractor &&
-      Boolean(
-        (targetNode.correctCardId &&
-          String(targetNode.correctCardId) === String(card.id)) ||
-        (card.matchesNodeId &&
-          String(card.matchesNodeId) === String(targetNodeId)) ||
-        (targetNode.label &&
-          card.name &&
-          targetNode.label.trim().toLowerCase() ===
-            card.name.trim().toLowerCase()),
-      );
+    const isCorrectCard = cardMatchesNode(card, targetNode);
 
     if (!isCorrectCard) {
       // CARTA INCORRECTA O TRAMPA: apoyo sin castigo — el error enseña
@@ -1750,18 +1878,19 @@ export default function ArcadeArena() {
       const wantsHintOffer = failStreakRef.current === 2;
       if (failStreakRef.current >= 3) {
         failStreakRef.current = 0;
-        setZenOffer({
-          show: true,
-          category: "repetición de intentos",
-          distortion: "",
-          emotion: "frustración",
-        });
+        offerSupport(
+          { category: "repetición de intentos", emotion: "frustración" },
+          1,
+        );
       }
 
       const isTrap = Boolean(card.isTrap || isDistractor);
       if (isTrap) {
         // La trampa se desvanece del mazo (nunca puede ser correcta en ningún nodo)
         sfx.trap();
+        // Revelación: micro-animación de "descubrimiento" con explicación
+        // de qué era falso en esa afirmación.
+        setTrapReveal({ card, nodeLabel: targetNode.label });
         setHand((prev) =>
           prev.filter((c) => String(c.id) !== String(card.id)),
         );
@@ -1804,7 +1933,14 @@ export default function ArcadeArena() {
 
     // CARTA CORRECTA: Colocar en el nodo, racha sube y voz de celebración entusiasta
     sfx.success();
-    fireNodeFx(targetNodeId, "correct");
+    const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
+    const pointsEarned = 10 * multiplier;
+    fireNodeFx(targetNodeId, "correct", pointsEarned);
+    // Funnel UX: primer movimiento acertado de la partida.
+    if (!firstMoveTrackedRef.current) {
+      firstMoveTrackedRef.current = true;
+      track("first_move", { level: currentLevel });
+    }
     // Guía: primera colocación exitosa → felicitación y cierre
     if (guideStep === 1 || guideStep === 2) setGuideStep(3);
     triggerCapyVoice("correct");
@@ -1813,8 +1949,6 @@ export default function ArcadeArena() {
     failStreakRef.current = 0;
     setSelectedCardForDetail(null);
     setSelectedCardInHand(null);
-    const multiplier = card.cost ? parseInt(card.cost) || 1 : 1;
-    const pointsEarned = 10 * multiplier;
     setNodes((prev) => ({
       ...prev,
       [targetNodeId]: { ...prev[targetNodeId], placedCard: card },
@@ -1839,23 +1973,30 @@ export default function ArcadeArena() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guideStep]);
 
-  const handleNodeClick = (nodeId) => {
-    const node = nodes[nodeId];
-    if (!node) return;
+  // useCallback: referencia estable para que React.memo en ArcadeNode y
+  // BoardConsole sí evite re-renders por tick de timers/voz.
+  const handleNodeClick = useCallback(
+    (nodeId) => {
+      const node = nodes[nodeId];
+      if (!node) return;
 
-    // Si el jugador tiene una carta seleccionada en la mano (modo táctil / Tap-to-Place)
-    if (selectedCardInHand && !node.placedCard) {
-      const cardToPlay = selectedCardInHand;
-      const success = attemptPlayCard(cardToPlay.id, nodeId);
-      if (success) {
-        setSelectedCardInHand(null);
-        return;
+      // Si el jugador tiene una carta seleccionada en la mano (modo táctil / Tap-to-Place)
+      if (selectedCardInHand && !node.placedCard) {
+        const cardToPlay = selectedCardInHand;
+        const success = attemptPlayCard(cardToPlay.id, nodeId);
+        if (success) {
+          setSelectedCardInHand(null);
+          return;
+        }
       }
-    }
 
-    // De lo contrario, abrir modal de lectura detallada del reactivo
-    setSelectedNodeForQuestion(node);
-  };
+      // De lo contrario, abrir modal de lectura detallada del reactivo
+      setSelectedNodeForQuestion(node);
+    },
+    // attemptPlayCard lee nodes/hand del render actual: depende de ambos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, hand, selectedCardInHand],
+  );
 
   const handleCardClick = (card) => {
     // Modo Táctil / Accesibilidad: si tocas una carta ya seleccionada, deseleccionar
@@ -1873,47 +2014,118 @@ export default function ArcadeArena() {
     }
   };
 
-  const handleDragEnd = (cardId, info) => {
-    const dropPoint = { x: info.point.x, y: info.point.y };
+  // Selección por TECLADO: tras elegir la carta con Enter, el foco salta a
+  // la primera casilla vacía para colocarla con otro Enter — flujo sin
+  // mouse completo (Tab entre casillas, Enter para colocar).
+  const handleCardKeySelect = (card) => {
+    const wasSelected = selectedCardInHand?.id === card.id;
+    handleCardClick(card);
+    if (!wasSelected) {
+      setTimeout(() => {
+        const empty = Object.values(nodes).find((n) => !n.placedCard);
+        if (empty)
+          document.querySelector(`[data-node-id="${empty.id}"]`)?.focus();
+      }, 60);
+    }
+  };
 
-    // Detectar si se soltó sobre o cerca de una pregunta del tablero (radio generoso de 80px)
+  // Hit-test compartido: ¿sobre qué casilla está el punto (x, y)?
+  // Radio generoso para perdón de puntería en drag y preview en vivo.
+  const findNodeAtPoint = (x, y, radius = 80) => {
     const elements = document.querySelectorAll("[data-node-id]");
-
     let matchedNodeId = null;
     let shortestDist = Infinity;
-    const HIT_RADIUS = 80;
 
     elements.forEach((el) => {
       const rect = el.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
-      const dist = Math.hypot(dropPoint.x - centerX, dropPoint.y - centerY);
+      const dist = Math.hypot(x - centerX, y - centerY);
 
       const inExpandedArea =
-        dropPoint.x >= rect.left - HIT_RADIUS &&
-        dropPoint.x <= rect.right + HIT_RADIUS &&
-        dropPoint.y >= rect.top - HIT_RADIUS &&
-        dropPoint.y <= rect.bottom + HIT_RADIUS;
+        x >= rect.left - radius &&
+        x <= rect.right + radius &&
+        y >= rect.top - radius &&
+        y <= rect.bottom + radius;
 
       if (inExpandedArea && dist < shortestDist) {
         shortestDist = dist;
         matchedNodeId = el.getAttribute("data-node-id");
       }
     });
+    return matchedNodeId;
+  };
 
+  // PREVIEW EN VIVO DEL DROP: al arrastrar sobre una casilla se muestra
+  // el resultado antes de soltar (naranja si encaja, rojo tenue si no).
+  const handleDragMove = (cardId, info) => {
+    const nodeId = findNodeAtPoint(info.point.x, info.point.y, 60);
+    if (!nodeId) return setDragPreviewIfChanged(null);
+    const card = hand.find((c) => String(c.id) === String(cardId));
+    const node = nodes[nodeId];
+    setDragPreviewIfChanged({
+      cardId,
+      nodeId,
+      correct: Boolean(
+        node && !node.placedCard && cardMatchesNode(card, node),
+      ),
+    });
+  };
+
+  const handleDragEnd = (cardId, info) => {
+    setDragPreviewIfChanged(null);
+    const matchedNodeId = findNodeAtPoint(info.point.x, info.point.y, 80);
     if (matchedNodeId) {
       attemptPlayCard(cardId, matchedNodeId);
     }
   };
+
+  // Carta "activa" para la affordance de drop: la seleccionada por toque
+  // o la que se está arrastrando. matchNodeId es la casilla compatible
+  // (pista sutil — las demás vacías solo muestran anillo de "suelta aquí").
+  const activeCardForDrop =
+    selectedCardInHand ||
+    (dragPreview
+      ? hand.find((c) => String(c.id) === String(dragPreview.cardId))
+      : null);
+  const matchNodeId = activeCardForDrop
+    ? Object.values(nodes).find(
+        (n) => !n.placedCard && cardMatchesNode(activeCardForDrop, n),
+      )?.id || null
+    : null;
+
+  // Pistas efectivas: durante el onboarding apuntan al objetivo del
+  // primer movimiento; terminada la guía vuelven a la pista de inactividad.
+  const effHintCardId =
+    guideStep > 0 && guideStep < 3
+      ? guideTarget?.cardId || hintCardId
+      : hintCardId;
+  const effHintNodeId =
+    guideStep > 0 && guideStep < 3
+      ? guideTarget?.nodeId || hintNodeId
+      : hintNodeId;
+
+  // Estado macro consolidado de Hubzi (3.2) — burbuja, mood y badge
+  // leen siempre del mismo valor.
+  const hubziStatus = deriveHubziStatus({
+    capyMood,
+    capySpeech,
+    isCapySad,
+    isSpeaking: isCapySpeaking,
+    isListening,
+    isThinking: isThinkingHint,
+  });
 
   // OVERLAY + TOASTS compartidos: la generación puede lanzarse desde el mapa
   // (onSelectLevel) o desde la demo de bienvenida — sin esto corría invisible.
   const generationOverlay = (isGeneratingArena || genError) && (
     <GenerationOverlay
       stage={genError ? "error" : genStage}
+      progress={genProgress}
       errorMessage={genError?.message}
       onCancel={handleCancelGeneration}
       onRetry={genError ? handleRetryGeneration : null}
+      onPlayDemo={genError?.offline ? handlePlayDemo : null}
     />
   );
 
@@ -2159,7 +2371,11 @@ export default function ArcadeArena() {
   }
 
   return (
-    <div className="arena-stage relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none">
+    <div
+      className={`arena-stage relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none${
+        compactMobile ? " arena-compact" : ""
+      }`}
+    >
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
       <AuthModal
         isOpen={isAuthModalOpen}
@@ -2297,11 +2513,13 @@ export default function ArcadeArena() {
         isOpen={isRelaxModalOpen}
         onComplete={() => {
           setIsRelaxModalOpen(false);
+          setWellbeing({ stage: 0 });
           // Abre el mapa de niveles para que el estudiante elija su nivel
           setIsMapVisible(true);
         }}
         onSkip={() => {
           setIsRelaxModalOpen(false);
+          setWellbeing({ stage: 0 });
           // Abre el mapa de niveles
           setIsMapVisible(true);
         }}
@@ -2312,6 +2530,42 @@ export default function ArcadeArena() {
 
       {/* TOASTS DE NOTIFICACIÓN — feedback visible de éxito y error */}
       {notificationToasts}
+
+      {/* REVELACIÓN DE CARTA TRAMPA — micro-animación de "descubrimiento"
+          al colocar una distractora: explica qué era falso y se desvanece */}
+      <AnimatePresence>
+        {trapReveal && (
+          <motion.div
+            key="trap-reveal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none"
+          >
+            <motion.div
+              initial={{ rotateY: 90, scale: 0.7, opacity: 0 }}
+              animate={{ rotateY: 0, scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0, y: -30 }}
+              transition={{ type: "spring", stiffness: 300, damping: 22 }}
+              className="w-64 sm:w-72 p-4 rounded-3xl bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-500/80 shadow-[0_0_50px_rgba(15,23,42,0.9)] text-center"
+            >
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-950 border border-slate-600 flex items-center justify-center mb-2">
+                <EyeOff className="w-6 h-6 text-slate-400" />
+              </div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-rose-300 mb-1">
+                ¡Era una carta trampa!
+              </p>
+              <p className="text-sm font-black text-white uppercase leading-tight mb-1.5">
+                "{trapReveal.card.name}"
+              </p>
+              <p className="text-[10.5px] text-slate-300 leading-snug font-medium">
+                No correspondía a "{trapReveal.nodeLabel}" — esta afirmación
+                contradice el contenido del tema. Se desvanece del mazo.
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 3. MODAL DE PREGUNTA */}
       <QuestionModal
@@ -2333,7 +2587,7 @@ export default function ArcadeArena() {
       <CardDetailModal
         isOpen={!!selectedCardForDetail}
         card={selectedCardForDetail}
-        onClose={() => setSelectedCardForDetail(null)}
+        onClose={closeCardDetail}
       />
 
       {/* ENTORNO 3D & ILUMINACIÓN ATMOSFÉRICA CARD CLASH */}
@@ -2351,8 +2605,11 @@ export default function ArcadeArena() {
           isThinkingHint={isThinkingHint}
           isCapyMuted={isCapyMuted}
           isAmbientPlaying={isAmbientPlaying}
-          zenOffer={zenOffer}
+          compact={compactMobile}
+          zenOffer={{ ...wellbeing, show: wellbeing.stage === 1 }}
           idleBlinkSeq={idleBlinkSeq}
+          hubziStatus={hubziStatus}
+          chatOpen={isChatOpen}
           nodes={nodes}
           currentLevel={currentLevel}
           boardInfo={boardInfo}
@@ -2361,9 +2618,24 @@ export default function ArcadeArena() {
           onCapyClick={handleCapyClick}
           onHintButton={acceptHintOffer}
           onToggleMicrophone={toggleMicrophone}
-          onToggleMute={setIsCapyMuted}
-          onZenAccept={() => setIsRelaxModalOpen(true)}
-          onZenDismiss={() => setZenOffer((prev) => ({ ...prev, show: false }))}
+          onToggleMute={setGlobalMuted}
+          onToggleChat={() => setIsChatOpen((o) => !o)}
+          onZenAccept={() => {
+            setWellbeing((w) => ({ ...w, stage: 2 }));
+            setIsRelaxModalOpen(true);
+          }}
+          onZenDismiss={() => setWellbeing({ stage: 0 })}
+        />
+      )}
+
+      {/* CHAT VISIBLE DE HUBZI (3.1): historial persistente en panel */}
+      {Object.keys(nodes).length > 0 && (
+        <HubziChatPanel
+          open={isChatOpen}
+          messages={chatLog}
+          compact={compactMobile}
+          username={currentUser?.username}
+          onClose={() => setIsChatOpen(false)}
         />
       )}
 
@@ -2525,22 +2797,80 @@ export default function ArcadeArena() {
               <span className="text-xs font-black text-white uppercase tracking-wide">
                 {lvlInfo.name} ({lvlInfo.questions})
               </span>
+              {/* Estrellas ganadas en ESTE nivel (HUD de campaña, 3.5) */}
+              <span
+                className="flex items-center gap-0.5 ml-0.5"
+                title={`${levelStars[currentLevel] || 0}/3 estrellas en este nivel`}
+              >
+                {[1, 2, 3].map((s) => (
+                  <Star
+                    key={s}
+                    className={`w-3 h-3 ${
+                      s <= (levelStars[currentLevel] || 0)
+                        ? "text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)]"
+                        : "text-slate-600"
+                    }`}
+                  />
+                ))}
+              </span>
             </div>
           );
         })()}
 
-        <div
-          className="hud-chip flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
-          title="Progreso del Circuito"
-        >
-          <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
-            Progreso:
-          </span>
-          <span className="text-sm font-black text-white">
-            {Object.values(nodes).filter((n) => Boolean(n.placedCard)).length} /{" "}
-            {Object.keys(nodes).length || 3}
-          </span>
-        </div>
+        {/* SIGUIENTE NIVEL SIEMPRE VISIBLE (3.5): acceso directo al mapa
+            cuando ya está desbloqueado */}
+        {unlockedLevel > currentLevel && currentLevel < maxLevel && (
+          <button
+            onClick={() => setIsMapVisible(true)}
+            className="hud-chip flex items-center gap-1 bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-green)]/70 border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)] cursor-pointer transition-all"
+            title={`Siguiente nivel ${currentLevel + 1} desbloqueado — ir al mapa`}
+          >
+            <SkipForward className="w-3.5 h-3.5 text-[var(--color-arcade-green)]" />
+            <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
+              Nivel {currentLevel + 1}
+            </span>
+          </button>
+        )}
+
+        {(() => {
+          const totalN = Object.keys(nodes).length || 3;
+          const doneN = Object.values(nodes).filter((n) =>
+            Boolean(n.placedCard),
+          ).length;
+          const pct = Math.min(100, Math.round((doneN / totalN) * 100));
+          return (
+            <div
+              className="hud-chip flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
+              title={`Progreso del nivel: ${doneN} de ${totalN} casillas (${pct}%)`}
+            >
+              <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
+                Progreso:
+              </span>
+              {/* BARRA DE PROGRESO DEL NIVEL — fill animado + ARIA */}
+              <div
+                role="progressbar"
+                aria-valuenow={doneN}
+                aria-valuemin={0}
+                aria-valuemax={totalN}
+                aria-label={`${doneN} de ${totalN} casillas completadas`}
+                className="relative w-20 sm:w-24 h-3 rounded-full bg-[var(--color-arcade-ink)] border border-[var(--color-arcade-navy-light)] overflow-hidden shadow-inner"
+              >
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--color-arcade-green)] to-emerald-300"
+                  initial={false}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ type: "spring", stiffness: 160, damping: 22 }}
+                />
+                {pct >= 100 && (
+                  <span className="absolute inset-0 rounded-full bg-emerald-300/40 animate-pulse" />
+                )}
+              </div>
+              <span className="text-sm font-black text-white tabular-nums">
+                {doneN}/{totalN}
+              </span>
+            </div>
+          );
+        })()}
       </div>
       )}
 
@@ -2594,29 +2924,52 @@ export default function ArcadeArena() {
       {/* TABLERO Y MANO — SOLO CON PARTIDA ACTIVA (sin partida: solo cielo + barra) */}
       {Object.keys(nodes).length > 0 && (
         <>
-          {/* TABLERO — CONSOLA OCTOGONAL ELEVADA 3D IDÉNTICA A LA IMAGEN DE REFERENCIA */}
-          <BoardConsole
-            boardInfo={boardInfo}
-            currentLevel={currentLevel}
-            nodes={nodes}
-            hintNodeId={hintNodeId}
-            nodeFx={nodeFx}
-            onNodeClick={handleNodeClick}
-          />
+          {/* TABLERO — consola octogonal en desktop / lista compacta en móvil */}
+          {compactMobile ? (
+            <CompactBoard
+              boardInfo={boardInfo}
+              currentLevel={currentLevel}
+              nodes={nodes}
+              hintNodeId={effHintNodeId}
+              nodeFx={nodeFx}
+              hasActiveCard={Boolean(activeCardForDrop)}
+              matchNodeId={matchNodeId}
+              dragPreview={dragPreview}
+              onNodeClick={handleNodeClick}
+            />
+          ) : (
+            <BoardConsole
+              boardInfo={boardInfo}
+              currentLevel={currentLevel}
+              nodes={nodes}
+              hintNodeId={effHintNodeId}
+              nodeFx={nodeFx}
+              hasActiveCard={Boolean(activeCardForDrop)}
+              matchNodeId={matchNodeId}
+              dragPreview={dragPreview}
+              onNodeClick={handleNodeClick}
+            />
+          )}
 
           {/* MANO DE CARTAS EN ABANICO — SOLO SI HAY PARTIDA ACTIVA */}
           <HandTray
             hand={hand}
             handPage={handPage}
             setHandPage={setHandPage}
-            hintCardId={hintCardId}
+            hintCardId={effHintCardId}
             selectedCardInHand={selectedCardInHand}
             isActualTurn={isActualTurn}
             theme={boardInfo?.theme}
+            compact={compactMobile}
             onCardClick={(card) => {
               registerUserActivity();
               handleCardClick(card);
             }}
+            onCardKeyActivate={(card) => {
+              registerUserActivity();
+              handleCardKeySelect(card);
+            }}
+            onCardDrag={handleDragMove}
             onCardDragEnd={(id, info) => {
               registerUserActivity();
               handleDragEnd(id, info);

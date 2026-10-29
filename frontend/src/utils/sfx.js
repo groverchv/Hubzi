@@ -2,6 +2,8 @@
 // Filosofía anti-estrés: aciertos suenan alegres, fallos suenan suaves.
 // Respeta la política de autoplay: el contexto se crea/reanuda en gestos del
 // usuario (todos los llamados vienen de clicks), nunca suena solo.
+import { isGlobalMuted } from "./globalMute";
+
 class SfxEngine {
   constructor() {
     this.ctx = null;
@@ -20,6 +22,7 @@ class SfxEngine {
   }
 
   _tone({ freq = 440, freqEnd = 0, type = "sine", dur = 0.15, vol = 0.12, delay = 0 }) {
+    if (isGlobalMuted()) return;
     const ctx = this._getCtx();
     if (!ctx || ctx.state !== "running") return;
     try {

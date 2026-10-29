@@ -413,6 +413,14 @@ html.low-power .drop-shadow-xl {
   .arena-stage .board-table-3d {
     max-height: none !important;
   }
+  /* Layout móvil adaptativo (Fase 2.4): cuando la arena pide el modo
+     compacto, el escenario NO se escala — nodos en lista y deck
+     horizontal a tamaño táctil real en lugar del look "laptop". */
+  .arena-stage.arena-compact {
+    transform: none;
+    width: 100vw !important;
+    height: 100dvh !important;
+  }
   /* Los caps dvh miden el viewport real, no el layout escalado — se quitan
      para que el contenido del modal se vea completo en pantallas bajas. */
   .arena-stage .fixed .stage-modal-panel,

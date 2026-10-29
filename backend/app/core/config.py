@@ -55,6 +55,19 @@ class Settings(BaseSettings):
     # IMPORTANTE: verificar números locales reales antes de producción (ver docs/exploracion-ansiedad-uagrm.md)
     CRISIS_RESOURCES_JSON: str | None = None
 
+    # Motores procedurales (matemática/física): generan ejercicios por
+    # PLANTILLA, no desde el contenido del documento. Desactivados por
+    # defecto — el requisito del producto es que todo salga del doc subido.
+    # Activar solo si el público es genuinamente ejercicios de math/física.
+    PROCEDURAL_ENGINES_ENABLED: bool = False
+    # Confianza mínima para enrutar un doc al motor procedural (0-1).
+    PROCEDURAL_MIN_CONFIDENCE: float = 0.45
+
+    # Pre-generación del nivel 1 al subir el primer doc de una carpeta.
+    # True = UX instantánea pero gasta tokens aunque el usuario nunca juegue;
+    # False = se genera bajo demanda (menor gasto, primera carga más lenta).
+    PREWARM_LEVEL1_ENABLED: bool = True
+
     # Modelos pretrained locales (opcional — requiere `pip install transformers torch`)
     # Desactivados por defecto; las heurísticas cubren el caso común. Activar
     # solo donde el peso del modelo justifica el recall extra.

@@ -24,7 +24,10 @@ export default defineConfig({
       },
     },
     watch: {
-      usePolling: true,
+      // Polling solo donde hace falta: Docker/VMs con bind mounts (en
+      // Windows/macOS el fs montado no emite eventos inotify). En dev nativo
+      // queda apagado para no quemar CPU. Activar con VITE_USE_POLLING=true.
+      usePolling: process.env.VITE_USE_POLLING === 'true',
     },
   },
 })

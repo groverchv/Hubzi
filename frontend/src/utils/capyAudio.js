@@ -4,6 +4,8 @@
  * Todos los sonidos son ricos en armónicos, expresivos, con sentimiento y texturas acústicas reales.
  */
 
+import { isGlobalMuted } from './globalMute';
+
 class HubziAudioEngine {
   constructor() {
     this.ctx = null;
@@ -46,6 +48,7 @@ class HubziAudioEngine {
    * y un toque melancólico pero acogedor que no castiga al estudiante.
    */
   playCapyCry() {
+    if (isGlobalMuted()) return;
     this.init();
     if (!this.ctx) return;
 
@@ -183,6 +186,7 @@ class HubziAudioEngine {
    * Expresivo, con sentimiento de logro, campana armónica y gorgoritos alegres.
    */
   playCapyHappy() {
+    if (isGlobalMuted()) return;
     this.init();
     if (!this.ctx) return;
 

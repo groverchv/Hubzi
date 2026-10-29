@@ -24,8 +24,24 @@ except ImportError:
     GROQ_AVAILABLE = False
 
 from app.core.config import settings
+from app.services.llm_telemetry import (
+    record_gemini_usage,
+    record_groq_usage,
+    usage_elapsed_ms,
+    usage_started,
+)
 
 logger = logging.getLogger("hubzy.psychology_service")
+
+# Mensajes triviales donde la evaluación clínica por LLM no aporta: la
+# heurística (<1ms) ya da una respuesta adecuada y se ahorra una llamada.
+_TRIVIAL_MESSAGE_RE = re.compile(
+    r"^(hola+|hey+|buenas?|buenos\w*|qué tal|como estas|cómo estás|ok+|okey+|vale+|"
+    r"gracias+|muchas gracias|sí+|si+|no+|bien|genial|perfecto|listo|adiós|adios|"
+    r"chao|bye|entendido|dale|va|mmmm*|ajá+|aja+|eh+|umm*)\W*$",
+    re.IGNORECASE,
+)
+_TRIVIAL_MAX_CHARS = 30
 
 # Modelos Gemini oficiales en orden de velocidad y cuota disponible
 GEMINI_FALLBACK_MODELS = [
@@ -290,8 +306,14 @@ class PsychologyNLPService:
             except Exception as e:
                 logger.warning(f"No se pudo inicializar Gemini para PsychologyService: {e}")
 
+    @staticmethod
+    def is_trivial_message(text: str) -> bool:
+        """Saludos/acks cortos donde la evaluación LLM no aporta nada."""
+        t = (text or "").lower().strip()
+        return len(t) <= _TRIVIAL_MAX_CHARS and bool(_TRIVIAL_MESSAGE_RE.match(t))
+
     def analyze_emotional_state(
-        self, text: str, context: dict[str, Any] | None = None
+        self, text: str, context: dict[str, Any] | None = None, llm: bool = True
     ) -> PsychologyAnalysisResult:
         """
         Analiza el estado psicológico y nivel de estrés del usuario a partir de texto o transcripción de voz.
@@ -386,15 +408,24 @@ class PsychologyNLPService:
         # 2. EVALUACIÓN HEURÍSTICA BASE
         base_result = self._heuristic_analysis(clean_text)
 
-        # 3. SI GEMINI ESTÁ DISPONIBLE, PROFUNDIZAR CON NLP CLÍNICO AVANZADO
-        if self.client:
+        # Gating: mensajes triviales (saludos, "ok", "gracias") en calma → la
+        # llamada LLM no aporta nada clínico que la heurística no cubra.
+        if not llm or (
+            base_result.stress_level < 0.35
+            and len(clean_text) <= _TRIVIAL_MAX_CHARS
+            and _TRIVIAL_MESSAGE_RE.match(clean_text)
+        ):
+            return base_result
+
+        # 3. SI HAY LLM DISPONIBLE, PROFUNDIZAR CON NLP CLÍNICO AVANZADO
+        if self.groq_client or self.client:
             try:
                 ai_result = self._gemini_clinical_evaluation(text, context)
                 if ai_result:
                     return ai_result
             except Exception as e:
                 logger.warning(
-                    f"Error en evaluación clínica Gemini, usando análisis heurístico: {e}"
+                    f"Error en evaluación clínica LLM, usando análisis heurístico: {e}"
                 )
 
         return base_result
@@ -470,10 +501,12 @@ class PsychologyNLPService:
 
         user_content = f'Mensaje del estudiante (voz/texto):\n"{text}"{context_str}'
 
-        # 1. Intentar con Groq primero (velocidad instantánea)
+        # 1. Intentar con Groq primero (8b-instant: clasificación clínica
+        # no necesita el 70b — cuesta ~10x menos por token)
         if self.groq_client:
-            for g_model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+            for g_model in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]:
                 try:
+                    t0 = usage_started()
                     chat_comp = self.groq_client.chat.completions.create(
                         model=g_model,
                         messages=[
@@ -484,6 +517,7 @@ class PsychologyNLPService:
                         temperature=0.3,
                         max_tokens=350,
                     )
+                    record_groq_usage(chat_comp, g_model, "psych_eval", usage_elapsed_ms(t0))
                     raw_text = (chat_comp.choices[0].message.content or "").strip()
                     if raw_text:
                         data = json.loads(raw_text)
@@ -521,6 +555,7 @@ class PsychologyNLPService:
 
         for model_name in GEMINI_FALLBACK_MODELS:
             try:
+                t0 = usage_started()
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=user_content,
@@ -531,6 +566,7 @@ class PsychologyNLPService:
                         max_output_tokens=350,
                     ),
                 )
+                record_gemini_usage(response, model_name, "psych_eval", usage_elapsed_ms(t0))
 
                 if response and response.text:
                     data = json.loads(response.text.strip())
@@ -563,6 +599,114 @@ class PsychologyNLPService:
                 continue
 
         return None
+
+    def analyze_and_reply(
+        self,
+        text: str,
+        context: dict[str, Any] | None = None,
+        reply_directives: str = "",
+    ) -> dict[str, Any] | None:
+        """
+        Evaluación clínica + respuesta final de Hubzi en UNA sola llamada LLM.
+        `reply_directives` lleva la persona, contexto del tablero y reglas de
+        voz — el mismo JSON clínico de siempre pero `empathic_response` sale
+        ya personalizada para el tablero, eliminando la segunda llamada que
+        antes hacía ai_service.generate_capy_response_with_psychology.
+        Devuelve {"reply": str, "psychology": PsychologyAnalysisResult} o None.
+        """
+        context_str = ""
+        if context:
+            context_str = f"\nContexto del estudiante: {json.dumps(context, ensure_ascii=False)}"
+        user_content = f'Mensaje del estudiante (voz/texto):\n"{text}"{context_str}'
+
+        system_prompt = PSYCHOLOGY_SYSTEM_PROMPT
+        if reply_directives:
+            system_prompt += (
+                "\n\nREGLAS DE RESPUESTA PERSONALIZADA (para `empathic_response`):\n"
+                + reply_directives
+            )
+
+        # Groq primero (8b: barato y veloz), Gemini como respaldo
+        if self.groq_client:
+            for g_model in ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"]:
+                try:
+                    t0 = usage_started()
+                    comp = self.groq_client.chat.completions.create(
+                        model=g_model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_content},
+                        ],
+                        response_format={"type": "json_object"},
+                        temperature=0.5,
+                        max_tokens=400,
+                        timeout=10.0,
+                    )
+                    record_groq_usage(comp, g_model, "capy_ask", usage_elapsed_ms(t0))
+                    raw = (comp.choices[0].message.content or "").strip()
+                    if raw:
+                        data = json.loads(raw)
+                        parsed = self._parse_analysis_json(data)
+                        if parsed:
+                            reply = parsed.empathic_response.strip().replace('"', "").replace("*", "")
+                            if reply:
+                                return {"reply": reply, "psychology": parsed}
+                except Exception as ge:
+                    logger.debug(f"Groq analyze_and_reply ({g_model}) falló: {ge}")
+
+        if self.client:
+            for model_name in GEMINI_FALLBACK_MODELS:
+                try:
+                    t0 = usage_started()
+                    response = self.client.models.generate_content(
+                        model=model_name,
+                        contents=user_content,
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            temperature=0.5,
+                            response_mime_type="application/json",
+                            max_output_tokens=400,
+                        ),
+                    )
+                    record_gemini_usage(response, model_name, "capy_ask", usage_elapsed_ms(t0))
+                    if response and response.text:
+                        data = json.loads(response.text.strip())
+                        parsed = self._parse_analysis_json(data)
+                        if parsed:
+                            reply = parsed.empathic_response.strip().replace('"', "").replace("*", "")
+                            if reply:
+                                return {"reply": reply, "psychology": parsed}
+                except Exception as e:
+                    logger.debug(f"Gemini analyze_and_reply ({model_name}) falló: {e}")
+                    continue
+
+        return None
+
+    @staticmethod
+    def _parse_analysis_json(data: dict) -> PsychologyAnalysisResult | None:
+        """Parse defensivo del JSON clínico común a ambos proveedores."""
+        if not isinstance(data, dict):
+            return None
+        try:
+            return PsychologyAnalysisResult(
+                stress_level=float(data.get("stress_level", 0.2)),
+                stress_category=str(data.get("stress_category", "calm")),
+                emotion_detected=str(data.get("emotion_detected", "calma")),
+                cognitive_distortion=data.get("cognitive_distortion"),
+                needs_somatic_intervention=bool(data.get("needs_somatic_intervention", False)),
+                recommended_intervention=str(
+                    data.get("recommended_intervention", "cognitive_reframe")
+                ),
+                empathic_response=str(
+                    data.get("empathic_response", "Estoy contigo para ayudarte a aprender con serenidad.")
+                ),
+                clinical_rationale=str(
+                    data.get("clinical_rationale", "Intervención de psicología positiva y TCC.")
+                ),
+                is_crisis=bool(data.get("is_crisis", False)),
+            )
+        except Exception:
+            return None
 
     def reframe_negative_thought(self, anxious_thought: str) -> dict[str, str]:
         """

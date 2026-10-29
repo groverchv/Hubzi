@@ -16,12 +16,15 @@ export default function HandTray({
   selectedCardInHand,
   isActualTurn,
   theme,
+  compact = false, // móvil: deck horizontal deslizable sin paginación
   onCardClick,
+  onCardKeyActivate,
+  onCardDrag,
   onCardDragEnd,
 }) {
   if (!hand.length) return null;
 
-  const totalPages = Math.ceil(hand.length / CARDS_PER_PAGE);
+  const totalPages = compact ? 1 : Math.ceil(hand.length / CARDS_PER_PAGE);
   // Si la carta sugerida por la pista está en otra página, saltar a ella
   const hintedIndex = hintCardId
     ? hand.findIndex((c) => c.id === hintCardId)
@@ -87,8 +90,12 @@ export default function HandTray({
           </div>
         )}
 
-        <div className="hand-tray relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center" role="group" aria-label={`Mazo de cartas: ${hand.length} cartas en mano`}>
-          <div className="flex items-center gap-2.5 overflow-visible px-1 py-0.5">
+        <div className="hand-tray relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center max-w-full" role="group" aria-label={`Mazo de cartas: ${hand.length} cartas en mano`}>
+          <div className={`flex items-center gap-2.5 px-1 py-0.5 ${
+            compact
+              ? "overflow-x-auto overflow-y-visible w-full max-w-[86vw]"
+              : "overflow-visible"
+          }`}>
             {visibleCards.map((card, idx) => {
               const isHinted = hintCardId === card.id;
               const isHandSelected = selectedCardInHand?.id === card.id;
@@ -128,8 +135,14 @@ export default function HandTray({
                     }
                     isDraggable={isActualTurn}
                     isSelected={isHinted || isHandSelected}
+                    isTrap={Boolean(card.isTrap || card.isDistractor)}
+                    compact={compact}
+                    onDrag={onCardDrag}
                     onDragEnd={onCardDragEnd}
                     onClick={() => onCardClick(card)}
+                    onKeyActivate={() =>
+                      onCardKeyActivate ? onCardKeyActivate(card) : onCardClick(card)
+                    }
                   />
                 </div>
               );

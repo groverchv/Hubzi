@@ -25,7 +25,10 @@ Pensado para estudiantes universitarios y colegios (target inicial: UAGRM, Boliv
 ```bash
 # 1. Backend
 cd backend
-python -m venv venv && ./venv/Scripts/activate  # Windows: venv\Scripts\activate
+python -m venv venv
+source venv/bin/activate       # Linux / macOS
+# .\venv\Scripts\Activate.ps1  # Windows PowerShell
+# venv\Scripts\activate.bat    # Windows cmd
 pip install -r requirements.txt
 cp .env.example .env   # completa GEMINI_API_KEY, JWT_SECRET, etc.
 uvicorn app.main:app --reload --port 8000
@@ -35,6 +38,10 @@ cd frontend
 npm install
 cp .env.example .env
 npm run dev            # http://localhost:5173
+
+# Atajo: levanta backend+frontend y libera puertos ocupados
+bash scripts/dev.sh            # Linux / macOS / Git Bash
+# powershell -File scripts\dev.ps1   # Windows
 
 # 3. Todo junto con Docker (MongoDB + Qdrant incluidos)
 docker compose up --build

@@ -15,6 +15,7 @@
 
 import { watchVisibility } from './audioLifecycle';
 import { isLowPower } from './lowPower';
+import { isGlobalMuted, onGlobalMuteChange } from './globalMute';
 
 class HubziAmbientEngine {
   constructor() {
@@ -50,6 +51,28 @@ class HubziAmbientEngine {
     this._listeners = [];
     this._autoStartArmed = false;
     this._userInteracted = false;
+
+    // Mute global persistente: al mutear la música fadea a 0 en caliente;
+    // al desmutear vuelve al volumen objetivo (respetando duck y el mute
+    // propio del motor).
+    onGlobalMuteChange(() => this._applyGlobalMute());
+  }
+
+  _effectiveMuted() {
+    return this.isMuted || isGlobalMuted();
+  }
+
+  _applyGlobalMute() {
+    if (this.ctx && this.masterGain && this.isPlaying) {
+      const now = this.ctx.currentTime;
+      const target = this._effectiveMuted()
+        ? 0.0001
+        : this.targetVolume * (this._ducked ? 0.3 : 1);
+      this.masterGain.gain.cancelScheduledValues(now);
+      this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+      this.masterGain.gain.linearRampToValueAtTime(target, now + 0.3);
+    }
+    this._notify();
   }
 
   _init() {
@@ -291,7 +314,7 @@ class HubziAmbientEngine {
     this.isPlaying = true;
 
     const now = this.ctx.currentTime;
-    const vol = this.isMuted ? 0.0001 : this.targetVolume;
+    const vol = this._effectiveMuted() ? 0.0001 : this.targetVolume;
     this.masterGain.gain.cancelScheduledValues(now);
     this.masterGain.gain.setValueAtTime(0.0001, now);
     this.masterGain.gain.linearRampToValueAtTime(vol, now + 1.2);
@@ -340,7 +363,7 @@ class HubziAmbientEngine {
   // entiende por encima del ambient (restaura al terminar de hablar).
   duck(active) {
     this._ducked = Boolean(active);
-    if (this.ctx && this.masterGain && this.isPlaying && !this.isMuted) {
+    if (this.ctx && this.masterGain && this.isPlaying && !this._effectiveMuted()) {
       const now = this.ctx.currentTime;
       const target = this.targetVolume * (this._ducked ? 0.3 : 1);
       this.masterGain.gain.cancelScheduledValues(now);
@@ -353,7 +376,7 @@ class HubziAmbientEngine {
     this.isMuted = !this.isMuted;
     if (this.ctx && this.masterGain && this.isPlaying) {
       const now = this.ctx.currentTime;
-      const target = this.isMuted
+      const target = this._effectiveMuted()
         ? 0.0001
         : this.targetVolume * (this._ducked ? 0.3 : 1);
       this.masterGain.gain.cancelScheduledValues(now);
@@ -416,7 +439,7 @@ class HubziAmbientEngine {
 
   setVolume(vol) {
     this.targetVolume = Math.max(0, Math.min(1, vol));
-    if (this.ctx && this.masterGain && this.isPlaying && !this.isMuted) {
+    if (this.ctx && this.masterGain && this.isPlaying && !this._effectiveMuted()) {
       const now = this.ctx.currentTime;
       this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 0.5);
     }

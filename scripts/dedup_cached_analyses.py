@@ -10,8 +10,10 @@ impide crear el índice único. Este script:
 
 Uso:
     cd backend
-    venv/Scripts/python.exe ../scripts/dedup_cached_analyses.py           # reporte
-    venv/Scripts/python.exe ../scripts/dedup_cached_analyses.py --apply   # aplica
+    python ../scripts/dedup_cached_analyses.py           # reporte
+    python ../scripts/dedup_cached_analyses.py --apply   # aplica
+    (con el venv activo: source venv/bin/activate en Linux/macOS,
+     .\venv\Scripts\Activate.ps1 en Windows)
 
 RECOMENDADO: hacer un backup antes de --apply:
     mongodump --db hubzy_db --collection cached_analyses --out ./backup_mongo
