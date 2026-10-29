@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Accessibility, Type, Contrast } from 'lucide-react';
+import { Accessibility, Type, Contrast, Moon } from 'lucide-react';
 
 /**
  * Controles de accesibilidad: alto contraste y texto grande.
@@ -21,6 +21,7 @@ function applyPrefs(p) {
   const el = document.documentElement;
   el.classList.toggle('a11y-contrast', Boolean(p.contrast));
   el.classList.toggle('a11y-large-text', Boolean(p.largeText));
+  el.classList.toggle('dark-mode', Boolean(p.darkMode));
 }
 
 // Aplica las preferencias guardadas lo antes posible al montar el módulo.
@@ -86,6 +87,12 @@ export default function A11yControls() {
                 icon: Type,
                 label: 'Texto grande',
                 desc: 'Letras un 18% más grandes',
+              },
+              {
+                key: 'darkMode',
+                icon: Moon,
+                label: 'Modo noche',
+                desc: 'Cielo oscuro y ambiente atenuado',
               },
             ].map(({ key, icon: Icon, label, desc }) => {
               const on = Boolean(prefs[key]);

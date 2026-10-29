@@ -510,6 +510,30 @@ html.a11y-large-text {
   font-size: 118%;
 }
 
+/* === MODO NOCHE (4.4) — atenuación del cielo y nubes para jugar de
+   noche sin cambiar la consola del tablero (el panel claro de juego
+   mantiene su legibilidad "juguete"). Toggle en A11yControls. */
+html.dark-mode body {
+  background: linear-gradient(180deg, #050a13 0%, #0a162b 48%, #122443 82%, #1e3a6c 100%);
+  color: #e2e8f0;
+}
+html.dark-mode body::before,
+html.dark-mode body::after {
+  opacity: 0.35;
+  filter: blur(14px) brightness(0.55);
+}
+/* Superficies claras auxiliares del lobby/bienvenida al tono navy */
+html.dark-mode .bg-\[\#e2e8f0\] {
+  background-color: #122443;
+}
+html.dark-mode .hand-tray {
+  background: #122443;
+  border-color: #1e3a6c;
+}
+html.dark-mode .hand-slot {
+  background: rgba(30, 58, 108, 0.4);
+}
+
 /* Modal de planes: 3 columnas siempre. En pantallas bajas (móvil
    landscape) o angostas se compacta para que quepa completa. */
 @media (max-height: 660px), (max-width: 760px) {
