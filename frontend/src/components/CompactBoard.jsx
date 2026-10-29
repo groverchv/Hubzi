@@ -109,7 +109,7 @@ function CompactNodeCell({ node, fx, afford, preview, hint, onClick }) {
         >
           {node.label || `Concepto ${(node.nodeIndex ?? 0) + 1}`}
         </p>
-        <p className="text-[8.5px] text-slate-500 leading-tight truncate">
+        <p className="text-[8.5px] text-slate-600 leading-tight truncate">
           {placed ? node.placedCard.name : node.question}
         </p>
       </div>
