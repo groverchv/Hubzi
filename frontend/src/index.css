@@ -26,6 +26,19 @@
   --color-arcade-yellow-shadow: #D48800;
   --color-arcade-blue: #1C8FE8;
   --color-arcade-cyan: #45B1E8;
+
+  /* Design tokens (Fase 4.1): radios/sombras repetidos del estilo arcade.
+     Los componentes se migran a estas variables de forma incremental —
+     ahora mismo los mismos valores están hardcodeados en cientos de clases. */
+  --radius-arcade: 1rem;
+  --radius-arcade-lg: 1.5rem;
+  --shadow-btn-arcade: 0 4px 0 var(--color-arcade-ink);
+  --shadow-btn-arcade-press: 0 1px 0 var(--color-arcade-ink);
+  --shadow-btn-green: 0 4px 0 var(--color-arcade-green-shadow);
+  --shadow-btn-orange: 0 4px 0 var(--color-arcade-orange-shadow);
+  --shadow-btn-yellow: 0 4px 0 var(--color-arcade-yellow-shadow);
+  --shadow-hud: 0 3px 0 var(--color-arcade-ink);
+  --shadow-modal: 0 10px 0 var(--color-arcade-navy);
 }
 
 /* Custom 3D Sky & Fluffy Cloud Environment (Card Clash Inspired for Focus & Immersion) */
