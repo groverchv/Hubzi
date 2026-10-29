@@ -21,7 +21,17 @@ function RouteFallback() {
   return (
     <div className="w-screen h-[100dvh] flex items-center justify-center bg-[var(--color-arcade-navy-dark)]">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
+        {/* Skeleton shimmer (4.5): la silueta del tablero "percibe" la
+            carga en vez de un spinner aislado. */}
+        <div className="flex items-center gap-3" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-12 h-14 rounded-xl skeleton-shimmer border border-cyan-500/25"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
         <span className="text-[var(--color-arcade-yellow)] font-mono text-xs font-black uppercase tracking-widest">
           Hubzi cargando…
         </span>
