@@ -20,6 +20,7 @@ from app.routers import (
     jobs,
     payments,
     psychology,
+    telemetry,
     users,
     voice,
     zen,
@@ -146,3 +147,4 @@ app.include_router(ai.router)
 app.include_router(adaptive.router)
 app.include_router(jobs.router)
 app.include_router(institutions.router)
+app.include_router(telemetry.router)
