@@ -191,7 +191,7 @@ export default function GameCard({
         }
       }}
       data-card-id={id}
-      className={`relative flex-shrink-0 cursor-grab active:cursor-grabbing select-none focus:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/80 rounded-2xl ${className}`}
+      className={`relative flex-shrink-0 cursor-grab active:cursor-grabbing select-none focus:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/80 rounded-arcade ${className}`}
     >
       {/* Selected badge */}
       {isSelected && (
@@ -202,7 +202,7 @@ export default function GameCard({
 
       {/* ── CARD BODY (FICHA DE JUEGO 3D) ── */}
       <div
-        className={`game-card relative w-[78px] sm:w-[84px] h-[96px] sm:h-[104px] rounded-2xl bg-gradient-to-b ${cardTheme.gradient} border-2 ${cardTheme.border} p-2 flex flex-col items-center justify-between overflow-hidden transition-all duration-200 cursor-pointer touch-none`}
+        className={`game-card relative w-[78px] sm:w-[84px] h-[96px] sm:h-[104px] rounded-arcade bg-gradient-to-b ${cardTheme.gradient} border-2 ${cardTheme.border} p-2 flex flex-col items-center justify-between overflow-hidden transition-all duration-200 cursor-pointer touch-none`}
         style={{ 
           boxShadow: isSelected 
             ? '0 0 25px rgba(249, 115, 22, 0.9), 0 8px 0 #ea580c' 
@@ -211,7 +211,7 @@ export default function GameCard({
         }}
       >
         {/* Brillo especular superior simulando plástico curvo de ficha */}
-        <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-white/35 to-transparent rounded-t-2xl pointer-events-none" />
+        <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-white/35 to-transparent rounded-t-arcade pointer-events-none" />
 
         {/* SELLO SUTIL DE CARTA TRAMPA — esquina oscura con ojo tachado:
             pista visual tenue (no regala la respuesta, solo "algo raro") */}
@@ -227,7 +227,7 @@ export default function GameCard({
 
         {/* Contenedor de Icono en relieve + nombre de la respuesta */}
         <div className="flex-1 flex flex-col items-center justify-center w-full gap-1 min-h-0">
-          <div className="game-card-icon w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-inner shrink-0">
+          <div className="game-card-icon w-10 h-10 rounded-arcade-sm bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-inner shrink-0">
             <IconComponent className={`w-6 h-6 ${cardTheme.iconColor} drop-shadow-md`} />
           </div>
           {name && (

@@ -12,7 +12,7 @@ import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 
 function FolderSkeleton() {
   return (
-    <div className="animate-pulse rounded-3xl bg-white/60 p-5 h-28 border-b-6 border-slate-200" />
+    <div className="animate-pulse rounded-arcade-lg bg-white/60 p-5 h-28 border-b-arcade-xl border-slate-200" />
   );
 }
 
@@ -72,16 +72,16 @@ export default function DashboardPage() {
 
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <Link to="/" className="flex items-center gap-2">
-          <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-xl border-2 border-[var(--color-arcade-navy)] object-cover" />
+          <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-arcade-sm border-2 border-[var(--color-arcade-navy)] object-cover" />
           <span className="text-xl font-black uppercase text-[var(--color-arcade-navy)]">Hubzy</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link to="/zen" className="rounded-2xl bg-white/70 px-4 py-2 text-xs font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
+          <Link to="/zen" className="rounded-arcade bg-white/70 px-4 py-2 text-xs font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
             <Wind className="inline w-4 h-4 mr-1" /> {t("nav.zen")}
           </Link>
           <button
             onClick={logout}
-            className="rounded-2xl bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white hover:bg-[var(--color-arcade-navy-hover)]"
+            className="rounded-arcade bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white hover:bg-[var(--color-arcade-navy-hover)]"
           >
             <LogOut className="inline w-4 h-4 mr-1" /> {t("nav.logout")}
           </button>
@@ -100,14 +100,14 @@ export default function DashboardPage() {
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <Link
             to="/arena"
-            className="flex items-center gap-3 rounded-3xl bg-[var(--color-arcade-orange)] p-5 text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-lg hover:scale-[1.02] transition-transform"
+            className="flex items-center gap-3 rounded-arcade-lg bg-[var(--color-arcade-orange)] p-5 text-white border-b-arcade-xl border-[var(--color-arcade-orange-shadow)] shadow-lg hover:scale-[1.02] transition-transform"
           >
             <Play className="w-8 h-8" />
             <span className="font-black uppercase">{t("dashboard.continue")}</span>
           </Link>
           <Link
             to="/zen"
-            className="flex items-center gap-3 rounded-3xl bg-emerald-500 p-5 text-white border-b-6 border-emerald-700 shadow-lg hover:scale-[1.02] transition-transform"
+            className="flex items-center gap-3 rounded-arcade-lg bg-emerald-500 p-5 text-white border-b-arcade-xl border-emerald-700 shadow-lg hover:scale-[1.02] transition-transform"
           >
             <Wind className="w-8 h-8" />
             <div>
@@ -122,7 +122,7 @@ export default function DashboardPage() {
           {!isPro ? (
             <Link
               to="/arena?upgrade=1"
-              className="flex items-center gap-3 rounded-3xl bg-[var(--color-arcade-navy)] p-5 text-white border-b-6 border-[var(--color-arcade-ink)] shadow-lg hover:scale-[1.02] transition-transform"
+              className="flex items-center gap-3 rounded-arcade-lg bg-[var(--color-arcade-navy)] p-5 text-white border-b-arcade-xl border-[var(--color-arcade-ink)] shadow-lg hover:scale-[1.02] transition-transform"
             >
               <Crown className="w-8 h-8 text-[var(--color-arcade-yellow)]" />
               <div>
@@ -131,7 +131,7 @@ export default function DashboardPage() {
               </div>
             </Link>
           ) : (
-            <div className="flex items-center gap-3 rounded-3xl bg-gradient-to-r from-amber-400 to-orange-400 p-5 text-[var(--color-arcade-navy)] border-b-6 border-amber-600 shadow-lg">
+            <div className="flex items-center gap-3 rounded-arcade-lg bg-gradient-to-r from-amber-400 to-orange-400 p-5 text-[var(--color-arcade-navy)] border-b-arcade-xl border-amber-600 shadow-lg">
               <Crown className="w-8 h-8" />
               <span className="font-black uppercase">{t("dashboard.plan_pro")}</span>
             </div>
@@ -147,14 +147,14 @@ export default function DashboardPage() {
             <div className="flex gap-2">
               <button
                 onClick={load}
-                className="rounded-xl bg-white/70 p-2 text-[var(--color-arcade-navy)] hover:bg-white"
+                className="rounded-arcade-sm bg-white/70 p-2 text-[var(--color-arcade-navy)] hover:bg-white"
                 aria-label={t("common.retry")}
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
               <Link
                 to="/arena"
-                className="inline-flex items-center gap-1 rounded-xl bg-[var(--color-arcade-navy)] px-3 py-2 text-xs font-black uppercase text-white"
+                className="inline-flex items-center gap-1 rounded-arcade-sm bg-[var(--color-arcade-navy)] px-3 py-2 text-xs font-black uppercase text-white"
               >
                 <FolderPlus className="w-4 h-4" /> {t("dashboard.new_folder")}
               </Link>
@@ -162,7 +162,7 @@ export default function DashboardPage() {
           </div>
 
           {error && (
-            <div className="mt-4 rounded-2xl bg-rose-100 p-4 text-sm font-semibold text-rose-700">
+            <div className="mt-4 rounded-arcade bg-rose-100 p-4 text-sm font-semibold text-rose-700">
               {t("common.error")}: {error}
               <button onClick={load} className="ml-3 underline">{t("common.retry")}</button>
             </div>
@@ -174,12 +174,12 @@ export default function DashboardPage() {
                 <FolderSkeleton /><FolderSkeleton /><FolderSkeleton />
               </>
             ) : folders.length === 0 ? (
-              <div className="col-span-full rounded-3xl bg-white/70 p-8 text-center">
+              <div className="col-span-full rounded-arcade-lg bg-white/70 p-8 text-center">
                 <Folder className="mx-auto w-10 h-10 text-slate-400" />
                 <p className="mt-3 font-semibold text-slate-600">{t("dashboard.empty_folders")}</p>
                 <Link
                   to="/arena"
-                  className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[var(--color-arcade-orange)] px-5 py-2.5 text-sm font-black uppercase text-white border-b-4 border-[var(--color-arcade-orange-shadow)]"
+                  className="mt-4 inline-flex items-center gap-2 rounded-arcade bg-[var(--color-arcade-orange)] px-5 py-2.5 text-sm font-black uppercase text-white border-b-arcade border-[var(--color-arcade-orange-shadow)]"
                 >
                   <FolderPlus className="w-4 h-4" /> {t("dashboard.new_folder")}
                 </Link>
@@ -190,10 +190,10 @@ export default function DashboardPage() {
                   key={f.id}
                   to="/arena"
                   state={{ folderId: f.id }}
-                  className="group rounded-3xl bg-white/85 p-5 border-b-6 border-slate-200 shadow hover:scale-[1.02] transition-transform"
+                  className="group rounded-arcade-lg bg-white/85 p-5 border-b-arcade-xl border-slate-200 shadow hover:scale-[1.02] transition-transform"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="rounded-2xl bg-[var(--color-arcade-yellow)]/20 p-3">
+                    <div className="rounded-arcade bg-[var(--color-arcade-yellow)]/20 p-3">
                       <Folder className="w-6 h-6 text-[var(--color-arcade-orange)]" />
                     </div>
                     <div className="min-w-0">
@@ -210,7 +210,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Portabilidad de datos — derecho a exportar */}
-        <section className="mt-14 rounded-3xl border-2 border-slate-200 bg-white/80 p-6">
+        <section className="mt-14 rounded-arcade-lg border-2 border-slate-200 bg-white/80 p-6">
           <h2 className="text-sm font-black uppercase tracking-wide text-[var(--color-arcade-navy)]">
             {t("dashboard.your_data", "Tus datos")}
           </h2>
@@ -238,7 +238,7 @@ export default function DashboardPage() {
                 console.warn("Error exportando datos:", err);
               }
             }}
-            className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-700 hover:bg-slate-600 px-4 py-2.5 text-xs font-black uppercase text-white border-b-4 border-slate-900 transition-all"
+            className="mt-4 inline-flex items-center gap-2 rounded-arcade bg-slate-700 hover:bg-slate-600 px-4 py-2.5 text-xs font-black uppercase text-white border-b-arcade border-slate-900 transition-all"
           >
             <Download className="w-4 h-4" />
             {t("dashboard.export_data", "Descargar mis datos")}
@@ -246,7 +246,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Zona de peligro — derecho de supresión de datos */}
-        <section className="mt-6 rounded-3xl border-2 border-rose-200 bg-rose-50/80 p-6">
+        <section className="mt-6 rounded-arcade-lg border-2 border-rose-200 bg-rose-50/80 p-6">
           <h2 className="text-sm font-black uppercase tracking-wide text-rose-700">
             {t("dashboard.danger_zone", "Zona de peligro")}
           </h2>
@@ -260,10 +260,10 @@ export default function DashboardPage() {
             <button
               onClick={handleDeleteAccount}
               disabled={deleting}
-              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black uppercase text-white transition-all ${
+              className={`inline-flex items-center gap-2 rounded-arcade px-4 py-2.5 text-xs font-black uppercase text-white transition-all ${
                 confirmDelete
-                  ? "bg-rose-600 hover:bg-rose-500 border-b-4 border-rose-800"
-                  : "bg-slate-600 hover:bg-slate-500 border-b-4 border-slate-800"
+                  ? "bg-rose-600 hover:bg-rose-500 border-b-arcade border-rose-800"
+                  : "bg-slate-600 hover:bg-slate-500 border-b-arcade border-slate-800"
               } disabled:opacity-50`}
             >
               <Trash2 className="w-4 h-4" />
@@ -276,7 +276,7 @@ export default function DashboardPage() {
             {confirmDelete && !deleting && (
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="rounded-2xl bg-white px-4 py-2.5 text-xs font-black uppercase text-slate-600 border-b-4 border-slate-300 hover:bg-slate-50"
+                className="rounded-arcade bg-white px-4 py-2.5 text-xs font-black uppercase text-slate-600 border-b-arcade border-slate-300 hover:bg-slate-50"
               >
                 {t("common.cancel", "Cancelar")}
               </button>

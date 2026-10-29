@@ -23,7 +23,7 @@ export default function CrisisModal({ isOpen, onClose, resources = [] }) {
           aria-label={t("crisis.title")}
         >
           <motion.div
-            className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden"
+            className="w-full max-w-md rounded-arcade-lg bg-white shadow-2xl overflow-hidden"
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
@@ -45,7 +45,7 @@ export default function CrisisModal({ isOpen, onClose, resources = [] }) {
                   </h3>
                   <ul className="space-y-2">
                     {resources.map((r, i) => (
-                      <li key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <li key={i} className="rounded-arcade-sm border border-slate-200 bg-slate-50 p-3">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold text-slate-800 text-sm">{r.name}</span>
                           {r.phone && (
@@ -66,7 +66,7 @@ export default function CrisisModal({ isOpen, onClose, resources = [] }) {
 
               <button
                 onClick={onClose}
-                className="w-full rounded-2xl bg-slate-800 px-4 py-3 font-semibold text-white hover:bg-slate-700 transition-colors"
+                className="w-full rounded-arcade bg-slate-800 px-4 py-3 font-semibold text-white hover:bg-slate-700 transition-colors"
               >
                 {t("crisis.continue")}
               </button>

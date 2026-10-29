@@ -40,3 +40,21 @@ export const GAME_LEVELS = Array.from({ length: 20 }, (_, i) => {
 
 export const getLevelInfo = (level) =>
   GAME_LEVELS.find((l) => l.level === level) || GAME_LEVELS[0];
+
+// Nombre/desc traducibles del nivel (i18n): el objeto guarda solo datos
+// crudos (level/difficulty/hasTraps/...); el texto se resuelve al pintar.
+export const levelName = (lvl, t) => {
+  if (!lvl) return "";
+  if (lvl.isBoss) return t("levels.boss_name");
+  const diff =
+    lvl.difficulty ||
+    (lvl.level >= 16 ? "dificil" : lvl.level >= 11 ? "semidificil" : lvl.level >= 6 ? "normal" : lvl.level >= 3 ? "seminormal" : "facil");
+  return t("levels.name", { level: lvl.level, label: t("levels.diff_" + diff) });
+};
+export const levelDesc = (lvl, t) => {
+  if (!lvl) return "";
+  if (lvl.isBoss) return t("levels.desc_boss");
+  if (lvl.hasTraps)
+    return t("levels.desc_traps", { count: lvl.questions, traps: lvl.trapCount });
+  return t("levels.desc_plain", { count: lvl.questions });
+};

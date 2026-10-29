@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Smartphone, RotateCw, Share } from 'lucide-react';
 import { lockLandscape } from '../utils/orientation';
+import { useTranslation } from "react-i18next";
 
 /**
  * Overlay "gira tu teléfono" — iOS Safari ignora tanto el manifest como
@@ -23,6 +24,7 @@ const isAppleDevice = (() => {
 })();
 
 export default function RotatePhoneOverlay() {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   const handleActivate = async () => {
@@ -37,21 +39,18 @@ export default function RotatePhoneOverlay() {
         <div className="rotate-overlay-icon">
           <Smartphone className="w-12 h-12" strokeWidth={1.8} />
         </div>
-        <p className="rotate-overlay-title">Gira tu teléfono</p>
+        <p className="rotate-overlay-title">{t('rotate.title')}</p>
         {isAppleDevice ? (
           <p className="rotate-overlay-sub">
-            Hubzy se juega mejor en horizontal.
+            {t('rotate.better')}
             <br />
             <span className="rotate-overlay-ios">
-              <Share className="w-4 h-4" /> Compartir → «Añadir a pantalla de inicio»
-              y se abrirá en horizontal automáticamente
+<Share className="w-4 h-4" /> {t('rotate.ios_hint')}
             </span>
           </p>
         ) : (
           <>
-            <p className="rotate-overlay-sub">
-              Hubzy se juega mejor en horizontal
-            </p>
+<p className="rotate-overlay-sub">{t('rotate.better')}</p>
             <button
               type="button"
               className="rotate-overlay-btn"
@@ -59,7 +58,7 @@ export default function RotatePhoneOverlay() {
               disabled={busy}
             >
               <RotateCw className="w-5 h-5" />
-              {busy ? 'Activando…' : 'Poner en horizontal'}
+              {busy ? t('rotate.activating') : t('rotate.activate')}
             </button>
           </>
         )}

@@ -3,13 +3,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, X, Sparkles, ArrowRight, CheckCircle2, Lightbulb } from 'lucide-react';
 import KaTeXText from './KaTeXText';
 import { isMinor } from '../utils/ageConfig';
+import { useTranslation } from "react-i18next";
 
 export default function QuestionModal({ isOpen, node, onClose, ageBand = null }) {
+  const { t } = useTranslation();
   if (!isOpen || !node) return null;
 
   const kidMode = isMinor(ageBand);
-  const badge = kidMode ? "Desafío de Aprendizaje" : "Simulacro de Examen";
-  const heading = kidMode ? "Tu reto de hoy" : "Pregunta de Evaluación";
+  const badge = t(kidMode ? 'modals.question.badge_kid' : 'modals.question.badge_adult');
+  const heading = t(kidMode ? 'modals.question.title_kid' : 'modals.question.title_adult');
   const hintText = node.answerSpec?.hint || node.hint;
 
   return (
@@ -20,12 +22,12 @@ export default function QuestionModal({ isOpen, node, onClose, ageBand = null })
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 15 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="relative w-full max-w-lg rounded-3xl bg-[#0f172a] border border-slate-700 shadow-2xl overflow-hidden text-slate-100 p-6 sm:p-7 flex flex-col"
+          className="relative w-full max-w-lg rounded-arcade-lg bg-[#0f172a] border border-slate-700 shadow-2xl overflow-hidden text-slate-100 p-6 sm:p-7 flex flex-col"
         >
           {/* Cabecera */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-sky-950 border border-sky-500/50 flex items-center justify-center text-sky-400 font-bold shadow-sm">
+              <div className="w-10 h-10 rounded-arcade-sm bg-sky-950 border border-sky-500/50 flex items-center justify-center text-sky-400 font-bold shadow-sm">
                 <HelpCircle className="w-5 h-5" />
               </div>
               <div>
@@ -40,20 +42,20 @@ export default function QuestionModal({ isOpen, node, onClose, ageBand = null })
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-arcade-sm bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Cuerpo: Pregunta Formulada */}
-          <div className="my-5 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-inner">
+          <div className="my-5 p-4 rounded-arcade bg-slate-900/90 border border-slate-800 shadow-inner">
             <p className="text-xs font-mono uppercase text-amber-400 font-bold tracking-wider mb-1.5 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              {kidMode ? "TU MISIÓN:" : "REACTIVO DE EVALUACIÓN:"}
+              {kidMode ? t('modals.question.mission_kid') : t('modals.question.mission_adult')}
             </p>
             <p className="text-sm sm:text-base font-medium text-slate-100 leading-relaxed whitespace-pre-line">
-              "{node.question || 'Identifica el concepto o principio que responde al planteamiento analítico.'}"
+              "{node.question || t('modals.question.default_q')}"
             </p>
             {node.questionLatex && (
               <div className="mt-3 text-cyan-100 text-base overflow-x-auto">
@@ -70,10 +72,10 @@ export default function QuestionModal({ isOpen, node, onClose, ageBand = null })
 
           {/* Estado de la Carta si ya fue colocada */}
           {node.placedCard && (
-            <div className="mt-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-between text-xs text-emerald-300">
+            <div className="mt-4 p-3 rounded-arcade-sm bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-between text-xs text-emerald-300">
               <span className="flex items-center gap-1.5 font-bold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Respuesta colocada: {node.placedCard.name}
+                {t('modals.question.placed', { card: node.placedCard.name })}
               </span>
             </div>
           )}
@@ -84,9 +86,9 @@ export default function QuestionModal({ isOpen, node, onClose, ageBand = null })
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-950 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-arcade-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-950 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>{kidMode ? "¡Listo! A buscar la respuesta" : "Entendido, Buscaré la Carta"}</span>
+              <span>{kidMode ? t('modals.question.ok_kid') : t('modals.question.ok_adult')}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

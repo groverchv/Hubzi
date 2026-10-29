@@ -15,6 +15,8 @@ import {
   X,
 } from "lucide-react";
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
+import { useTranslation } from "react-i18next";
+import { levelName, levelDesc } from "../utils/gameConfig";
 
 /**
  * AdventureMap - Mapa de Aventura de 20 Niveles
@@ -25,8 +27,8 @@ import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
  * - Scroll vertical fluido que asciende desde el Nivel 1 (costa) hasta el Nivel 20 (cumbre del volcán)
  */
 export default function AdventureMap({
-  folderName = "Mundo de Aprendizaje",
-  documentTitle = "Tema de Estudio",
+  folderName = null,
+  documentTitle = null,
   levels = [],
   unlockedLevel = 1,
   levelStars = {},
@@ -36,6 +38,7 @@ export default function AdventureMap({
   onResetCampaign,
   studyStreak = 0,
 }) {
+  const { t } = useTranslation();
   const [selectedLevelModal, setSelectedLevelModal] = useState(null);
   const scrollContainerRef = useRef(null);
 
@@ -50,16 +53,12 @@ export default function AdventureMap({
           const trapCount = lvl < 8 ? 1 : lvl < 15 ? 2 : 3;
           return {
             level: lvl,
-            name: isBoss ? "Duelo Legendario: Hubzi Boss" : `Nivel ${lvl}`,
+            name: null, // texto resuelto al pintar vía levelName()
             questions: lvl,
             hasTraps,
             trapCount: hasTraps ? trapCount : 0,
             isBoss,
-            desc: isBoss
-              ? "¡Examen definitivo de 20 preguntas! Derrota a Hubzi Boss completando el circuito."
-              : hasTraps
-                ? `${lvl} preguntas con ${trapCount} carta(s) trampa en el mazo.`
-                : `${lvl} pregunta(s) directa(s).`,
+            desc: null, // texto resuelto al pintar vía levelDesc()
           };
         });
 
@@ -125,38 +124,38 @@ export default function AdventureMap({
       </div>
 
       {/* ── BARRA SUPERIOR FIJA (ESTILO MONSTER LEGENDS / ARCADE) ── */}
-      <div className="absolute top-0 inset-x-0 z-40 px-4 sm:px-8 py-3.5 flex items-center justify-between bg-slate-950/70 border-b-2 border-[var(--color-arcade-navy-light)] backdrop-blur-md shadow-lg">
+      <div className="absolute top-0 inset-x-0 z-40 px-4 sm:px-8 py-3.5 flex items-center justify-between bg-slate-950/70 border-b-arcade-xs border-[var(--color-arcade-navy-light)] backdrop-blur-md shadow-lg">
         {/* Botón Volver a Carpetas */}
         <div className="flex items-center gap-3">
           <button
             onClick={onBackToFolders}
-            className="group flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white shadow-[0_4px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-            title="Volver a mis Carpetas"
+            className="group flex items-center gap-2 px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-white shadow-btn-orange-flat active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            title={t('map.back_title')}
           >
             <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
             <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">
-              Carpetas
+              {t('map.back_btn')}
             </span>
           </button>
         </div>
 
         {/* Banner Central: Título del Mundo / Documento */}
-        <div className="flex flex-col items-center px-4 py-1.5 rounded-2xl bg-[var(--color-arcade-navy)]/90 border-2 border-[var(--color-arcade-navy-light)] shadow-sm">
+        <div className="flex flex-col items-center px-4 py-1.5 rounded-arcade bg-[var(--color-arcade-navy)]/90 border-2 border-[var(--color-arcade-navy-light)] shadow-sm">
           <div className="flex items-center gap-1.5">
             <Folder className="w-3 h-3 text-amber-400" />
             <span className="text-[9px] font-mono font-black uppercase text-amber-400 tracking-wider">
-              {folderName}
+              {folderName || t('map.world')}
             </span>
           </div>
           <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wide truncate max-w-[200px] sm:max-w-md">
-            {documentTitle} (Campaña de 20 Niveles)
+            {documentTitle || t('map.topic')} ({t('map.campaign')})
           </h1>
           {studyStreak >= 2 && (
             <span
               className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-400/50 text-[10px] font-black text-orange-300"
-              title={`${studyStreak} días seguidos estudiando`}
+              title={t('map.streak_t', { count: studyStreak })}
             >
-              <Flame className="w-3 h-3 text-orange-400" /> {studyStreak} días seguidos
+              <Flame className="w-3 h-3 text-orange-400" /> {t('map.streak', { count: studyStreak })}
             </span>
           )}
         </div>
@@ -166,8 +165,8 @@ export default function AdventureMap({
           {onResetCampaign && unlockedLevel > 1 && (
             <button
               onClick={onResetCampaign}
-              className="p-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-rose-900/80 border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-ink)] text-rose-300 shadow-sm active:translate-y-1 transition-all cursor-pointer"
-              title="Reiniciar campaña (volver al Nivel 1)"
+              className="p-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-rose-900/80 border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-ink)] text-rose-300 shadow-sm active:translate-y-1 transition-all cursor-pointer"
+              title={t('map.reset_title')}
             >
               <RotateCcw className="w-4 h-4 stroke-[2.5]" />
             </button>
@@ -175,8 +174,8 @@ export default function AdventureMap({
           {onOpenTutorial && (
             <button
               onClick={onOpenTutorial}
-              className="p-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-ink)] text-amber-400 shadow-sm active:translate-y-1 transition-all cursor-pointer"
-              title="Cómo Jugar"
+              className="p-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-ink)] text-amber-400 shadow-sm active:translate-y-1 transition-all cursor-pointer"
+              title={t('map.how_to')}
             >
               <HelpCircle className="w-4 h-4 stroke-[2.5]" />
             </button>
@@ -241,11 +240,11 @@ export default function AdventureMap({
 
           {/* Islas de Soporte Decorativas a lo largo del mapa */}
           {[
-            { y: TOTAL_HEIGHT - 260, label: "Tierras Costeras (N1 - N5)" },
-            { y: TOTAL_HEIGHT - 880, label: "Valle de las Trampas (N6 - N10)" },
-            { y: TOTAL_HEIGHT - 1520, label: "Tierras Altas (N11 - N15)" },
-            { y: TOTAL_HEIGHT - 2160, label: "Meseta de Élite (N16 - N19)" },
-            { y: 160, label: "Cima Legendaria: Hubzi Boss (N20)" },
+            { y: TOTAL_HEIGHT - 260, label: t('map.zone1') },
+            { y: TOTAL_HEIGHT - 880, label: t('map.zone2') },
+            { y: TOTAL_HEIGHT - 1520, label: t('map.zone3') },
+            { y: TOTAL_HEIGHT - 2160, label: t('map.zone4') },
+            { y: 160, label: t('map.zone5') },
           ]
             .filter((island) => island.y > 0 && island.y < TOTAL_HEIGHT - 60)
             .map((island, idx) => (
@@ -293,7 +292,7 @@ export default function AdventureMap({
                     }}
                     className="absolute -top-16 z-30 flex flex-col items-center"
                   >
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-[0_4px_0_var(--color-arcade-ink)] bg-[var(--color-arcade-navy-dark)]">
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-btn-arcade bg-[var(--color-arcade-navy-dark)]">
                       <img
                         src={capyEscolar}
                         alt="Hubzi Aquí"
@@ -301,7 +300,7 @@ export default function AdventureMap({
                       />
                     </div>
                     <div className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white font-black text-[8px] uppercase tracking-wider border border-[var(--color-arcade-navy-dark)] shadow-md -mt-1">
-                      ¡AQUÍ!
+                      {t('map.here')}
                     </div>
                   </motion.div>
                 )}
@@ -311,7 +310,7 @@ export default function AdventureMap({
                   <div className="absolute -top-9 flex flex-col items-center text-[var(--color-arcade-yellow)] animate-bounce z-10">
                     <Crown className="w-8 h-8 fill-[var(--color-arcade-yellow)] drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
                     <span className="text-[9px] font-black uppercase text-amber-300 bg-black/80 px-2 py-0.5 rounded-full border border-amber-400 -mt-1 shadow-md whitespace-nowrap">
-                      JEFE FINAL
+                      {t('map.boss')}
                     </span>
                   </div>
                 )}
@@ -320,7 +319,7 @@ export default function AdventureMap({
                 {hasTraps && !isBoss && isUnlocked && (
                   <div
                     className="absolute -top-3 -right-2 z-10 p-1 rounded-full bg-rose-950 border border-rose-500 shadow-md"
-                    title={`¡Contiene ${lvl.trapCount} carta(s) trampa!`}
+                    title={t('map.traps_t', { count: lvl.trapCount })}
                   >
                     <Skull className="w-3.5 h-3.5 text-rose-400" />
                   </div>
@@ -380,7 +379,7 @@ export default function AdventureMap({
                   }`}
                 >
                   {lvl.questions}{" "}
-                  {lvl.questions === 1 ? "pregunta" : "preguntas"}
+                  {lvl.questions === 1 ? t('map.q_one') : t('map.q_many')}
                 </div>
               </div>
             );
@@ -396,7 +395,7 @@ export default function AdventureMap({
               initial={{ opacity: 0, scale: 0.85, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 20 }}
-              className="relative w-full max-w-sm rounded-3xl bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_40px_rgba(0,0,0,0.8)] flex flex-col items-center text-center overflow-hidden"
+              className="relative w-full max-w-sm rounded-arcade-lg bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_40px_rgba(0,0,0,0.8)] flex flex-col items-center text-center overflow-hidden"
             >
               {/* Glow decorativo */}
               <div
@@ -406,15 +405,15 @@ export default function AdventureMap({
               {/* Botón cerrar X */}
               <button
                 onClick={() => setSelectedLevelModal(null)}
-                className="absolute top-3 right-3 p-1.5 rounded-xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border border-[var(--color-arcade-navy-light)] text-slate-400 hover:text-white transition-colors cursor-pointer"
-                aria-label="Cerrar detalle de nivel"
+                className="absolute top-3 right-3 p-1.5 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border border-[var(--color-arcade-navy-light)] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                aria-label={t('map.close_detail')}
               >
                 <X className="w-4 h-4" />
               </button>
 
               {/* Icono de Nivel / Jefe */}
               <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-[0_5px_0_var(--color-arcade-ink)] mb-3 ${
+                className={`w-16 h-16 rounded-arcade flex items-center justify-center text-white shadow-btn-arcade-lg mb-3 ${
                   selectedLevelModal.isBoss
                     ? "bg-gradient-to-b from-[var(--color-arcade-orange)] to-[var(--color-arcade-orange-shadow)] border-3 border-[var(--color-arcade-yellow)]"
                     : "bg-gradient-to-b from-[var(--color-arcade-green)] to-[var(--color-arcade-green-shadow)] border-3 border-[var(--color-arcade-green-light)]"
@@ -431,47 +430,44 @@ export default function AdventureMap({
 
               {/* Título de Nivel */}
               <div className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-widest mb-0.5">
-                Nivel {selectedLevelModal.level} de 20
+                {t('map.level_of', { level: selectedLevelModal.level, max: 20 })}
               </div>
               <h2 className="text-xl font-black text-white tracking-wide mb-2">
-                {selectedLevelModal.name}
+                {selectedLevelModal.name || levelName(selectedLevelModal, t)}
               </h2>
 
               {/* Descripción pedagógica */}
               <p className="text-xs text-slate-300 leading-relaxed mb-3 px-2">
-                {selectedLevelModal.desc}
+                {selectedLevelModal.desc || levelDesc(selectedLevelModal, t)}
               </p>
 
               {/* Alerta de Cartas Trampa si aplica */}
               {selectedLevelModal.hasTraps && (
-                <div className="w-full py-1.5 px-3 rounded-xl bg-rose-950/80 border border-rose-500/60 text-rose-200 text-[10px] font-bold flex items-center justify-center gap-1.5 mb-3">
+                <div className="w-full py-1.5 px-3 rounded-arcade-sm bg-rose-950/80 border border-rose-500/60 text-rose-200 text-[10px] font-bold flex items-center justify-center gap-1.5 mb-3">
                   <Skull className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  <span>
-                    ¡Atención! Hay {selectedLevelModal.trapCount} carta(s)
-                    trampa con penalización.
-                  </span>
+<span>{t('map.trap_alert', { count: selectedLevelModal.trapCount })}</span>
                 </div>
               )}
 
               {/* Alerta de Requisito de 2 Estrellas */}
-              <div className="w-full py-1 px-2.5 rounded-xl bg-amber-950/70 border border-amber-500/50 text-amber-300 text-[9.5px] font-bold flex items-center justify-center gap-1 mb-4">
+              <div className="w-full py-1 px-2.5 rounded-arcade-sm bg-amber-950/70 border border-amber-500/50 text-amber-300 text-[9.5px] font-bold flex items-center justify-center gap-1 mb-4">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-                <span>Mínimo 2 estrellas para desbloquear el siguiente nivel</span>
+                <span>{t('map.need_stars')}</span>
               </div>
 
               {/* Estadísticas del Nivel */}
-              <div className="w-full grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] mb-5">
+              <div className="w-full grid grid-cols-2 gap-2 p-2.5 rounded-arcade bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] mb-5">
                 <div className="flex flex-col items-center">
                   <span className="text-[9px] text-slate-400 font-bold uppercase">
-                    Preguntas
+                    {t('map.questions')}
                   </span>
                   <span className="text-sm font-black text-[var(--color-arcade-yellow)]">
-                    {selectedLevelModal.questions} nodos
+                    {t('map.nodes_n', { count: selectedLevelModal.questions })}
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
                   <span className="text-[9px] text-slate-400 font-bold uppercase">
-                    Puntaje Máx
+                    {t('map.max_score')}
                   </span>
                   <span className="text-sm font-black text-[var(--color-arcade-green)]">
                     +{selectedLevelModal.questions * 10} pts
@@ -482,7 +478,7 @@ export default function AdventureMap({
               {/* Botón Acción: JUGAR AHORA Y ENTRAR AL TABLERO */}
               <button
                 onClick={handleStartGame}
-                className="w-full py-3.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-5 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_5px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none"
+                className="w-full py-3.5 rounded-arcade bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-arcade-lg border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-btn-arcade-lg active:translate-y-1 active:shadow-none"
               >
                 {selectedLevelModal.isBoss ? (
                   <Swords className="w-5 h-5 text-white" />
@@ -491,8 +487,8 @@ export default function AdventureMap({
                 )}
                 <span>
                   {selectedLevelModal.isBoss
-                    ? "¡Comenzar Batalla de Jefe!"
-                    : "¡Entrar al Tablero!"}
+                    ? t('map.boss_fight')
+                    : t('map.play')}
                 </span>
               </button>
             </motion.div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchWithAuth, uploadWithProgress } from '../lib/api';
 import { track } from '../utils/uxTelemetry';
+import i18n from '../i18n';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FolderPlus,
@@ -58,7 +60,8 @@ const formatDate = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  const loc = { es: 'es-ES', en: 'en-US', pt: 'pt-BR' }[i18n.language?.split('-')[0]] || 'es-ES';
+  return d.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
 // "22447.4 KB" → "22.4 MB" (auto-escala KB→MB→GB)
@@ -82,6 +85,7 @@ export default function StudyFolderManagerModal({
   onUpgradeToPro,
   onPlayDemo
 }) {
+  const { t } = useTranslation();
   const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
   // Carpeta abierta al recargar: el baúl recuerda dentro de cuál estabas
   const folderViewKey = currentUser?.id ? `hubzy_folder_view_${currentUser.id}` : 'hubzy_folder_view';
@@ -302,8 +306,8 @@ export default function StudyFolderManagerModal({
     const folderItem = {
       id: `folder_${Date.now()}`,
       name: newFolderName.trim(),
-      description: newFolderDesc.trim() || 'Juegos didácticos y preguntas personalizadas',
-      created_at: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+      description: newFolderDesc.trim() || t('folders.def_desc'),
+      created_at: new Date().toLocaleDateString({ es: 'es-ES', en: 'en-US', pt: 'pt-BR' }[i18n.language?.split('-')[0]] || 'es-ES', { day: '2-digit', month: 'short' }),
       user_id: currentUser?.id || null,
       documents: [],
       games: []
@@ -441,7 +445,7 @@ export default function StudyFolderManagerModal({
       name: file.name,
       size: (file.size / 1024).toFixed(1) + ' KB',
       type: file.name.split('.').pop().toLowerCase(),
-      uploaded_at: 'Subiendo… 0%',
+      uploaded_at: t('folders.upload_start'),
       isUploading: true,
       progress: 0,
     };
@@ -460,11 +464,11 @@ export default function StudyFolderManagerModal({
           onProgress: (p) =>
             updateTempDoc(tempDoc.id, {
               progress: p,
-              uploaded_at: p < 100 ? `Subiendo… ${p}%` : 'Extrayendo texto…',
+              uploaded_at: p < 100 ? t('folders.uploading_p', { pct: p }) : t('folders.extracting'),
             }),
         },
       );
-      updateTempDoc(tempDoc.id, { uploaded_at: 'Procesado ✓', isUploading: false, progress: 100 });
+      updateTempDoc(tempDoc.id, { uploaded_at: t('folders.processed'), isUploading: false, progress: 100 });
       track("doc_uploaded", { folder: folderId });
     } catch (upErr) {
       removeTempDoc(tempDoc.id);
@@ -473,19 +477,19 @@ export default function StudyFolderManagerModal({
         else {
           setUploadErrors(prev => [
             ...prev,
-            { name: file.name, message: upErr.message || 'límite del plan alcanzado.', file },
+            { name: file.name, message: upErr.message || t('folders.err_limit'), file },
           ]);
         }
         return;
       }
       const friendly =
         upErr.status === 413
-          ? 'Supera el tamaño máximo de 25 MB.'
+          ? t('folders.err_413')
           : upErr.status === 415
-            ? 'Formato no soportado. Usa PDF, DOCX, TXT, MD, CSV o imagen.'
+            ? t('folders.err_415')
             : upErr.status === 422
-              ? 'No se pudo leer el archivo (¿está protegido o dañado?).'
-              : upErr.message || 'Verifica que el archivo no esté dañado.';
+              ? t('folders.err_422')
+              : upErr.message || t('folders.err_generic');
       setUploadErrors(prev => [...prev, { name: file.name, message: friendly, file }]);
     }
   };
@@ -534,7 +538,7 @@ export default function StudyFolderManagerModal({
         setUploadErrors(
           skipped.map(f => ({
             name: f.name,
-            message: `supera tu límite de ${storageInfo.limit_mb} MB de almacenamiento. Borra archivos o pasa a Pro.`,
+            message: t('folders.err_quota', { mb: storageInfo.limit_mb }),
           })),
         );
       }
@@ -806,14 +810,14 @@ export default function StudyFolderManagerModal({
       className="folder-modal-wrap fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-2 md:p-4 bg-black/85 backdrop-blur-md select-none font-sans"
       role="dialog"
       aria-modal="true"
-      aria-label="Baúl de carpetas de estudio"
+      aria-label={t('folders.aria')}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 15 }}
         transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-        className="folder-modal-panel relative w-full h-full max-w-7xl max-h-[96dvh] rounded-2xl sm:rounded-[2rem] bg-[#f1f6fd] border-4 border-[var(--color-arcade-navy-dark)] shadow-[0_16px_0_var(--color-arcade-ink),0_25px_60px_rgba(0,0,0,0.8)] flex flex-col text-slate-800 overflow-hidden"
+        className="folder-modal-panel relative w-full h-full max-w-7xl max-h-[96dvh] rounded-arcade sm:rounded-arcade-xl bg-[#f1f6fd] border-4 border-[var(--color-arcade-navy-dark)] shadow-[0_16px_0_var(--color-arcade-ink),0_25px_60px_rgba(0,0,0,0.8)] flex flex-col text-slate-800 overflow-hidden"
       >
         {/* INPUT OCULTO PARA SUBIR ARCHIVOS DIRECTO A LA CARPETA */}
         <input 
@@ -831,18 +835,18 @@ export default function StudyFolderManagerModal({
         {!activeFolderView && (
           <>
             {/* Cabecera Estilo Taberna / Inventario de Videojuego */}
-            <div className="p-6 border-b-3 border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
+            <div className="p-6 border-b-arcade-sm border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-[var(--color-arcade-yellow)] border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-[var(--color-arcade-navy)] shadow-[0_4px_0_var(--color-arcade-yellow-shadow)]">
+                <div className="w-14 h-14 rounded-arcade bg-[var(--color-arcade-yellow)] border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-[var(--color-arcade-navy)] shadow-btn-yellow">
                   <FolderArchive className="w-8 h-8 text-[var(--color-arcade-navy)]" />
                 </div>
                 <div>
 
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-800 mt-1">
-                    Mis Carpetas de Estudio
+                    {t('folders.title')}
                   </h2>
-                  <p className="text-xs text-slate-500 font-bold">
-                    Documentos y reactivos privados de {currentUser?.username || 'tu cuenta'}. Nadie más tiene acceso a ellos.
+                  <p className="text-xs text-slate-600 font-bold">
+                    {t('folders.subtitle', { user: currentUser?.username || t('folders.your_account') })}
                   </p>
 
                 </div>
@@ -852,27 +856,27 @@ export default function StudyFolderManagerModal({
                 {onBackToMenu && (
                   <button
                     onClick={onBackToMenu}
-                    className="px-3.5 py-2.5 rounded-2xl bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] font-black text-xs uppercase tracking-wide flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                    title="Volver a la Pantalla de Inicio / Menú Principal"
+                    className="px-3.5 py-2.5 rounded-arcade bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] font-black text-xs uppercase tracking-wide flex items-center gap-1.5 shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    title={t('folders.menu_t')}
                   >
                     <Home className="w-4 h-4 stroke-[2.5]" />
-                    <span className="hidden sm:inline">Menú</span>
+                    <span className="hidden sm:inline">{t('folders.menu')}</span>
                   </button>
                 )}
 
                 <button
                   onClick={() => setIsCreating(true)}
-                  className="px-4 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-arcade bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-arcade border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
-                  <span className="hidden sm:inline">Nueva Carpeta</span>
+                  <span className="hidden sm:inline">{t('folders.new_folder')}</span>
                 </button>
 
                 {onClose && (
                   <button
                     onClick={onClose}
-                    className="p-2.5 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-slate-300 hover:text-white transition-all cursor-pointer shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none"
-                    title="Cerrar ventana"
+                    className="p-2.5 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-slate-300 hover:text-white transition-all cursor-pointer shadow-btn-arcade active:translate-y-1 active:shadow-none"
+                    title={t('folders.close_t')}
                   >
                     <X className="w-5 h-5 stroke-[2.5]" />
                   </button>
@@ -891,19 +895,19 @@ export default function StudyFolderManagerModal({
                     animate={{ opacity: 1, scale: 1, height: 'auto' }}
                     exit={{ opacity: 0, scale: 0.95, height: 0 }}
                     onSubmit={handleCreateFolder}
-                    className="overflow-hidden bg-white border-2 border-amber-400/60 rounded-3xl p-5 shadow-xl mb-4 space-y-4"
+                    className="overflow-hidden bg-white border-2 border-amber-400/60 rounded-arcade-lg p-5 shadow-xl mb-4 space-y-4"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black uppercase tracking-wider text-amber-600 flex items-center gap-2">
                         <FolderPlus className="w-5 h-5 text-amber-500" />
-                        Crear Nueva Carpeta de Aventura
+                        {t('folders.create_title')}
                       </span>
                       <button
                         type="button"
                         onClick={() => setIsCreating(false)}
-                        className="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                        className="text-xs font-bold text-slate-600 hover:text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                       >
-                        Cancelar
+                        {t('folders.cancel')}
                       </button>
                     </div>
 
@@ -912,27 +916,27 @@ export default function StudyFolderManagerModal({
                         type="text"
                         required
                         autoFocus
-                        placeholder="Nombre (ej. Neuroanatomía, Derecho...)"
+                        placeholder={t('folders.name_ph')}
                         value={newFolderName}
                         onChange={(e) => setNewFolderName(e.target.value)}
-                        className="bg-white border-2 border-slate-300 focus:border-amber-400 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
+                        className="bg-white border-2 border-slate-300 focus:border-amber-400 rounded-arcade-sm px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none transition-colors"
                       />
                       <input
                         type="text"
-                        placeholder="Descripción o tema (opcional)"
+                        placeholder={t('folders.desc_ph')}
                         value={newFolderDesc}
                         onChange={(e) => setNewFolderDesc(e.target.value)}
-                        className="bg-white border-2 border-slate-300 focus:border-amber-400 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
+                        className="bg-white border-2 border-slate-300 focus:border-amber-400 rounded-arcade-sm px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none transition-colors"
                       />
                     </div>
 
                     <div className="flex justify-end">
                       <button
                         type="submit"
-                        className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                        className="px-5 py-2.5 rounded-arcade-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-btn-emerald active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                       >
                         <Sparkles className="w-4 h-4" />
-                        <span>Guardar y Entrar</span>
+                        <span>{t('folders.save_enter')}</span>
                       </button>
                     </div>
                   </motion.form>
@@ -942,67 +946,67 @@ export default function StudyFolderManagerModal({
               {/* Onboarding guiado: solo cuando el usuario aún no tiene
                   carpetas propias. */}
               {folders.length === 0 && (
-                <div className="rounded-3xl border-2 border-cyan-300 bg-gradient-to-r from-white to-sky-50 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="rounded-arcade-lg border-2 border-cyan-300 bg-gradient-to-r from-white to-sky-50 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-black uppercase tracking-wider text-cyan-700 mb-1.5">
-                      Tu primera partida en 3 pasos
+                      {t('folders.steps_title')}
                     </p>
                     <ol className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-bold text-slate-600">
                       <li className="flex items-center gap-1.5">
                         <span className="w-5 h-5 rounded-full bg-cyan-50 border border-cyan-300 text-cyan-700 text-[10px] font-black inline-flex items-center justify-center">1</span>
-                        Crea una carpeta
+                        {t('folders.step1')}
                       </li>
-                      <li className="text-slate-400">→</li>
+                      <li className="text-slate-500">→</li>
                       <li className="flex items-center gap-1.5">
                         <span className="w-5 h-5 rounded-full bg-cyan-50 border border-cyan-300 text-cyan-700 text-[10px] font-black inline-flex items-center justify-center">2</span>
-                        Sube tu PDF o audio
+                        {t('folders.step2')}
                       </li>
-                      <li className="text-slate-400">→</li>
+                      <li className="text-slate-500">→</li>
                       <li className="flex items-center gap-1.5">
                         <span className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 text-[10px] font-black inline-flex items-center justify-center">3</span>
-                        Juega tu primera isla
+                        {t('folders.step3')}
                       </li>
                     </ol>
                   </div>
                   <button
                     onClick={() => setIsCreating(true)}
-                    className="shrink-0 px-4 py-2.5 rounded-2xl bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    className="shrink-0 px-4 py-2.5 rounded-arcade bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-btn-emerald active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                   >
                     <FolderPlus className="w-4 h-4 stroke-[2.5]" />
-                    <span>Crear mi carpeta</span>
+                    <span>{t('folders.create_mine')}</span>
                   </button>
                 </div>
               )}
 
               {/* Listado de Carpetas */}
               {folders.length === 0 ? (
-                <div className="py-12 px-4 rounded-3xl border-2 border-dashed border-slate-300 bg-white/70 text-center flex flex-col items-center justify-center">
-                  <div className="w-16 h-16 rounded-3xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
+                <div className="py-12 px-4 rounded-arcade-lg border-2 border-dashed border-slate-300 bg-white/70 text-center flex flex-col items-center justify-center">
+                  <div className="w-16 h-16 rounded-arcade-lg bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-500 mb-3 shadow-inner">
                     <Folder className="w-8 h-8 opacity-60 text-amber-500" />
                   </div>
                   <h3 className="text-base font-bold text-slate-700">
-                    Tu baúl está vacío
+                    {t('folders.empty_t')}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm mb-4">
-                    Crea una carpeta para organizar tus materiales de estudio y comenzar a jugar.
+                  <p className="text-xs text-slate-600 mt-1 max-w-sm mb-4">
+                    {t('folders.empty_p')}
                   </p>
                   <div className="flex flex-col sm:flex-row items-center gap-2.5">
                     <button
                       onClick={() => setIsCreating(true)}
-                      className="px-5 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#92400e] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                      className="px-5 py-2.5 rounded-arcade bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#92400e] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4 stroke-[3]" />
-                      <span>Crear Primera Carpeta</span>
+                      <span>{t('folders.create_first')}</span>
                     </button>
                     {/* DEMO INMEDIATA: jugar sin subir nada */}
                     {onPlayDemo && (
                       <button
                         onClick={onPlayDemo}
-                        className="px-5 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                        title="Juega una partida de ejemplo sobre el Sistema Solar — sin subir documentos"
+                        className="px-5 py-2.5 rounded-arcade bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-btn-emerald active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                        title={t('folders.demo_t')}
                       >
                         <PlayCircle className="w-4 h-4 stroke-[2.5]" />
-                        <span>Probar con documento de ejemplo</span>
+                        <span>{t('folders.demo_btn')}</span>
                       </button>
                     )}
                   </div>
@@ -1032,24 +1036,24 @@ export default function StudyFolderManagerModal({
                               }
                             }).catch(() => {});
                         }}
-                        className="relative p-5 rounded-3xl border-2 border-slate-300 hover:border-amber-400 bg-white hover:bg-sky-50 transition-all cursor-pointer flex flex-col justify-between group shadow-md hover:scale-[1.01]"
+                        className="relative p-5 rounded-arcade-lg border-2 border-slate-300 hover:border-amber-400 bg-white hover:bg-sky-50 transition-all cursor-pointer flex flex-col justify-between group shadow-md hover:scale-[1.01]"
                       >
                         <div>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-amber-50 text-amber-500 border border-amber-300 shadow-inner group-hover:bg-amber-400 group-hover:text-slate-950 transition-all">
+                              <div className="w-11 h-11 rounded-arcade flex items-center justify-center bg-amber-50 text-amber-500 border border-amber-300 shadow-inner group-hover:bg-amber-400 group-hover:text-slate-950 transition-all">
                                 <Folder className="w-6 h-6 fill-current opacity-90" />
                               </div>
                               <div>
                                 <h4 className="text-sm font-black text-slate-800 uppercase truncate max-w-[170px]">
                                   {folder.name}
                                 </h4>
-                                <span className="text-[11px] text-slate-500 font-medium">
-                                  {folder.created_at ? `Creada el ${formatDate(folder.created_at)}` : 'Misión Activa'}
+                                <span className="text-[11px] text-slate-600 font-medium">
+                                  {folder.created_at ? t('folders.created_on', { date: formatDate(folder.created_at) }) : t('folders.active_mission')}
                                 </span>
                                 {folder.is_school_folder && (
                                   <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-300 text-[9px] font-black text-emerald-700 uppercase tracking-wide align-middle">
-                                    <School className="w-2.5 h-2.5" /> Colegio
+                                    <School className="w-2.5 h-2.5" /> {t('folders.school')}
                                   </span>
                                 )}
                               </div>
@@ -1068,9 +1072,9 @@ export default function StudyFolderManagerModal({
                                       description: folder.description || '',
                                     });
                                   }}
-                                  className="p-2 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
-                                  title="Editar nombre o descripción"
-                                  aria-label={`Editar carpeta ${folder.name}`}
+                                  className="p-2 text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 rounded-arcade-sm transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                                  title={t('folders.edit_t')}
+                                  aria-label={t('folders.edit_aria', { name: folder.name })}
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
@@ -1079,9 +1083,9 @@ export default function StudyFolderManagerModal({
                                     e.stopPropagation();
                                     setConfirmState({ type: 'delete', folder });
                                   }}
-                                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors opacity-70 hover:opacity-100 cursor-pointer"
-                                  title="Eliminar carpeta"
-                                  aria-label={`Eliminar carpeta ${folder.name}`}
+                                  className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-arcade-sm transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                                  title={t('folders.delete_t')}
+                                  aria-label={t('folders.delete_aria', { name: folder.name })}
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -1091,11 +1095,11 @@ export default function StudyFolderManagerModal({
 
                           {/* Tarea asignada por el docente (badge informativo, sin presión) */}
                           {folder.assignment && (
-                            <div className="mb-2 px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-[10px] font-bold text-amber-700 flex items-center gap-1.5">
+                            <div className="mb-2 px-2.5 py-1.5 rounded-arcade-sm bg-amber-50 border border-amber-300 text-[10px] font-bold text-amber-700 flex items-center gap-1.5">
                               <Pin className="w-3 h-3 shrink-0" />
                               <span className="truncate">
                                 {folder.assignment.title}
-                                {folder.assignment.due_date && ` · para el ${folder.assignment.due_date}`}
+                                {folder.assignment.due_date && t('folders.due', { date: folder.assignment.due_date })}
                               </span>
                             </div>
                           )}
@@ -1109,12 +1113,12 @@ export default function StudyFolderManagerModal({
                           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-bold text-amber-700 min-w-0">
                             <span className="flex items-center gap-1 whitespace-nowrap">
                               <FileText className="w-3.5 h-3.5 text-amber-500" />
-                              {docsCount} {docsCount === 1 ? 'archivo' : 'archivos'}
+                              {docsCount} {docsCount === 1 ? t('folders.file_one') : t('folders.file_many')}
                             </span>
                             <span className="text-slate-300">•</span>
                             <span className="flex items-center gap-1 text-cyan-700 whitespace-nowrap">
                               <Layers className="w-3.5 h-3.5 text-cyan-500" />
-                              {gamesCount} partidas
+                              {t('folders.games_n', { count: gamesCount })}
                             </span>
                             {progLevel > 1 && (
                               <button
@@ -1126,17 +1130,17 @@ export default function StudyFolderManagerModal({
                                   });
                                 }}
                                 className="flex items-center gap-1 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-300 transition-colors cursor-pointer whitespace-nowrap"
-                                title={`Continuar campaña en el Nivel ${progLevel}`}
+                                title={t('folders.cont_t', { level: progLevel })}
                               >
                                 <PlayCircle className="w-3.5 h-3.5 text-emerald-500" />
-                                Nivel {progLevel} · <Star className="w-3 h-3 fill-amber-400 text-amber-400" />{progStars}
+                                {t('folders.level_n', { level: progLevel })} · <Star className="w-3 h-3 fill-amber-400 text-amber-400" />{progStars}
                                 {prog?.total_xp > 0 && ` · ${prog.total_xp} XP`}
                               </button>
                             )}
                           </span>
 
-                          <span className="flex items-center gap-1 font-bold text-slate-500 group-hover:text-amber-600 transition-colors ml-auto whitespace-nowrap">
-                            <span>Entrar</span>
+                          <span className="flex items-center gap-1 font-bold text-slate-600 group-hover:text-amber-600 transition-colors ml-auto whitespace-nowrap">
+                            <span>{t('folders.enter')}</span>
                             <ChevronRight className="w-4 h-4" />
                           </span>
                         </div>
@@ -1148,15 +1152,15 @@ export default function StudyFolderManagerModal({
             </div>
 
             {/* Pie informativo */}
-            <div className="p-5 border-t-2 border-slate-200 bg-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div className="p-5 border-t-2 border-slate-200 bg-slate-100 flex items-center justify-between text-xs text-slate-600">
               <span className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-                <span>Haz clic sobre cualquier carpeta para abrir su contenido y opciones</span>
+                <span>{t('folders.hint_footer')}</span>
               </span>
               <span className="font-bold text-slate-700">
                 {isPremiumUser
-                  ? `Total: ${folders.length} ${folders.length === 1 ? 'carpeta' : 'carpetas'}${storageInfo.limit_mb != null ? ` · ${storageInfo.used_mb.toFixed(1)}/${storageInfo.limit_mb} MB` : ''}`
-                  : `Plan gratis: ${folders.length}/${FREE_FOLDER_LIMIT} ${folders.length === 1 ? 'carpeta' : 'carpetas'}${storageInfo.limit_mb != null ? ` · ${storageInfo.used_mb.toFixed(1)}/${storageInfo.limit_mb} MB` : ''}`}
+                  ? `${t('folders.total_pro', { count: folders.length })}${storageInfo.limit_mb != null ? ` · ${storageInfo.used_mb.toFixed(1)}/${storageInfo.limit_mb} MB` : ''}`
+                  : `${t('folders.total_free', { count: folders.length, limit: FREE_FOLDER_LIMIT })}${storageInfo.limit_mb != null ? ` · ${storageInfo.used_mb.toFixed(1)}/${storageInfo.limit_mb} MB` : ''}`}
               </span>
             </div>
           </>
@@ -1169,12 +1173,12 @@ export default function StudyFolderManagerModal({
         {activeFolderView && (
           <>
             {/* Cabecera Interior de la Carpeta */}
-            <div className="p-6 border-b-3 border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
+            <div className="p-6 border-b-arcade-sm border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => { setActiveFolderView(null); setShowIslandPicker(false); }}
-                  className="p-2.5 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white transition-all cursor-pointer flex items-center justify-center shadow-md active:translate-y-1 active:shadow-none"
-                  title="Volver al baúl de carpetas"
+                  className="p-2.5 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-white transition-all cursor-pointer flex items-center justify-center shadow-md active:translate-y-1 active:shadow-none"
+                  title={t('folders.back_trunk')}
                 >
                   <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
                 </button>
@@ -1182,10 +1186,10 @@ export default function StudyFolderManagerModal({
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white border-2 border-[var(--color-arcade-orange-shadow)]">
-                      Carpeta Abierta
+                      {t('folders.open_badge')}
                     </span>
-                    <span className="text-xs text-slate-500 font-bold">
-                      {activeFolderView.documents?.length || 0} archivos cargados
+                    <span className="text-xs text-slate-600 font-bold">
+                      {t('folders.files_n', { count: activeFolderView.documents?.length || 0 })}
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-800 mt-0.5">
@@ -1199,10 +1203,10 @@ export default function StudyFolderManagerModal({
               {!showIslandPicker && (!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                className="px-4 py-2.5 rounded-arcade bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-arcade border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
               >
                 <UploadCloud className="w-4 h-4 text-white stroke-[2.8]" />
-                <span className="drop-shadow-sm">Subir Más Archivos</span>
+                <span className="drop-shadow-sm">{t('folders.upload_more')}</span>
               </button>
               )}
             </div>
@@ -1213,11 +1217,11 @@ export default function StudyFolderManagerModal({
                   tras la subida; desaparece solo cuando el archipiélago
                   llega vía sondeo a /folders (o tras ~75s). */}
               {islandGenPending && (
-                <div className="rounded-2xl border-2 border-cyan-200 bg-cyan-50/90 p-4 flex flex-col gap-2">
+                <div className="rounded-arcade border-2 border-cyan-200 bg-cyan-50/90 p-4 flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 text-cyan-600 animate-spin shrink-0" />
                     <p className="text-xs font-black uppercase tracking-wider text-cyan-700">
-                      Tu isla se está generando — esto toma ~30s
+                      {t('folders.island_gen')}
                     </p>
                   </div>
                   <div className="w-full h-2 rounded-full bg-cyan-100 overflow-hidden">
@@ -1229,9 +1233,7 @@ export default function StudyFolderManagerModal({
                     />
                   </div>
                   <p className="text-[11px] text-cyan-700/80 font-semibold">
-                    Hubzi está detectando los temas de tu documento para crear
-                    tu archipiélago. Ya puedes pulsar Iniciar Juego si no
-                    quieres esperar.
+{t('folders.island_gen_d')}
                   </p>
                 </div>
               )}
@@ -1240,30 +1242,30 @@ export default function StudyFolderManagerModal({
                   Solo se revela al pulsar "Iniciar juego": ahí se crean las
                   islas y el jugador elige su campaña. */}
               {showIslandPicker && (activeFolderView.islands || []).length > 0 && (
-                <div className="rounded-3xl border-2 border-sky-200 bg-gradient-to-b from-white to-sky-100 p-4">
+                <div className="rounded-arcade-lg border-2 border-sky-200 bg-gradient-to-b from-white to-sky-100 p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="w-4 h-4 text-cyan-500" />
                     <h3 className="text-sm font-black uppercase tracking-wider text-cyan-700">
-                      Archipiélago de Temas
+                      {t('folders.archipelago')}
                     </h3>
                     {detectingTopics && (
-                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Detectando temas…
+                        {t('folders.detecting')}
                       </span>
                     )}
                     <button
                       onClick={handleRegenerateIslands}
                       disabled={regeneratingIslands}
                       className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 border border-cyan-300 text-[10px] font-black uppercase tracking-wide text-cyan-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
-                      title="Re-detectar los temas de tus documentos y reconstruir las islas"
+                      title={t('folders.reload_islands_t')}
                     >
                       <RotateCw className={`w-3 h-3 ${regeneratingIslands ? 'animate-spin' : ''}`} />
-                      {regeneratingIslands ? 'Recargando…' : 'Recargar islas'}
+                      {regeneratingIslands ? t('folders.reloading') : t('folders.reload_islands')}
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-500 mb-3">
-                    Cada isla es un tema detectado en tus documentos, con su propia campaña de niveles. Las preguntas nunca mezclan temas.
+                  <p className="text-[11px] text-slate-600 mb-3">
+                    {t('folders.arch_d')}
                   </p>
                   <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {(activeFolderView.islands || []).map((isl, islIdx) => {
@@ -1298,10 +1300,10 @@ export default function StudyFolderManagerModal({
                               });
                             }
                           }}
-                          className={`group text-left rounded-2xl border-2 border-slate-300 ${style.ring} bg-white hover:bg-sky-50 p-4 transition-all cursor-pointer shadow-[0_3px_0_#cbd5e1] active:translate-y-0.5 active:shadow-none`}
+                          className={`group text-left rounded-arcade border-2 border-slate-300 ${style.ring} bg-white hover:bg-sky-50 p-4 transition-all cursor-pointer shadow-[0_3px_0_#cbd5e1] active:translate-y-0.5 active:shadow-none`}
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <span className={`w-11 h-11 rounded-xl bg-gradient-to-br border flex items-center justify-center shrink-0 shadow-inner transition-transform group-hover:scale-110 ${style.blob}`}>
+                            <span className={`w-11 h-11 rounded-arcade-sm bg-gradient-to-br border flex items-center justify-center shrink-0 shadow-inner transition-transform group-hover:scale-110 ${style.blob}`}>
                               <IslIcon className={`w-5 h-5 ${style.icon}`} />
                             </span>
                             <span className="flex items-center gap-1.5">
@@ -1309,9 +1311,9 @@ export default function StudyFolderManagerModal({
                               <button
                                 onClick={(e) => handleRegenerateIsland(e, isl.id)}
                                 disabled={Boolean(regeneratingIslandId)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
-                                title={`Recargar preguntas de "${isl.name}" (tu progreso se conserva)`}
-                                aria-label={`Recargar preguntas de ${isl.name}`}
+                                className="p-1 rounded-lg text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                                title={t('folders.reload_q_t', { name: isl.name })}
+                                aria-label={t('folders.reload_q_aria', { name: isl.name })}
                               >
                                 <RotateCw
                                   className={`w-3.5 h-3.5 ${regeneratingIslandId === isl.id ? 'animate-spin text-cyan-600' : ''}`}
@@ -1323,20 +1325,20 @@ export default function StudyFolderManagerModal({
                                   className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300"
                                   title={activeFolderView.assignment.title}
                                 >
-                                  <Pin className="w-2.5 h-2.5" /> Tarea
+                                  <Pin className="w-2.5 h-2.5" /> {t('folders.homework')}
                                 </span>
                               )}
                               {/* Repaso sugerido: la isla donde más te costó */}
                               {isl.id === reviewIslandId && (
                                 <span
                                   className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 animate-pulse"
-                                  title="Repaso sugerido — aquí fue donde más te costó la última vez"
+                                  title={t('folders.review_t')}
                                 >
-                                  Repasar
+                                  {t('folders.review')}
                                 </span>
                               )}
                               <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${style.badge}`}>
-                                {isl.total_levels} niveles
+                                {t('folders.levels_n', { count: isl.total_levels })}
                               </span>
                             </span>
                           </div>
@@ -1345,12 +1347,12 @@ export default function StudyFolderManagerModal({
                           </h4>
                           <div className="mt-2 flex items-center justify-between text-[11px] font-bold">
                             <span className="inline-flex items-center gap-1 text-amber-600">
-                              {stars > 0 ? (<><Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {stars}</>) : 'Sin explorar'}
-                              {p.total_xp > 0 && <span className="text-slate-400"> · {p.total_xp} XP</span>}
+                              {stars > 0 ? (<><Star className="w-3 h-3 fill-amber-400 text-amber-400" /> {stars}</>) : t('folders.unexplored')}
+                              {p.total_xp > 0 && <span className="text-slate-500"> · {p.total_xp} XP</span>}
                             </span>
                             <span className="flex items-center gap-1 text-emerald-600 group-hover:text-emerald-700">
                               <PlayCircle className="w-3.5 h-3.5" />
-                              {lvl > 1 || stars > 0 ? `Continuar N${lvl}` : 'Jugar'}
+                              {lvl > 1 || stars > 0 ? t('folders.cont_n', { level: lvl }) : t('folders.play')}
                             </span>
                           </div>
                         </div>
@@ -1366,9 +1368,9 @@ export default function StudyFolderManagerModal({
                           selectedIsland: null,
                         })
                       }
-                      className="mt-3 w-full text-center text-[11px] font-bold text-slate-500 hover:text-cyan-700 py-1.5 rounded-xl border border-dashed border-slate-300 hover:border-cyan-400 transition-colors cursor-pointer"
+                      className="mt-3 w-full text-center text-[11px] font-bold text-slate-600 hover:text-cyan-700 py-1.5 rounded-arcade-sm border border-dashed border-slate-300 hover:border-cyan-400 transition-colors cursor-pointer"
                     >
-                      <Waves className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />Jugar con todo el contenido mezclado (campaña general)
+                      <Waves className="w-3.5 h-3.5 inline-block align-[-2px] mr-1" />{t('folders.play_mixed')}
                     </button>
                   )}
                 </div>
@@ -1377,23 +1379,23 @@ export default function StudyFolderManagerModal({
               {/* La lista de archivos pertenece al paso anterior: se oculta
                   mientras el archipiélago está visible para elegir campaña. */}
               {!showIslandPicker && ((!activeFolderView.documents || activeFolderView.documents.length === 0) ? (
-                <div className="py-12 px-4 rounded-3xl border-2 border-dashed border-slate-300 bg-white/70 text-center flex flex-col items-center justify-center">
-                  <div className="w-16 h-16 rounded-3xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
+                <div className="py-12 px-4 rounded-arcade-lg border-2 border-dashed border-slate-300 bg-white/70 text-center flex flex-col items-center justify-center">
+                  <div className="w-16 h-16 rounded-arcade-lg bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-slate-500 mb-3 shadow-inner">
                     <UploadCloud className="w-8 h-8 text-cyan-500" />
                   </div>
                   <h3 className="text-base font-bold text-slate-700">
-                    No hay documentos en esta carpeta todavía
+                    {t('folders.no_docs_t')}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-sm mb-4">
-                    Sube tus PDFs, imágenes, audios o textos para que la IA genere preguntas y cartas didácticas.
+                  <p className="text-xs text-slate-600 mt-1 max-w-sm mb-4">
+                    {t('folders.no_docs_p')}
                   </p>
                   {(!activeFolderView.is_school_folder || activeFolderView.user_id === currentUser?.id) && (
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-5 py-2.5 rounded-2xl bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-4 border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                      className="px-5 py-2.5 rounded-arcade bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-arcade border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4 stroke-[3]" />
-                      <span>Subir Documentos Ahora</span>
+                      <span>{t('folders.upload_now')}</span>
                     </button>
                   )}
                 </div>
@@ -1403,24 +1405,24 @@ export default function StudyFolderManagerModal({
                     const readyCount = (activeFolderView.documents || []).filter(d => !d.isUploading).length;
                     const uploadingCount = (activeFolderView.documents || []).filter(d => d.isUploading).length;
                     return (
-                      <div className="flex items-center justify-between text-xs text-slate-500 font-bold uppercase px-1">
+                      <div className="flex items-center justify-between text-xs text-slate-600 font-bold uppercase px-1">
                         <span>
                           {uploadingCount > 0 ? (
                             <span className="text-sky-600 flex items-center gap-1.5 normal-case font-bold">
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-500" />
-                              Subiendo archivo al servidor ({uploadingCount})
+                              {t('folders.uploading_n', { count: uploadingCount })}
                             </span>
                           ) : (
-                            `Archivos en la carpeta (${readyCount})`
+                            t('folders.files_in', { count: readyCount })
                           )}
                         </span>
                         {uploadingCount > 0 ? (
                           <span className="text-[11px] text-sky-600 font-medium flex items-center gap-1 normal-case">
-                            Cargando archivo...
+                            {t('folders.loading_file')}
                           </span>
                         ) : (
                           <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Archivo subido (esperando tu orden para procesar)
+                            <CheckCircle2 className="w-3.5 h-3.5" /> {t('folders.file_ready')}
                           </span>
                         )}
                       </div>
@@ -1432,8 +1434,8 @@ export default function StudyFolderManagerModal({
                     const pct = Math.min(100, (storageInfo.used_mb / storageInfo.limit_mb) * 100);
                     return (
                       <div className="px-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-                          <span className="uppercase tracking-wide">Almacenamiento de tu plan</span>
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1">
+                          <span className="uppercase tracking-wide">{t('folders.storage_plan')}</span>
                           <span className={pct >= 100 ? 'text-rose-600' : pct >= 80 ? 'text-amber-600' : 'text-slate-600'}>
                             {storageInfo.used_mb.toFixed(1)} / {storageInfo.limit_mb} MB
                           </span>
@@ -1449,7 +1451,7 @@ export default function StudyFolderManagerModal({
                   })()}
 
                   {uploadErrors.length > 0 && (
-                    <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 space-y-2">
+                    <div className="rounded-arcade-sm border border-rose-300 bg-rose-50 px-4 py-3 space-y-2">
                       {uploadErrors.map((err, i) => (
                         <div key={i} className="flex items-center gap-2.5">
                           <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
@@ -1461,12 +1463,12 @@ export default function StudyFolderManagerModal({
                             onClick={() => retryUpload(i)}
                             className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 border border-rose-300 text-[10px] font-black uppercase tracking-wide text-rose-700 transition-all cursor-pointer"
                           >
-                            Reintentar
+                            {t('folders.retry')}
                           </button>
                           <button
                             onClick={() => setUploadErrors(prev => prev.filter((_, j) => j !== i))}
                             className="shrink-0 p-1 text-rose-400 hover:text-rose-600 cursor-pointer"
-                            aria-label={`Descartar error de ${err.name}`}
+                            aria-label={t('folders.dismiss_err', { name: err.name })}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -1479,14 +1481,14 @@ export default function StudyFolderManagerModal({
                     {activeFolderView.documents.map((doc) => (
                       <div
                         key={doc.id}
-                        className={`p-3.5 rounded-2xl border-2 flex items-center justify-between group transition-all ${
+                        className={`p-3.5 rounded-arcade border-2 flex items-center justify-between group transition-all ${
                           doc.isUploading
                             ? 'bg-amber-50 border-amber-300 animate-pulse'
                             : 'bg-white border-slate-300 hover:border-slate-400'
                         }`}
                       >
                         <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-300 flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-arcade-sm bg-slate-100 border border-slate-300 flex items-center justify-center shrink-0">
                             {doc.isUploading
                               ? <span className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
                               : getDocIcon(doc.name)
@@ -1498,18 +1500,18 @@ export default function StudyFolderManagerModal({
                                 {doc.name}
                               </h5>
                               {doc.is_analyzed && (
-                                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center gap-1" title="Documento ya analizado y listo para reutilizar">
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center gap-1" title={t('folders.reusable_t')}>
                                   <Zap className="w-2.5 h-2.5 text-emerald-500" />
-                                  Reutilizable
+                                  {t('folders.reusable')}
                                 </span>
                               )}
                             </div>
                             <span className={`text-[10px] font-mono ${
-                              doc.isUploading ? 'text-sky-600 font-bold' : 'text-slate-500'
+                              doc.isUploading ? 'text-sky-600 font-bold' : 'text-slate-600'
                             }`}>
                               {doc.isUploading
-                                ? (doc.uploaded_at || 'Cargando archivo...')
-                                : `${formatDocSize(doc.size) || 'Cargado'} • ${formatDate(doc.uploaded_at) || 'Listo'}`
+                                ? (doc.uploaded_at || t('folders.upload_wait'))
+                                : `${formatDocSize(doc.size) || t('folders.loaded')} • ${formatDate(doc.uploaded_at) || t('folders.ready')}`
                               }
                             </span>
                           </div>
@@ -1521,8 +1523,8 @@ export default function StudyFolderManagerModal({
                               e.stopPropagation();
                               setConfirmState({ type: 'deleteDoc', doc });
                             }}
-                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-200"
-                            title="Quitar archivo de la carpeta"
+                            className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-arcade-sm transition-all cursor-pointer border border-transparent hover:border-rose-200"
+                            title={t('folders.remove_doc')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1542,7 +1544,7 @@ export default function StudyFolderManagerModal({
                   if (isProcessingGame) return (
                     <span className="flex items-center gap-2 font-semibold text-emerald-700">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                      <span>Generando preguntas y tablero... ({processingCountdown}s)</span>
+                      <span>{t('folders.gen_progress', { s: processingCountdown })}</span>
                     </span>
                   );
                   const readyDocs = (activeFolderView.documents || []).filter(d => !d.isUploading);
@@ -1550,18 +1552,18 @@ export default function StudyFolderManagerModal({
                   if (uploadingDocs.length > 0) return (
                     <span className="flex items-center gap-2 font-semibold text-sky-700">
                       <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />
-                      <span>Subiendo archivo a la carpeta... (Aún no se procesa)</span>
+                      <span>{t('folders.uploading_note')}</span>
                     </span>
                   );
                   if (readyDocs.length > 0) return (
                     <span className="flex items-center gap-2 font-semibold text-slate-600">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                      <span>{readyDocs.length} {readyDocs.length === 1 ? 'archivo guardado' : 'archivos guardados'}. Presiona el botón verde para iniciar y procesar con IA.</span>
+                      <span>{t('folders.docs_ready', { count: readyDocs.length })}</span>
                     </span>
                   );
                   return (
-                    <span className="text-slate-500">
-                      Sube al menos un documento para generar las cartas y el tablero.
+                    <span className="text-slate-600">
+                      {t('folders.need_doc')}
                     </span>
                   );
                 })()}
@@ -1577,28 +1579,28 @@ export default function StudyFolderManagerModal({
                     <button
                       disabled={isDisabled}
                       onClick={handlePlayDirectly}
-                      className={`w-full sm:w-auto px-7 py-3 rounded-2xl font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 border-3 transition-all ${
+                      className={`w-full sm:w-auto px-7 py-3 rounded-arcade font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 border-3 transition-all ${
                         isDisabled && !isBusy
-                          ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed opacity-60'
+                          ? 'bg-slate-200 text-slate-500 border-slate-300 cursor-not-allowed opacity-60'
                           : isBusy
                           ? 'bg-[var(--color-arcade-green)] border-[var(--color-arcade-navy-dark)] text-white shadow-[0_0_20px_rgba(72,200,56,0.6)] cursor-wait font-black'
-                          : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-[var(--color-arcade-navy-dark)] border-b-5 border-b-[var(--color-arcade-green-shadow)] text-white shadow-[0_5px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer'
+                          : 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-green-shadow)] text-white shadow-btn-arcade-lg active:translate-y-1 active:shadow-none cursor-pointer'
                       }`}
                     >
                       {detectingTopics ? (
                         <>
                           <Loader2 className="w-5 h-5 stroke-[2.5] animate-spin text-white" />
-                          <span>Creando islas…</span>
+                          <span>{t('folders.creating_islands')}</span>
                         </>
                       ) : isProcessingGame ? (
                         <>
                           <Loader2 className="w-5 h-5 stroke-[2.5] animate-spin text-white" />
-                          <span>Procesando... {processingCountdown}s</span>
+                          <span>{t('folders.processing', { s: processingCountdown })}</span>
                         </>
                       ) : (
                         <>
                           <Gamepad2 className="w-5 h-5 stroke-[2.5] text-white" />
-                          <span>Iniciar Juego</span>
+                          <span>{t('folders.play_btn')}</span>
                         </>
                       )}
                     </button>
@@ -1625,29 +1627,29 @@ export default function StudyFolderManagerModal({
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 12 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-md bg-white rounded-3xl border-2 border-cyan-300 p-6 shadow-2xl space-y-4"
+                className="w-full max-w-md bg-white rounded-arcade-lg border-2 border-cyan-300 p-6 shadow-2xl space-y-4"
               >
                 <h3 className="text-base font-black text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                  <Pencil className="w-4 h-4 text-cyan-600" /> Editar carpeta
+                  <Pencil className="w-4 h-4 text-cyan-600" /> {t('folders.edit_title')}
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mb-1">Nombre</label>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-600 block mb-1">{t('folders.f_name')}</label>
                     <input
                       type="text"
                       value={editingFolder.name}
                       autoFocus
                       onChange={(e) => setEditingFolder(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full bg-white border-2 border-slate-300 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
+                      className="w-full bg-white border-2 border-slate-300 focus:border-cyan-400 rounded-arcade-sm px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mb-1">Descripción</label>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-600 block mb-1">{t('folders.f_desc')}</label>
                     <input
                       type="text"
                       value={editingFolder.description}
                       onChange={(e) => setEditingFolder(prev => ({ ...prev, description: e.target.value }))}
-                      className="w-full bg-white border-2 border-slate-300 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
+                      className="w-full bg-white border-2 border-slate-300 focus:border-cyan-400 rounded-arcade-sm px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none transition-colors"
                     />
                   </div>
                 </div>
@@ -1656,17 +1658,17 @@ export default function StudyFolderManagerModal({
                     type="button"
                     disabled={savingEdit}
                     onClick={() => setEditingFolder(null)}
-                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-arcade-sm text-xs font-bold text-slate-600 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
-                    Cancelar
+                    {t('folders.cancel')}
                   </button>
                   <button
                     type="button"
                     disabled={savingEdit || !editingFolder.name.trim()}
                     onClick={() => setConfirmState({ type: 'save' })}
-                    className="px-5 py-2.5 rounded-xl bg-[var(--color-arcade-green)] hover:bg-[#57d847] text-white font-black text-xs uppercase tracking-wider shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:translate-y-1 active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-5 py-2.5 rounded-arcade-sm bg-[var(--color-arcade-green)] hover:bg-[#57d847] text-white font-black text-xs uppercase tracking-wider shadow-btn-green active:translate-y-1 active:shadow-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    Guardar cambios
+                    {t('folders.save_changes')}
                   </button>
                 </div>
               </motion.div>
@@ -1689,11 +1691,11 @@ export default function StudyFolderManagerModal({
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.95, y: 12 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-sm bg-white rounded-3xl border-2 border-slate-200 p-6 shadow-2xl text-center"
+                className="w-full max-w-sm bg-white rounded-arcade-lg border-2 border-slate-200 p-6 shadow-2xl text-center"
                 role="alertdialog"
                 aria-modal="true"
               >
-                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center border-2 mb-3 ${
+                <div className={`w-14 h-14 mx-auto rounded-arcade flex items-center justify-center border-2 mb-3 ${
                   confirmState.type === 'save'
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-600'
                     : 'bg-rose-50 border-rose-300 text-rose-500'
@@ -1704,36 +1706,36 @@ export default function StudyFolderManagerModal({
                 </div>
                 <h3 className="text-base font-black text-slate-800">
                   {confirmState.type === 'save'
-                    ? '¿Guardar los cambios?'
+                    ? t('folders.confirm_save')
                     : confirmState.type === 'deleteDoc'
-                    ? '¿Eliminar este archivo?'
-                    : '¿Eliminar esta carpeta?'}
+                    ? t('folders.confirm_del_doc')
+                    : t('folders.confirm_del_folder')}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
                   {confirmState.type === 'save'
-                    ? `La carpeta se actualizará con el nuevo nombre "${editingFolder?.name}".`
+                    ? t('folders.save_body', { name: editingFolder?.name })
                     : confirmState.type === 'deleteDoc'
-                    ? `"${confirmState.doc?.name}" se eliminará permanentemente de esta carpeta y liberará espacio de tu plan.`
-                    : `"${confirmState.folder?.name}" y todo su contenido se eliminarán permanentemente.`}
+                    ? t('folders.del_doc_body', { name: confirmState.doc?.name })
+                    : t('folders.del_folder_body', { name: confirmState.folder?.name })}
                 </p>
                 <div className="flex gap-2 mt-5">
                   <button
                     type="button"
                     onClick={() => setConfirmState(null)}
-                    className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                    className="flex-1 px-4 py-2.5 rounded-arcade-sm text-xs font-bold text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
                   >
-                    Cancelar
+                    {t('folders.cancel')}
                   </button>
                   <button
                     type="button"
                     onClick={handleConfirmAction}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer active:translate-y-0.5 ${
+                    className={`flex-1 px-4 py-2.5 rounded-arcade-sm text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer active:translate-y-0.5 ${
                       confirmState.type === 'save'
-                        ? 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:shadow-none'
+                        ? 'bg-[var(--color-arcade-green)] hover:bg-[#57d847] shadow-btn-green active:shadow-none'
                         : 'bg-rose-500 hover:bg-rose-400 shadow-[0_4px_0_#9f1239] active:shadow-none'
                     }`}
                   >
-                    {confirmState.type === 'save' ? 'Sí, guardar' : 'Sí, eliminar'}
+                    {confirmState.type === 'save' ? t('folders.yes_save') : t('folders.yes_del')}
                   </button>
                 </div>
               </motion.div>
@@ -1748,25 +1750,23 @@ export default function StudyFolderManagerModal({
               initial={{ opacity: 0, y: 24, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 max-w-md w-[92%] sm:w-auto rounded-2xl bg-emerald-50 border-2 border-emerald-300 shadow-[0_8px_30px_rgba(16,185,129,0.25)] px-5 py-4 flex items-start gap-3"
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 max-w-md w-[92%] sm:w-auto rounded-arcade bg-emerald-50 border-2 border-emerald-300 shadow-[0_8px_30px_rgba(16,185,129,0.25)] px-5 py-4 flex items-start gap-3"
               role="status"
             >
               <Palmtree className="w-6 h-6 text-emerald-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-black text-emerald-700">
-                  {topicsToast.count === 1
-                    ? '¡Detectamos 1 tema en tu material!'
-                    : `¡Detectamos ${topicsToast.count} temas en tu material!`}
+{t('folders.topics', { count: topicsToast.count })}
                 </p>
                 <p className="text-xs text-emerald-600 mt-0.5 truncate">
                   {topicsToast.names.join(' · ')}
-                  {topicsToast.count > 3 ? '…' : ''} — cada isla tiene su propia campaña.
+                  {topicsToast.count > 3 ? '…' : ''}{t('folders.topics_suf')}
                 </p>
               </div>
               <button
                 onClick={() => setTopicsToast(null)}
                 className="p-1 rounded-lg text-emerald-400 hover:text-emerald-600 hover:bg-emerald-100 cursor-pointer"
-                aria-label="Cerrar aviso"
+                aria-label={t('folders.close_note')}
               >
                 <X className="w-4 h-4" />
               </button>

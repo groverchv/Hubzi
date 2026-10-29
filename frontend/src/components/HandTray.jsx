@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import GameCard from "./GameCard";
+import { useTranslation } from "react-i18next";
 
 const CARDS_PER_PAGE = 7;
 
@@ -22,6 +23,7 @@ export default function HandTray({
   onCardDrag,
   onCardDragEnd,
 }) {
+  const { t } = useTranslation();
   if (!hand.length) return null;
 
   const totalPages = compact ? 1 : Math.ceil(hand.length / CARDS_PER_PAGE);
@@ -62,14 +64,14 @@ export default function HandTray({
                   ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
                   : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
               }`}
-              title="Página anterior de cartas"
+              title={t('hand.prev')}
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
 
             <span className="text-[10px] font-mono font-black text-slate-200 uppercase tracking-wider">
-              Mazo: {activePage + 1} / {totalPages}{" "}
-              <span className="text-amber-400">({hand.length} cartas)</span>
+              {t('hand.deck', { page: activePage + 1, total: totalPages })}{' '}
+              <span className="text-amber-400">{t('hand.deck_count', { count: hand.length })}</span>
             </span>
 
             <button
@@ -83,14 +85,14 @@ export default function HandTray({
                   ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
                   : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
               }`}
-              title="Siguiente página de cartas"
+              title={t('hand.next')}
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        <div className="hand-tray relative px-4 py-3 rounded-2xl bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center max-w-full" role="group" aria-label={`Mazo de cartas: ${hand.length} cartas en mano`}>
+        <div className="hand-tray relative px-4 py-3 rounded-arcade bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center max-w-full" role="group" aria-label={t('hand.aria', { count: hand.length })}>
           <div className={`flex items-center gap-2.5 px-1 py-0.5 ${
             compact
               ? "overflow-x-auto overflow-y-visible w-full max-w-[86vw]"
@@ -102,7 +104,7 @@ export default function HandTray({
               return (
                 <div
                   key={`slot-${card.id || idx}`}
-                  className={`hand-slot relative rounded-2xl p-1 transition-all ${
+                  className={`hand-slot relative rounded-arcade p-1 transition-all ${
                     isHandSelected
                       ? "bg-cyan-400/40 border-2 border-cyan-400 shadow-[0_0_22px_#22d3ee] scale-105"
                       : isHinted
@@ -114,7 +116,7 @@ export default function HandTray({
                   {isHinted && (
                     <div className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none animate-bounce">
                       <span className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white font-black text-[9px] uppercase tracking-wider shadow-md whitespace-nowrap border border-white">
-                        ¡USA ÉSTA!
+                        {t('hand.use_this')}
                       </span>
                       <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[var(--color-arcade-orange)]" />
                     </div>

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, HelpCircle, Sparkles, Star } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 import KaTeXText from './KaTeXText';
+import { useTranslation } from "react-i18next";
 
 function ArcadeNode({
   id,
@@ -25,6 +26,7 @@ function ArcadeNode({
   preview = null, // 'correct'|'wrong' — preview en vivo del resultado si se suelta aquí
   onClick
 }) {
+  const { t } = useTranslation();
   // Resolución 100% dinámica de icono adaptada a la temática del documento (abogacía, medicina, psicología, etc.)
   const IconComp = resolveDynamicIcon({
     label: label || (typeof icon === 'string' ? icon : ''),
@@ -40,7 +42,7 @@ function ArcadeNode({
       onClick={() => { if (onClick) onClick(id); }}
       role="button"
       tabIndex={0}
-      aria-label={`Casilla ${label || id}${placedCard ? `, completada con ${placedCard.name}` : ', vacía'}. ${question || 'Toca o arrastra una carta aquí'}`}
+      aria-label={t('board.cell_aria', { label: label || id, status: placedCard ? t('board.cell_done', { card: placedCard.name }) : t('board.cell_empty'), question: question || t('board.cell_action') })}
       onKeyDown={(e) => {
         if ((e.key === 'Enter' || e.key === ' ') && onClick) {
           e.preventDefault();
@@ -55,7 +57,7 @@ function ArcadeNode({
           cells[(idx + step + cells.length) % cells.length]?.focus();
         }
       }}
-      className="relative flex flex-col items-center select-none cursor-pointer group focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-400/80 rounded-xl"
+      className="relative flex flex-col items-center select-none cursor-pointer group focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-400/80 rounded-arcade-sm"
       style={{ zIndex: 1 }}
     >
       {/* HEXAGONAL SLOT — matches the reference image honeycomb cells */}
@@ -187,7 +189,7 @@ function ArcadeNode({
               <CheckCircle2 className="w-5 h-5 text-green-600 drop-shadow-sm" />
             </motion.div>
           ) : (
-            <IconComp className="w-4 h-4 text-slate-500 group-hover:text-slate-700 transition-colors" />
+            <IconComp className="w-4 h-4 text-slate-600 group-hover:text-slate-700 transition-colors" />
           )}
         </div>
 
@@ -208,15 +210,15 @@ function ArcadeNode({
 
       {/* HOVER TOOLTIP FLOTANTE DE LECTURA RÁPIDA (SIEMPRE LEGIBLE) */}
       {question && (
-        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3 rounded-2xl bg-[var(--color-arcade-navy)]/98 border-2 border-amber-400/80 shadow-[0_12px_32px_rgba(0,0,0,0.85)] text-slate-100 opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 sm:w-72 p-3 rounded-arcade bg-[var(--color-arcade-navy)]/98 border-2 border-amber-400/80 shadow-[0_12px_32px_rgba(0,0,0,0.85)] text-slate-100 opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto z-50 backdrop-blur-md">
           <p className="text-amber-300 font-black text-[9px] uppercase tracking-wider mb-1 flex items-center gap-1">
             <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-            <span>{label ? `Casilla: ${label}` : 'Reactivo:'}</span>
+            <span>{label ? t('board.cell_label', { label }) : t('board.cell_item')}</span>
           </p>
           <p className="leading-snug text-slate-200 font-semibold text-[10.5px] max-h-24 overflow-y-auto">{question}</p>
           {placedCard?.name && (
             <p className="mt-1.5 text-[10px] font-black text-green-300 border-t border-green-500/30 pt-1">
-              Respuesta: {placedCard.name}
+              {t('board.cell_answer', { card: placedCard.name })}
             </p>
           )}
           {questionLatex && (
@@ -225,8 +227,8 @@ function ArcadeNode({
             </div>
           )}
           <div className="mt-1.5 flex items-center justify-between border-t border-slate-700/60 pt-1 text-[8px] font-mono text-cyan-300">
-            <span>Toca o arrastra aquí</span>
-            <span className="text-amber-400 font-bold">Clic para expandir</span>
+            <span>{t('board.cell_drop')}</span>
+            <span className="text-amber-400 font-bold">{t('board.cell_expand')}</span>
           </div>
         </div>
       )}

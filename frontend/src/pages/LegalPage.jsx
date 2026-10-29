@@ -83,7 +83,7 @@ export default function LegalPage({ type = 'terminos' }) {
         </Link>
 
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] flex items-center justify-center">
+          <div className="w-14 h-14 rounded-arcade bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] flex items-center justify-center">
             {c.icon}
           </div>
           <div>
@@ -94,14 +94,14 @@ export default function LegalPage({ type = 'terminos' }) {
 
         <div className="space-y-6">
           {c.sections.map((s) => (
-            <section key={s.h} className="p-5 rounded-2xl bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]">
+            <section key={s.h} className="p-5 rounded-arcade bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)]">
               <h2 className="text-sm font-black text-[var(--color-arcade-yellow)] uppercase tracking-wide mb-2">{s.h}</h2>
               <p className="text-sm text-slate-300 leading-relaxed">{s.p}</p>
             </section>
           ))}
         </div>
 
-        <div className="mt-8 p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-xs text-amber-200 flex gap-3">
+        <div className="mt-8 p-4 rounded-arcade bg-amber-950/40 border border-amber-500/40 text-xs text-amber-200 flex gap-3">
           <Baby className="w-5 h-5 shrink-0 text-amber-400" />
           <span>
             Documento base en revisión. Antes del lanzamiento público este texto debe

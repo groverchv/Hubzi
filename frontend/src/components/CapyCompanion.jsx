@@ -23,6 +23,7 @@ import CoachMark from "./CoachMark";
 import capyFallback from "../assets/mascots/capy_escolar_nino_m.webp";
 import { hubziAmbient } from "../utils/hubziAmbient";
 import { getMascotByDomain } from "../utils/mascotCatalog";
+import { useTranslation } from "react-i18next";
 
 /**
  * Guardián táctico 3D Zen interactivo: la mascota Hubzi con su bocadillo de
@@ -56,6 +57,7 @@ export default function CapyCompanion({
   onZenAccept,
   onZenDismiss,
 }) {
+  const { t } = useTranslation();
   return (
       <div
         className={`capy-companion absolute z-40 flex flex-col items-center select-none pointer-events-auto ${
@@ -72,7 +74,7 @@ export default function CapyCompanion({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: -10 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className={`absolute -top-26 sm:-top-28 left-0 sm:left-2 w-64 sm:w-72 p-3 rounded-2xl border-2 shadow-2xl backdrop-blur-md z-50 text-left ${
+              className={`absolute -top-26 sm:-top-28 left-0 sm:left-2 w-64 sm:w-72 p-3 rounded-arcade border-2 shadow-2xl backdrop-blur-md z-50 text-left ${
                 capyMood === "encouraging" || isCapySad
                   ? "bg-rose-950/98 border-rose-400 text-rose-100 shadow-[0_0_25px_rgba(244,63,94,0.45)]"
                   : capyMood === "happy"
@@ -104,17 +106,17 @@ export default function CapyCompanion({
                     )}
                     <span>
                       {capySpeech.interim ? (
-                        "ESCUCHANDO:"
+                        t('hubzi.listening')
                       ) : (
                         <>
                           HUBZI{" "}
                           {capyMood === "hint"
-                            ? "PISTA"
+                            ? t('hubzi.says_hint')
                             : capyMood === "happy"
-                              ? "CELEBRA"
+                              ? t('hubzi.says_celebrate')
                               : capyMood === "encouraging"
-                                ? "TE ANIMA"
-                                : "DICE"}
+                                ? t('hubzi.says_cheer')
+                                : t('hubzi.says')}
                           :
                         </>
                       )}
@@ -151,7 +153,7 @@ export default function CapyCompanion({
                   </div>
                 ) : (
                   <span className="text-[7.5px] text-cyan-400/80 font-mono">
-                    Voz Hubzi Local
+                    {t('hubzi.local_voice')}
                   </span>
                 )}
               </div>
@@ -172,16 +174,16 @@ export default function CapyCompanion({
                     e.stopPropagation();
                     if (onHintButton) onHintButton();
                   }}
-                  className="mt-2 w-full py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 border-2 border-amber-200 border-b-4 border-b-amber-600 text-amber-950 font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 active:border-b-2 transition-all"
+                  className="mt-2 w-full py-1.5 px-3 rounded-arcade-sm bg-amber-400 hover:bg-amber-300 border-2 border-amber-200 border-b-arcade border-b-amber-600 text-amber-950 font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 active:border-b-arcade-xs transition-all"
                 >
                   <Sparkles className="w-3 h-3" />
-                  Dame una pista
+                  {t('hubzi.give_hint')}
                 </button>
               )}
 
               {/* Flecha cómic del bocadillo */}
               <div
-                className={`absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 border-r-2 border-b-2 ${
+                className={`absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 border-r-2 border-b-arcade-xs ${
                   capyMood === "encouraging" || isCapySad
                     ? "bg-rose-950 border-rose-400"
                     : capyMood === "happy"
@@ -202,35 +204,35 @@ export default function CapyCompanion({
               initial={{ opacity: 0, y: 15, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9, y: 10 }}
-              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-2xl bg-gradient-to-br from-[var(--color-arcade-navy)] via-[var(--color-arcade-navy-dark)] to-slate-900 border-3 border-[var(--color-arcade-navy-light)] shadow-[0_8px_0_var(--color-arcade-ink)] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left text-white"
+              className="absolute bottom-28 right-0 z-50 p-3 w-64 rounded-arcade bg-gradient-to-br from-[var(--color-arcade-navy)] via-[var(--color-arcade-navy-dark)] to-slate-900 border-3 border-[var(--color-arcade-navy-light)] shadow-[0_8px_0_var(--color-arcade-ink)] backdrop-blur-md flex flex-col gap-2 pointer-events-auto text-left text-white"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] font-mono flex items-center gap-1.5">
                   <Wind className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)] animate-pulse" />
-                  Hubzy • Pausa de Estudio
+                  {t('hubzi.zen_banner')}
                 </span>
                 <button
                   onClick={onZenDismiss}
                   className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
-                  title="Cerrar"
+                  title={t('hubzi.close')}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
               <p className="text-[10.5px] text-slate-200 leading-snug font-bold">
                 {zenOffer.distortion
-                  ? `¡No te preocupes por ese detalle! Repasar los errores es la mejor forma de fijar el concepto.`
-                  : "¡Buen ritmo de estudio! ¿Hacemos 30 segundos de pausa para despejar la mente y volver con todo?"}
+                  ? t('hubzi.zen_distort')
+                  : t('hubzi.zen_default')}
               </p>
               <button
                 onClick={() => {
                   onZenDismiss();
                   onZenAccept();
                 }}
-                className="w-full py-2 px-3 rounded-xl bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-2 border-[var(--color-arcade-green-light)] border-b-3 border-b-[var(--color-arcade-green-shadow)] text-white font-black text-[10px] tracking-wide uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 transition-all"
+                className="w-full py-2 px-3 rounded-arcade-sm bg-[var(--color-arcade-green)] hover:bg-[#57d847] border-2 border-[var(--color-arcade-green-light)] border-b-arcade-sm border-b-[var(--color-arcade-green-shadow)] text-white font-black text-[10px] tracking-wide uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:translate-y-0.5 transition-all"
               >
                 <Sparkles className="w-3 h-3 text-white" />
-                Pausar y Respirar con Hubzy
+                {t('hubzi.zen_cta')}
               </button>
             </motion.div>
           )}
@@ -325,7 +327,7 @@ export default function CapyCompanion({
           whileTap={{ scale: 0.92 }}
           onClick={onCapyClick}
           className="relative group cursor-pointer flex flex-col items-center"
-          title="¡Haz clic en Hubzi! Te dará una pista con todo su amor 💙"
+          title={t('hubzi.click_hint')}
         >
           {/* Base Holográfica — brillo en los pies según mood */}
           <div
@@ -397,7 +399,7 @@ export default function CapyCompanion({
                   })()}
                 </div>
                 <span className="text-[8px] font-black uppercase tracking-wider text-amber-300 drop-shadow">
-                  JEFE HUBZI HP
+                  {t('hubzi.boss_hp')}
                 </span>
               </div>
             )}
@@ -410,7 +412,7 @@ export default function CapyCompanion({
                 currentUser?.gender,
               );
               const mascotSrc = resolvedMascot?.image || capyFallback;
-              const mascotTitle = resolvedMascot?.name || "Hubzi Compañero";
+              const mascotTitle = resolvedMascot?.name || t('hubzi.mascot_default');
 
               return (
                 <motion.img
@@ -422,7 +424,7 @@ export default function CapyCompanion({
                   transition={{ duration: 0.85, ease: "easeInOut" }}
                   src={mascotSrc}
                   alt={mascotTitle}
-                  title={`${mascotTitle} - ${resolvedMascot?.role || "Acompañante de Estudio"}`}
+                  title={`${mascotTitle} - ${resolvedMascot?.role || t('hubzi.mascot_role')}`}
                   className={`w-full h-full object-contain object-bottom pointer-events-none select-none transition-all duration-300 ${
                     isCapySad
                       ? "brightness-90 saturate-85"
@@ -609,7 +611,7 @@ export default function CapyCompanion({
                       duration: 0.45,
                       ease: "easeIn",
                     }}
-                    className="absolute top-1/4 left-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
+                    className="absolute top-1/4 left-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-glow-cyan-sm"
                   />
                   <motion.div
                     animate={{ y: [0, 40], opacity: [1, 0], scale: [0.8, 1.2] }}
@@ -619,7 +621,7 @@ export default function CapyCompanion({
                       delay: 0.12,
                       ease: "easeIn",
                     }}
-                    className="absolute top-1/4 right-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
+                    className="absolute top-1/4 right-[28%] w-1.5 h-4 rounded-full bg-cyan-300 shadow-glow-cyan-sm"
                   />
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-rose-950/80 via-transparent to-black/30 pointer-events-none" />
@@ -698,37 +700,37 @@ export default function CapyCompanion({
                 {isCapySad ? (
                   <>
                     <Sparkles className="w-2.5 h-2.5 text-rose-400 animate-pulse" />{" "}
-                    HUBZY TE APOYA
+                    {t('hubzi.st_support')}
                   </>
                 ) : capyMood === "dancing" ? (
                   <>
                     <Music className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />{" "}
-                    HUBZY MOTIVADO
+                    {t('hubzi.st_motivated')}
                   </>
                 ) : capyMood === "celebrating" ? (
                   <>
                     <PartyPopper className="w-2.5 h-2.5 text-amber-400 animate-pulse" />{" "}
-                    HUBZY CELEBRA
+                    {t('hubzi.st_celebrate')}
                   </>
                 ) : capyMood === "love" ? (
                   <>
                     <Heart className="w-2.5 h-2.5 text-rose-400 animate-pulse" />{" "}
-                    HUBZY CONTIGO
+                    {t('hubzi.st_with_you')}
                   </>
                 ) : capyMood === "happy" ? (
                   <>
-                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" /> HUBZY
-                    GENIAL
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" />{" "}
+                    {t('hubzi.st_great')}
                   </>
                 ) : capyMood === "thinking" ? (
                   <>
                     <Brain className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />{" "}
-                    HUBZY PENSANDO
+                    {t('hubzi.st_thinking')}
                   </>
                 ) : capyMood === "surprised" ? (
                   <>
                     <Zap className="w-2.5 h-2.5 text-indigo-400 animate-pulse" />{" "}
-                    HUBZY ASOMBRADO
+                    {t('hubzi.st_amazed')}
                   </>
                 ) : isCapySpeaking ? (
                   <>
@@ -749,7 +751,7 @@ export default function CapyCompanion({
             {/* Botón Micrófono para hablar por voz con Hubzi */}
             <span className="relative inline-flex">
               <CoachMark id="mic" position="top">
-                Puedes hablarme como a un amigo — pídeme pistas, cuéntame cómo vas o pregúntale a tus apuntes.
+                {t('hubzi.coachmark_mic')}
               </CoachMark>
             <button
               onClick={(e) => {
@@ -765,11 +767,11 @@ export default function CapyCompanion({
               }`}
               title={
                 isListening
-                  ? "Detener micrófono"
-                  : "Habla por micrófono con Hubzi para pedirle apoyo o pistas"
+                  ? t('hubzi.mic_stop')
+                  : t('hubzi.mic_talk')
               }
               aria-label={
-                isListening ? "Detener micrófono" : "Hablar con Hubzi por micrófono"
+                isListening ? t('hubzi.mic_stop') : t('hubzi.mic_aria')
               }
             >
               {isListening ? (
@@ -789,11 +791,11 @@ export default function CapyCompanion({
               className="p-2.5 rounded-full bg-slate-900/90 border-2 border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
               title={
                 isCapyMuted
-                  ? "Activar el sonido (voz, efectos y música)"
-                  : "Silenciar todo el sonido (voz, efectos y música)"
+                  ? t('hubzi.sound_on')
+                  : t('hubzi.sound_off')
               }
               aria-label={
-                isCapyMuted ? "Activar sonido" : "Silenciar todo el sonido"
+                isCapyMuted ? t('hubzi.sound_on_s') : t('hubzi.sound_off_s')
               }
             >
               {isCapyMuted ? (
@@ -817,8 +819,8 @@ export default function CapyCompanion({
               }`}
               title={
                 isAmbientPlaying
-                  ? "Detener música calmante"
-                  : "Reproducir música ambient calmante"
+                  ? t('hubzi.music_stop')
+                  : t('hubzi.music_play')
               }
             >
               {isAmbientPlaying ? (
@@ -839,8 +841,8 @@ export default function CapyCompanion({
                   ? "bg-cyan-900/90 border-cyan-400 text-cyan-200 ring-2 ring-cyan-400/40"
                   : "bg-slate-900/90 border-slate-700 hover:border-cyan-400 text-slate-400 hover:text-cyan-300"
               }`}
-              title="Ver la conversación con Hubzi"
-              aria-label="Abrir chat con Hubzi"
+              title={t('hubzi.chat_view')}
+              aria-label={t('hubzi.chat_open')}
             >
               <MessageCircle className="w-5 h-5" />
             </button>
@@ -856,10 +858,10 @@ export default function CapyCompanion({
                   if (onZenAccept) onZenAccept();
                 }}
                 className="px-2 py-1 rounded-full bg-emerald-600/95 border border-emerald-300 text-white text-[8px] font-black uppercase tracking-wider shadow-[0_0_14px_rgba(52,211,153,0.7)] animate-pulse cursor-pointer flex items-center gap-1"
-                title="Respirar con Hubzi — pausa anti-estrés de 30 segundos"
+                title={t('hubzi.breathe_t')}
               >
                 <Wind className="w-3 h-3" />
-                Respira
+                {t('hubzi.breathe')}
               </motion.button>
             )}
           </div>
@@ -874,12 +876,12 @@ export default function CapyCompanion({
             }`}
           >
             {hubziStatus === "listening"
-              ? "Hubzi te escucha..."
+              ? t('hubzi.st_listening')
               : hubziStatus === "thinking"
-                ? "Hubzi pensando con calidez..."
+                ? t('hubzi.st_think_warm')
                 : hubziStatus === "alert"
-                  ? "Hubzi te acompaña 💙"
-                  : "Toca el micrófono para hablar con Hubzi"}
+                  ? t('hubzi.st_alert')
+                  : t('hubzi.st_idle')}
           </span>
         </motion.div>
       </div>

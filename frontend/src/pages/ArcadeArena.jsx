@@ -49,7 +49,8 @@ import { detectDomainCategory } from "../utils/domainIcons";
 import { fetchWithAuth } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 import { useCrisis, checkCrisisFlag } from "../lib/crisis.jsx";
-import { GAME_LEVELS } from "../utils/gameConfig";
+import { GAME_LEVELS, levelName } from "../utils/gameConfig";
+import { useTranslation } from "react-i18next";
 import { DEMO_BOARD, DEMO_FOLDER } from "../utils/demoBoard";
 import { analyzeIntentLocally } from "../utils/localNlp";
 import { getDynamicLayout } from "../utils/boardLayout";
@@ -80,6 +81,7 @@ export default function ArcadeArena() {
   const [boardInfo, setBoardInfo] = useState(null);
   const [nodes, setNodes] = useState({});
   const [hand, setHand] = useState([]);
+  const { t } = useTranslation();
   const [handPage, setHandPage] = useState(0); // Paginación inteligente del mazo (8 cartas por vista)
   const [flyingCard, setFlyingCard] = useState(null); // { card, targetPos, isOpponent }
   // Racha de aciertos consecutivos (feedback positivo — nunca castiga)
@@ -194,7 +196,7 @@ export default function ArcadeArena() {
         .then((data) => {
           if (data.is_paid) {
             setSuccessNotif(
-              "¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro",
+              t('arena.pay_success'),
             );
             if (currentUser) {
               const updated = { ...currentUser, plan: "pro" };
@@ -216,7 +218,7 @@ export default function ArcadeArena() {
           );
         });
     } else if (payment === "cancelled") {
-      setSuccessNotif("Pago cancelado en Stripe.");
+      setSuccessNotif(t('arena.pay_cancel'));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -228,17 +230,17 @@ export default function ArcadeArena() {
         .then((data) => {
           if (data.is_paid) {
             setSuccessNotif(
-              "¡Licencia escolar activada! Tu colegio ya puede matricular estudiantes.",
+              t('arena.school_pay_ok'),
             );
           } else {
             setSuccessNotif(
-              "Pago registrado — la licencia se activará automáticamente al confirmarse.",
+              t('arena.school_pay_pending'),
             );
           }
         })
         .catch(() => {
           setErrorNotif(
-            "No se pudo confirmar el pago aún — si ya pagaste, la licencia se activa sola en unos minutos.",
+            t('arena.school_pay_fail'),
           );
         })
         .finally(() => {
@@ -249,7 +251,7 @@ export default function ArcadeArena() {
           );
         });
     } else if (schoolPayment === "cancelled") {
-      setErrorNotif("Pago de licencia escolar cancelado.");
+      setErrorNotif(t('arena.school_pay_cancel'));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -557,7 +559,7 @@ export default function ArcadeArena() {
               setHintCardId(matchingCard.id);
               setHintNodeId(emptyNode.id);
               setSuccessNotif(
-                `Pista de Hubzi: ¡Esta carta pertenece a la casilla "${emptyNode.label || "en espera"}"!`,
+                t('arena.hint_belongs', { label: emptyNode.label || t('arena.pending_slot') }),
               );
             }
           }
@@ -570,7 +572,7 @@ export default function ArcadeArena() {
           setIdleBlinkSeq((s) => s + 1);
           triggerCapyVoice("hint", {
             customText:
-              "¿Seguimos? Sin prisa — respira, mira tus cartas y si quieres te doy una pista.",
+              t('arena.idle_nudge'),
             profile: "loving_psychologist",
           });
         }
@@ -724,7 +726,7 @@ export default function ArcadeArena() {
       if (days >= 2) {
         setCapyMood("encouraging");
         setCapySpeech({
-          text: `¡Qué gusto verte! Pasaron ${days} días — un repaso rápido ahora afianza todo lo que ya dominaste.`,
+          text: t('arena.welcome_back', { days }),
           isVisible: true,
           mood: "encouraging",
         });
@@ -746,7 +748,7 @@ export default function ArcadeArena() {
       offerSupport({ category: "pausa activa", emotion: "fatiga" }, 1);
       setCapyMood("encouraging");
       setCapySpeech({
-        text: "Llevas un buen rato concentrado — un respiro de 2 minutos ayuda a que todo se fije mejor. ¿Respiramos juntos?",
+        text: t('arena.break_offer'),
         isVisible: true,
         mood: "encouraging",
       });
@@ -897,7 +899,7 @@ export default function ArcadeArena() {
     if (!activeFolder?.id) return;
     if (
       !window.confirm(
-        "¿Reiniciar la campaña? Se borrarán tus estrellas y volverás al Nivel 1.",
+        t('arena.confirm_reset'),
       )
     )
       return;
@@ -925,7 +927,7 @@ export default function ArcadeArena() {
       `/api/v1/folders/${activeFolder.id}/campaign-progress${activeIsland ? `?island_id=${activeIsland.id}` : ""}`,
       { method: "DELETE" },
     ).catch((e) => console.warn("No se pudo reiniciar el progreso:", e));
-    setSuccessNotif("Campaña reiniciada. ¡De nuevo al Nivel 1!");
+    setSuccessNotif(t('arena.reset_done'));
   };
 
   // Función principal para activar la voz tierna y reacciones de Capibara
@@ -1044,10 +1046,10 @@ export default function ArcadeArena() {
     const hintSnippet =
       target.hint ||
       target.question ||
-      "Observa las opciones disponibles en tus cartas";
+      t('arena.observe_cards');
     triggerCapyVoice("hint", {
       label: target.label,
-      hintText: `para analizar "${target.label}": ${hintSnippet.slice(0, 90)}. Concéntrate en la función principal.`,
+      hintText: t('arena.hint_for', { label: target.label, hint: hintSnippet.slice(0, 90) }),
       profile: "loving_psychologist",
     });
   };
@@ -1061,10 +1063,10 @@ export default function ArcadeArena() {
       const hintSnippet =
         node.hint ||
         node.question ||
-        "Observa las opciones disponibles en tus cartas";
+        t('arena.observe_cards');
       triggerCapyVoice("hint", {
         label: node.label,
-        hintText: `para analizar "${node.label}": ${hintSnippet.slice(0, 90)}. Concéntrate en la función principal.`,
+        hintText: t('arena.hint_for', { label: node.label, hint: hintSnippet.slice(0, 90) }),
         profile: "loving_psychologist",
       });
     } else {
@@ -1077,7 +1079,7 @@ export default function ArcadeArena() {
     setIsThinkingHint(true);
     setCapyMood("thinking");
     setCapySpeech({
-      text: `¡Te escucho! Dijiste: "${transcript}" ... ¡Estoy pensando con todo mi amor para ti!`,
+      text: t('arena.heard_you', { text: transcript }),
       isVisible: true,
       mood: "thinking",
     });
@@ -1109,7 +1111,7 @@ export default function ArcadeArena() {
             domain: c.domain,
             isDistractor: Boolean(c.isDistractor),
           })),
-          theme: boardInfo?.title || "Simulacro de Examen",
+          theme: boardInfo?.title || t('arena.sim_exam'),
           user_profile: currentUser || {},
         }),
       });
@@ -1118,7 +1120,7 @@ export default function ArcadeArena() {
       if (res.ok) {
         const data = await res.json();
         const reply =
-          data.reply || "¡Revisa los conceptos clave de tus cartas!";
+          data.reply || t('arena.check_cards');
         const psych = data.psychology;
         checkCrisisFlag(data, () => {
           offerSupport({ category: "apoyo inmediato" }, 3);
@@ -1274,7 +1276,7 @@ export default function ArcadeArena() {
         triggerCapyVoice("victory", {
           level: currentLevel,
           customText: isNewStarRecord
-            ? `¡${earnedStars === 1 ? "Una estrella nueva" : `${earnedStars} estrellas nuevas`} para tu colección! Lo lograste — estoy muy orgullosa de ti.`
+            ? t('arena.victory_stars', { stars: earnedStars === 1 ? t('arena.star_one') : t('arena.star_many', { count: earnedStars }) })
             : undefined,
         });
         setIsVictoryModalOpen(true);
@@ -1322,8 +1324,8 @@ export default function ArcadeArena() {
     setBoardInfo({
       title:
         boardData.title ||
-        (folderName ? folderName.toUpperCase() : "ARENA DE ESTUDIO"),
-      theme: folderName || "Estudio",
+        (folderName ? folderName.toUpperCase() : t('arena.study_board')),
+      theme: folderName || t('arena.study'),
       levelInfo: lvlInfo,
     });
 
@@ -1337,7 +1339,7 @@ export default function ArcadeArena() {
     ];
 
     // Detección automática del tema y disciplina académica real del documento/carpeta
-    const activeTheme = folderName || boardData.title || "Estudio";
+    const activeTheme = folderName || boardData.title || t('arena.study');
     const detectedCategory = detectDomainCategory(
       `${activeTheme} ${boardData.title || ""}`,
     );
@@ -1360,13 +1362,13 @@ export default function ArcadeArena() {
       const matchingCard = activeMatchingCards[idx];
       const cardId = matchingCard?.id || `card_${idx + 1}`;
       const conceptLabel =
-        n.label || matchingCard?.concept_name || `Concepto ${idx + 1}`;
+        n.label || matchingCard?.concept_name || t('arena.concept_n', { n: idx + 1 });
       const questionText =
         n.question ||
         n.description ||
-        "¿A qué concepto corresponde este principio?";
+        t('arena.question_default');
       const hintText =
-        n.description || "Revisa el contenido del documento de esta carpeta.";
+        n.description || t('arena.hint_doc');
 
       newNodes[n.id] = {
         id: n.id,
@@ -1398,7 +1400,7 @@ export default function ArcadeArena() {
         domain: detectedCategory,
         theme: activeTheme,
         cardIndex: i,
-        content: c.content || "Respuesta conceptual del tema.",
+        content: c.content || t('arena.answer_default'),
         matchesNodeId: activeNodes[i]?.id || null,
         isDistractor: false,
       };
@@ -1412,12 +1414,12 @@ export default function ArcadeArena() {
     backendTrapCards.slice(0, requiredTrapCount).forEach((c, i) => {
       processedCards.push({
         id: c.id || `card_trap_backend_${i + 1}`,
-        name: c.concept_name || c.name || "Afirmación Incorrecta",
+        name: c.concept_name || c.name || t('arena.wrong_claim'),
         cost: c.points_multiplier || "1x",
         type: "dark",
         sourceType: "document",
         domain: "trampa",
-        content: c.content || "¡Carta trampa! Esta afirmación no corresponde al tema.",
+        content: c.content || t('arena.trap_content'),
         matchesNodeId: null,
         isDistractor: true,
         isTrap: true,
@@ -1434,10 +1436,10 @@ export default function ArcadeArena() {
       const conceptPool = processedCards
         .filter((c) => !c.isDistractor)
         .map((c) => c.name);
-      const trapSuffixes = ["(inverso)", "(falso)", "(parcial)", "(extremo)", "(opuesto)", "(límite)"];
+      const trapSuffixes = t('arena.trap_sfx', { returnObjects: true });
       for (let k = 0; k < missingCount; k++) {
         const dIdx = currentDistractorCount + k;
-        const baseName = conceptPool[dIdx % Math.max(1, conceptPool.length)] || `Concepto ${dIdx + 1}`;
+        const baseName = conceptPool[dIdx % Math.max(1, conceptPool.length)] || t('arena.concept_n', { n: dIdx + 1 });
         processedCards.push({
           id: `card_trap_dyn_${dIdx + 1}`,
           name: `${baseName} ${trapSuffixes[dIdx % trapSuffixes.length]}`.slice(0, 38),
@@ -1446,7 +1448,7 @@ export default function ArcadeArena() {
           sourceType: "document",
           domain: "trampa",
           content:
-            "¡Carta trampa! Esta afirmación contradice el contenido oficial del tema.",
+            t('arena.trap_content2'),
           matchesNodeId: null,
           isDistractor: true,
           isTrap: true,
@@ -1501,7 +1503,7 @@ export default function ArcadeArena() {
       setTimeout(() => {
         setCapyMood("love");
         setCapySpeech({
-          text: `¡${studyStreak} días seguidos estudiando! Tu constancia es tu superpoder — buen ritmo.`,
+          text: t('arena.streak_greet', { days: studyStreak }),
           isVisible: true,
           mood: "love",
         });
@@ -1516,7 +1518,7 @@ export default function ArcadeArena() {
         level,
         ...(isNewIsland
           ? {
-              customText: `¡Descubrimos una isla nueva: ${island.name}! Estoy emocionada — vamos a explorarla juntos, paso a paso.`,
+              customText: t('arena.new_island', { name: island.name }),
             }
           : {}),
       });
@@ -1536,7 +1538,7 @@ export default function ArcadeArena() {
     if (ok) {
       setCurrentLevel(5);
       setSuccessNotif(
-        "Demo lista — así se juega Hubzy. Luego sube tus documentos para crear tus islas.",
+        t('arena.demo_ready'),
       );
     }
   };
@@ -1572,14 +1574,14 @@ export default function ArcadeArena() {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       const jr = await fetchWithAuth(`/api/v1/jobs/${jobId}`, { signal });
       if (!jr.ok)
-        throw new Error(`No se pudo consultar el progreso (${jr.status}).`);
+        throw new Error(t('arena.job_progress_fail', { status: jr.status }));
       const job = await jr.json();
       setGenStage(job.stage);
       if (typeof job.progress === "number") setGenProgress(job.progress);
       if (job.status === "done") return job.result;
       if (job.status === "error") {
         const e = new Error(
-          job.error || "No se pudieron generar los reactivos del nivel con IA.",
+          job.error || t('arena.gen_fail'),
         );
         e.status = job.status_code || 500;
         throw e;
@@ -1596,7 +1598,7 @@ export default function ArcadeArena() {
   ) => {
     if (isGeneratingArena) return false; // guard anti doble-submit
     if (!targetFolder) {
-      setSuccessNotif("Selecciona una carpeta de estudio para comenzar.");
+      setSuccessNotif(t('arena.select_folder'));
       setIsFolderModalOpen(true);
       return false;
     }
@@ -1622,7 +1624,7 @@ export default function ArcadeArena() {
     const controller = new AbortController();
     genAbortRef.current = controller;
     setSuccessNotif(
-      `Cargando Nivel ${targetLevel} (${lvlInfo.name} - ${lvlInfo.questions} preguntas) desde [${targetFolder.name}${topicLabel}]...`,
+      t('arena.loading_level', { level: targetLevel, name: levelName(lvlInfo, t), count: lvlInfo.questions, folder: targetFolder.name, topic: topicLabel }),
     );
 
     // 0. VERIFICACIÓN INSTANTÁNEA EN MEMORIA / CACHÉ LOCAL (0 ms, 0 tokens)
@@ -1654,7 +1656,7 @@ export default function ArcadeArena() {
           setGenStage(null);
           setGenProgress(null);
           setSuccessNotif(
-            `Nivel ${targetLevel} listo al instante (análisis previo en memoria).`,
+            t('arena.level_cached', { level: targetLevel }),
           );
           return true;
         }
@@ -1677,7 +1679,7 @@ export default function ArcadeArena() {
       } else {
         const err = await res.json().catch(() => ({}));
         const msg =
-          err.detail || "No se pudieron generar los reactivos del nivel con IA.";
+          err.detail || t('arena.gen_fail');
         if (res.status === 402) {
           setErrorNotif(msg);
         } else {
@@ -1717,12 +1719,12 @@ export default function ArcadeArena() {
         if (success) {
           setCurrentLevel(targetLevel);
           setSuccessNotif(
-            `Nivel ${targetLevel}: ${lvlInfo.name} (${lvlInfo.questions} preguntas) listo.`,
+            t('arena.level_ready', { level: targetLevel, name: levelName(lvlInfo, t), count: lvlInfo.questions }),
           );
           return true;
         }
       }
-      setGenError({ message: "El análisis no devolvió reactivos válidos." });
+      setGenError({ message: t('arena.gen_invalid') });
     } catch (e) {
       if (e.name === "AbortError") return false; // cancelado por el usuario
       console.warn("Error cargando nivel desde el backend:", e);
@@ -1735,12 +1737,12 @@ export default function ArcadeArena() {
         setGenError({
           offline: true,
           message:
-            "Sin conexión con el servidor de Hubzy. Revisa tu internet — mientras tanto puedes practicar con la demo local.",
+            t('arena.gen_offline'),
         });
       } else {
         setGenError({
           message:
-            e.message || "Error al conectarse con el servidor de análisis.",
+            e.message || t('arena.gen_error'),
         });
       }
     } finally {
@@ -1805,7 +1807,7 @@ export default function ArcadeArena() {
     setSelectedCardInHand(null);
     setFlyingCard(null);
     setSuccessNotif(
-      "Tablero reiniciado: Vuelve a intentar este mismo examen.",
+      t('arena.board_reset'),
     );
   };
 
@@ -1815,7 +1817,7 @@ export default function ArcadeArena() {
     setIsVictoryModalOpen(false);
     if (!activeFolder) {
       setSuccessNotif(
-        "Selecciona una carpeta en el baúl para iniciar el juego.",
+        t('arena.select_trunk'),
       );
       setIsFolderModalOpen(true);
       return;
@@ -1900,18 +1902,18 @@ export default function ArcadeArena() {
 
       const pedagogicalHint =
         targetNode.hint ||
-        `Revisa con atención: esta casilla evalúa el principio "${targetNode.label}".`;
+        t('arena.node_hint', { label: targetNode.label });
       setCapyMood(isTrap ? "surprised" : "encouraging");
       setCapySpeech({
         text: wantsHintOffer
           ? kidMode
-            ? `¡Casi! "${card.name}" no era esa. Este tema está un poco difícil — ¿quieres una pista?`
-            : `¡Casi! "${card.name}" no va aquí. Este tema está difícil — ¿quieres una pista sobre "${targetNode.label}"?`
+            ? t('arena.almost_kid', { card: card.name })
+            : t('arena.almost_adult', { card: card.name, label: targetNode.label })
           : kidMode
-            ? `¡Casi! "${card.name}" no era esa. ${pedagogicalHint}`
+            ? t('arena.almost_kid_hint', { card: card.name, hint: pedagogicalHint })
             : isTrap
-              ? `¡Sorpresa, es una CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
-              : `¡Casi! "${card.name}" no va aquí. Pista: ${pedagogicalHint}`,
+              ? t('arena.trap_speech', { hint: pedagogicalHint })
+              : t('arena.almost_hint', { card: card.name, hint: pedagogicalHint }),
         isVisible: true,
         mood: isTrap ? "surprised" : "encouraging",
         // Botón "Dame una pista" directo en la burbuja (espera al jugador)
@@ -1919,10 +1921,10 @@ export default function ArcadeArena() {
       });
       setSuccessNotif(
         kidMode
-          ? `"${card.name}" no era. Pista: ${pedagogicalHint}`
+          ? t('arena.notif_wrong_kid', { card: card.name, hint: pedagogicalHint })
           : isTrap
-            ? `¡CARTA TRAMPA! Se desvanece del mazo. Pista: ${pedagogicalHint}`
-            : `"${card.name}" no corresponde a "${targetNode.label}". Pista: ${pedagogicalHint}`,
+            ? t('arena.notif_trap', { hint: pedagogicalHint })
+            : t('arena.notif_wrong', { card: card.name, label: targetNode.label, hint: pedagogicalHint }),
       );
 
       setTimeout(() => {
@@ -1956,7 +1958,7 @@ export default function ArcadeArena() {
     setHand((prev) => prev.filter((c) => String(c.id) !== String(card.id)));
     setPlayerScore((prev) => prev + pointsEarned);
     setSuccessNotif(
-      `¡Excelente! "${card.name}" responde correctamente. +${pointsEarned} pts`,
+      t('arena.card_ok', { card: card.name, pts: pointsEarned }),
     );
     return true;
   };
@@ -2009,7 +2011,7 @@ export default function ArcadeArena() {
       // Mostrar la respuesta completa en el panel lateral para leerla
       setSelectedCardForDetail(card);
       setSuccessNotif(
-        `Carta "${card.name}" seleccionada. Toca la casilla correspondiente en el tablero.`,
+        t('arena.card_selected', { card: card.name }),
       );
     }
   };
@@ -2137,7 +2139,7 @@ export default function ArcadeArena() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-emerald-600/95 border-2 border-emerald-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(16,185,129,0.35)] max-w-lg"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-arcade bg-emerald-600/95 border-2 border-emerald-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(16,185,129,0.35)] max-w-lg"
         >
           <CheckCircle2 className="w-5 h-5 shrink-0" />
           <span>{successNotif}</span>
@@ -2149,7 +2151,7 @@ export default function ArcadeArena() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-2xl bg-rose-600/95 border-2 border-rose-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(244,63,94,0.35)] max-w-lg"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-arcade bg-rose-600/95 border-2 border-rose-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(244,63,94,0.35)] max-w-lg"
         >
           <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{errorNotif}</span>
@@ -2176,22 +2178,21 @@ export default function ArcadeArena() {
             exit={{ scale: 0.9, opacity: 0, y: 16 }}
             transition={{ type: "spring", damping: 25, stiffness: 320 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-white rounded-3xl border-4 border-[var(--color-arcade-navy)] shadow-[0_10px_0_var(--color-arcade-navy)] p-6 text-center"
+            className="w-full max-w-sm bg-white rounded-arcade-lg border-4 border-[var(--color-arcade-navy)] shadow-modal p-6 text-center"
           >
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 border-2 border-rose-300 flex items-center justify-center mb-3">
+            <div className="w-14 h-14 mx-auto rounded-arcade bg-rose-100 border-2 border-rose-300 flex items-center justify-center mb-3">
               <LogOut className="w-7 h-7 text-rose-500" />
             </div>
             <h3 className="text-lg font-black text-[var(--color-arcade-navy)] uppercase tracking-wide mb-1">
-              ¿Cerrar sesión?
+              {t('arena.logout_q')}
             </h3>
             <p className="text-xs text-slate-500 font-medium mb-5 leading-relaxed">
-              {currentUser?.username || currentUser?.email || "Tu cuenta"} — tu
-              progreso y carpetas quedan guardados.
+{t('arena.logout_body', { name: currentUser?.username || currentUser?.email || t('arena.your_account') })}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setIsLogoutConfirmOpen(false)}
-                className="flex-1 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-700 font-black text-xs uppercase tracking-wide cursor-pointer transition-colors"
+                className="flex-1 py-2.5 rounded-arcade bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 text-slate-700 font-black text-xs uppercase tracking-wide cursor-pointer transition-colors"
               >
                 Cancelar
               </button>
@@ -2200,9 +2201,9 @@ export default function ArcadeArena() {
                   setIsLogoutConfirmOpen(false);
                   handleLogout();
                 }}
-                className="flex-1 py-2.5 rounded-2xl bg-rose-500 hover:bg-rose-600 border-b-4 border-rose-700 text-white font-black text-xs uppercase tracking-wide cursor-pointer transition-all active:translate-y-0.5 active:border-b-2"
+                className="flex-1 py-2.5 rounded-arcade bg-rose-500 hover:bg-rose-600 border-b-arcade border-rose-700 text-white font-black text-xs uppercase tracking-wide cursor-pointer transition-all active:translate-y-0.5 active:border-b-arcade-xs"
               >
-                Sí, cerrar sesión
+                {t('arena.logout_yes')}
               </button>
             </div>
           </motion.div>
@@ -2547,20 +2548,19 @@ export default function ArcadeArena() {
               animate={{ rotateY: 0, scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0, y: -30 }}
               transition={{ type: "spring", stiffness: 300, damping: 22 }}
-              className="w-64 sm:w-72 p-4 rounded-3xl bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-500/80 shadow-[0_0_50px_rgba(15,23,42,0.9)] text-center"
+              className="w-64 sm:w-72 p-4 rounded-arcade-lg bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-500/80 shadow-[0_0_50px_rgba(15,23,42,0.9)] text-center"
             >
-              <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-950 border border-slate-600 flex items-center justify-center mb-2">
+              <div className="w-12 h-12 mx-auto rounded-arcade bg-slate-950 border border-slate-600 flex items-center justify-center mb-2">
                 <EyeOff className="w-6 h-6 text-slate-400" />
               </div>
               <p className="text-[9px] font-black uppercase tracking-widest text-rose-300 mb-1">
-                ¡Era una carta trampa!
+                {t('arena.trap_reveal_t')}
               </p>
               <p className="text-sm font-black text-white uppercase leading-tight mb-1.5">
                 "{trapReveal.card.name}"
               </p>
               <p className="text-[10.5px] text-slate-300 leading-snug font-medium">
-                No correspondía a "{trapReveal.nodeLabel}" — esta afirmación
-                contradice el contenido del tema. Se desvanece del mazo.
+{t('arena.trap_reveal_b', { node: trapReveal.nodeLabel })}
               </p>
             </motion.div>
           </motion.div>
@@ -2646,8 +2646,8 @@ export default function ArcadeArena() {
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 400, damping: 18 }}
-          className="absolute top-16 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-[var(--color-arcade-navy-dark)]/90 border-2 border-[var(--color-arcade-orange)]/70 shadow-[0_4px_0_var(--color-arcade-ink)] pointer-events-none"
-          title="Aciertos consecutivos"
+          className="absolute top-16 left-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-arcade bg-[var(--color-arcade-navy-dark)]/90 border-2 border-[var(--color-arcade-orange)]/70 shadow-btn-arcade pointer-events-none"
+          title={t('arena.streak_title')}
         >
           <Flame className="w-4 h-4 text-[var(--color-arcade-orange)] fill-current" />
           <span className="text-sm font-black text-white">x{streak}</span>
@@ -2664,29 +2664,26 @@ export default function ArcadeArena() {
             animate={{ opacity: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, y: 8, x: "-50%" }}
             transition={{ type: "spring", stiffness: 320, damping: 24 }}
-            className="absolute left-1/2 bottom-[150px] sm:bottom-[160px] z-50 w-72 p-3 rounded-2xl bg-[var(--color-arcade-navy-dark)]/97 border-2 border-amber-400/80 shadow-[0_10px_30px_rgba(0,0,0,0.55)] text-center pointer-events-auto"
+            className="absolute left-1/2 bottom-[150px] sm:bottom-[160px] z-50 w-72 p-3 rounded-arcade bg-[var(--color-arcade-navy-dark)]/97 border-2 border-amber-400/80 shadow-[0_10px_30px_rgba(0,0,0,0.55)] text-center pointer-events-auto"
           >
             <p className="text-[9px] font-black uppercase tracking-widest text-amber-300 mb-1">
-              Hubzi te guía · paso {guideStep} de 3
+              {t('arena.guide_step', { step: guideStep })}
             </p>
             <p className="text-[11.5px] font-bold text-white leading-snug">
-              {guideStep === 1 &&
-                "Toca (o arrastra) una carta de tu mazo para seleccionarla."}
-              {guideStep === 2 &&
-                "Ahora toca la casilla del tablero donde crees que va."}
-              {guideStep === 3 &&
-                "¡Perfecto! Completa todas las casillas para ganar el nivel."}
+{guideStep === 1 && t('arena.guide_1')}
+{guideStep === 2 && t('arena.guide_2')}
+{guideStep === 3 && t('arena.guide_3')}
             </p>
             {guideStep < 3 && (
               <button
                 onClick={finishGuided}
                 className="mt-1.5 text-[9px] font-bold text-slate-400 hover:text-white underline cursor-pointer"
               >
-                Saltar guía
+                {t('arena.guide_skip')}
               </button>
             )}
             {/* Flecha apuntando al mazo/tablero */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 bg-[var(--color-arcade-navy-dark)] border-r-2 border-b-2 border-amber-400/80" />
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rotate-45 bg-[var(--color-arcade-navy-dark)] border-r-2 border-b-arcade-xs border-amber-400/80" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -2697,11 +2694,11 @@ export default function ArcadeArena() {
         {Object.keys(nodes).length > 0 && (
           <button
             onClick={() => setIsMapVisible(true)}
-            className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-green)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-green-shadow)] active:translate-y-1 active:shadow-none cursor-pointer"
-            title="Ver Mapa de Aventura y Niveles"
+            className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-green)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-green active:translate-y-1 active:shadow-none cursor-pointer"
+            title={t('arena.map_title')}
           >
             <Compass className="w-4 h-4 text-[var(--color-arcade-green)]" />
-            <span className="hidden sm:inline">Mapa</span>
+            <span className="hidden sm:inline">{t('arena.map_btn')}</span>
           </button>
         )}
 
@@ -2711,21 +2708,21 @@ export default function ArcadeArena() {
             setIsFolderModalOpen(false);
             setIsWelcomeScreenVisible(true);
           }}
-          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer"
-          title="Volver a la pantalla de bienvenida / Menú de Inicio"
+          className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-arcade active:translate-y-1 active:shadow-none cursor-pointer"
+          title={t('arena.menu_title')}
         >
           <Home className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
-          <span className="hidden sm:inline">Menú</span>
+          <span className="hidden sm:inline">{t('arena.menu_btn')}</span>
         </button>
 
         {/* BOTÓN CÓMO JUGAR / TUTORIAL (ESTILO CARD CLASH PLAY TUTORIAL) */}
         <button
           onClick={() => setIsTutorialOpen(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none cursor-pointer"
-          title="Ver tutorial rápido de cómo jugar"
+          className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-orange-flat active:translate-y-1 active:shadow-none cursor-pointer"
+          title={t('arena.tut_title')}
         >
           <BookOpen className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
-          <span className="hidden lg:inline">Tutorial</span>
+          <span className="hidden lg:inline">{t('arena.tut_btn')}</span>
         </button>
 
         {/* ACCESIBILIDAD: alto contraste y texto grande */}
@@ -2734,23 +2731,23 @@ export default function ArcadeArena() {
         {/* BOTÓN CARPETAS / MATERIALES */}
         <button
           onClick={() => setIsFolderModalOpen(true)}
-          className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-4 border-b-[var(--color-arcade-ink)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-[0_4px_0_var(--color-arcade-ink)] active:translate-y-1 active:shadow-none cursor-pointer"
-          title="Abrir baúl de carpetas y subir nuevos documentos"
+          className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-arcade active:translate-y-1 active:shadow-none cursor-pointer"
+          title={t('arena.folders_title')}
         >
           <FolderIcon className="w-4 h-4 text-[var(--color-arcade-cyan)]" />
-          <span className="hidden lg:inline">Carpetas</span>
+          <span className="hidden lg:inline">{t('arena.folders_btn')}</span>
         </button>
 
         {/* BOTÓN REINICIAR — solo cuando hay una partida que reiniciar */}
         {Object.keys(nodes).length > 0 && (
           <button
             onClick={handleRestartWithNewQuestions}
-            className="px-3.5 py-2 rounded-2xl bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-4 border-b-[var(--color-arcade-green-shadow)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-navy)] active:translate-y-1 active:shadow-none cursor-pointer"
-            title="Reiniciar partida y generar un nuevo conjunto de preguntas de este documento"
+            className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-arcade border-b-[var(--color-arcade-green-shadow)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-navy)] active:translate-y-1 active:shadow-none cursor-pointer"
+            title={t('arena.restart_title')}
           >
             <RotateCcw className="w-4 h-4 text-white" />
             <span className="hidden sm:inline font-black tracking-wide">
-              Reiniciar
+              {t('arena.restart_btn')}
             </span>
           </button>
         )}
@@ -2763,20 +2760,20 @@ export default function ArcadeArena() {
             Carpeta › Isla › Nivel actual */}
         {(activeFolder || activeIsland) && (
           <div
-            className="hud-chip hidden sm:flex items-center gap-1 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)] max-w-[300px]"
-            title={`${activeFolder?.name || "Campaña"} › ${activeIsland?.name || "Isla General"} › Nivel ${currentLevel}`}
+            className="hud-chip hidden sm:flex items-center gap-1 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-arcade shadow-hud max-w-[300px]"
+            title={t('arena.crumb', { folder: activeFolder?.name || t('arena.campaign'), island: activeIsland?.name || t('arena.island_general'), level: currentLevel })}
           >
             <Compass className="w-3.5 h-3.5 text-[var(--color-arcade-cyan)] shrink-0" />
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 truncate">
-              {activeFolder?.name || "Campaña"}
+              {activeFolder?.name || t('arena.campaign')}
             </span>
             <span className="text-[10px] font-black text-slate-500">›</span>
             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-arcade-cyan)] truncate">
-              {activeIsland?.name || "Isla General"}
+              {activeIsland?.name || t('arena.island_general')}
             </span>
             <span className="text-[10px] font-black text-slate-500">›</span>
             <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-arcade-yellow)] shrink-0">
-              Nivel {currentLevel}
+              {t('arena.level_n', { level: currentLevel })}
             </span>
           </div>
         )}
@@ -2787,20 +2784,20 @@ export default function ArcadeArena() {
             GAME_LEVELS.find((l) => l.level === currentLevel) || GAME_LEVELS[0];
           return (
             <div
-              className="hud-chip flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
-              title={`Nivel ${currentLevel} de 20: ${lvlInfo.name}`}
+              className="hud-chip flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-arcade shadow-hud"
+              title={t('arena.level_of', { level: currentLevel, max: 20, name: levelName(lvlInfo, t) })}
             >
               <Trophy className="w-4 h-4 text-[var(--color-arcade-yellow)] animate-bounce" />
               <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider">
-                NIVEL {currentLevel}/20:
+                {t('arena.level_tag', { level: currentLevel, max: 20 })}
               </span>
               <span className="text-xs font-black text-white uppercase tracking-wide">
-                {lvlInfo.name} ({lvlInfo.questions})
+                {levelName(lvlInfo, t)} ({lvlInfo.questions})
               </span>
               {/* Estrellas ganadas en ESTE nivel (HUD de campaña, 3.5) */}
               <span
                 className="flex items-center gap-0.5 ml-0.5"
-                title={`${levelStars[currentLevel] || 0}/3 estrellas en este nivel`}
+                title={t('arena.stars_here', { count: levelStars[currentLevel] || 0 })}
               >
                 {[1, 2, 3].map((s) => (
                   <Star
@@ -2822,12 +2819,12 @@ export default function ArcadeArena() {
         {unlockedLevel > currentLevel && currentLevel < maxLevel && (
           <button
             onClick={() => setIsMapVisible(true)}
-            className="hud-chip flex items-center gap-1 bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-green)]/70 border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)] cursor-pointer transition-all"
-            title={`Siguiente nivel ${currentLevel + 1} desbloqueado — ir al mapa`}
+            className="hud-chip flex items-center gap-1 bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-green)]/70 border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-arcade shadow-hud cursor-pointer transition-all"
+            title={t('arena.next_level', { level: currentLevel + 1 })}
           >
             <SkipForward className="w-3.5 h-3.5 text-[var(--color-arcade-green)]" />
             <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
-              Nivel {currentLevel + 1}
+              {t('arena.level_n', { level: currentLevel + 1 })}
             </span>
           </button>
         )}
@@ -2840,11 +2837,11 @@ export default function ArcadeArena() {
           const pct = Math.min(100, Math.round((doneN / totalN) * 100));
           return (
             <div
-              className="hud-chip flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-3 border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-2xl shadow-[0_3px_0_var(--color-arcade-ink)]"
-              title={`Progreso del nivel: ${doneN} de ${totalN} casillas (${pct}%)`}
+              className="hud-chip flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-arcade shadow-hud"
+              title={t('arena.progress_t', { done: doneN, total: totalN, pct })}
             >
               <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
-                Progreso:
+                {t('arena.progress')}
               </span>
               {/* BARRA DE PROGRESO DEL NIVEL — fill animado + ARIA */}
               <div
@@ -2852,7 +2849,7 @@ export default function ArcadeArena() {
                 aria-valuenow={doneN}
                 aria-valuemin={0}
                 aria-valuemax={totalN}
-                aria-label={`${doneN} de ${totalN} casillas completadas`}
+                aria-label={t('arena.progress_aria', { done: doneN, total: totalN })}
                 className="relative w-20 sm:w-24 h-3 rounded-full bg-[var(--color-arcade-ink)] border border-[var(--color-arcade-navy-light)] overflow-hidden shadow-inner"
               >
                 <motion.div
@@ -2896,20 +2893,20 @@ export default function ArcadeArena() {
             }}
             exit={{ scale: 0.4, opacity: 0 }}
             transition={{ duration: 0.95, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed pointer-events-none z-50 w-28 h-40 rounded-2xl border-2 border-cyan-400 bg-slate-900 shadow-[0_0_30px_rgba(34,211,238,0.9)] p-2 flex flex-col justify-between"
+            className="fixed pointer-events-none z-50 w-28 h-40 rounded-arcade border-2 border-cyan-400 bg-slate-900 shadow-[0_0_30px_rgba(34,211,238,0.9)] p-2 flex flex-col justify-between"
           >
             <div className="flex items-center justify-between">
               <span className="text-[8px] font-mono font-bold text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-400">
-                {flyingCard.card.domain?.toUpperCase() || "EN JUEGO"}
+                {flyingCard.card.domain?.toUpperCase() || t('arena.flying_domain')}
               </span>
               <span className="text-[10px] font-bold text-amber-300 font-mono">
                 {flyingCard.card.cost || "+1"}
               </span>
             </div>
-            <div className="w-full h-20 rounded-xl bg-cyan-950/60 border border-cyan-400/40 flex flex-col items-center justify-center">
+            <div className="w-full h-20 rounded-arcade-sm bg-cyan-950/60 border border-cyan-400/40 flex flex-col items-center justify-center">
               <Sparkles className="w-5 h-5 text-cyan-300 animate-spin" />
               <span className="text-[9px] text-cyan-200 font-bold mt-1">
-                Colocando...
+                {t('arena.flying_placing')}
               </span>
             </div>
             <div className="w-full py-1 px-1.5 rounded-lg bg-slate-950 border border-slate-700 text-center">
@@ -3048,7 +3045,7 @@ export default function ArcadeArena() {
         currentUser={currentUser}
         onSubscriptionSuccess={() => {
           setIsSubscriptionModalOpen(false);
-          setSuccessNotif("¡Tu cuenta ahora tiene acceso a Hubzy Pro!");
+          setSuccessNotif(t('arena.pro_active'));
         }}
       />
 

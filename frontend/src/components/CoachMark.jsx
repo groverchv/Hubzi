@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 /**
  * Coach mark de descubrimiento: burbuja flotante que se muestra UNA sola vez
@@ -11,6 +12,7 @@ import { X } from 'lucide-react';
  * <CoachMark id="school">texto</CoachMark> dentro de él.
  */
 export default function CoachMark({ id, children, position = 'bottom' }) {
+  const { t } = useTranslation();
   const key = `hubzy_hint_${id}`;
   // La primera vez que se ve el feature el hint aparece; luego nunca más.
   const [show, setShow] = useState(() => {
@@ -55,11 +57,11 @@ export default function CoachMark({ id, children, position = 'bottom' }) {
       initial={{ opacity: 0, y: position === 'top' ? 6 : -6, x: '-50%' }}
       animate={{ opacity: 1, y: 0, x: '-50%' }}
       transition={{ type: 'spring', stiffness: 350, damping: 24 }}
-      className={`absolute ${pos} z-40 w-60 rounded-xl bg-[var(--color-arcade-navy-dark)] border-2 border-cyan-400/60 px-3 py-2.5 shadow-[0_10px_30px_rgba(6,182,212,0.3)] pointer-events-auto`}
+      className={`absolute ${pos} z-40 w-60 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)] border-2 border-cyan-400/60 px-3 py-2.5 shadow-[0_10px_30px_rgba(6,182,212,0.3)] pointer-events-auto`}
       role="note"
     >
       <span
-        className={`absolute ${arrow} w-0 h-0 border-x-8 border-x-transparent border-b-8 ${
+        className={`absolute ${arrow} w-0 h-0 border-x-8 border-x-transparent border-b-arcade-2xl ${
           position === 'top' ? 'border-t-8 border-b-0' : ''
         }`}
       />
@@ -68,7 +70,7 @@ export default function CoachMark({ id, children, position = 'bottom' }) {
       </p>
       <button
         onClick={dismiss}
-        aria-label="Entendido"
+        aria-label={t('hubzi.dismiss')}
         className="absolute top-1.5 right-1.5 p-0.5 text-cyan-300/70 hover:text-cyan-200 cursor-pointer"
       >
         <X className="w-3.5 h-3.5" />

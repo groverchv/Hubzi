@@ -32,7 +32,7 @@ export default function Card({ id, title, category, description, isPlaced = fals
           onDragEnd(id, info);
         }
       }}
-      className={`relative w-48 sm:w-56 p-4 rounded-3xl bg-white/95 border border-mint/60 shadow-md cursor-grab active:cursor-grabbing select-none backdrop-blur-md transition-colors ${
+      className={`relative w-48 sm:w-56 p-4 rounded-arcade-lg bg-white/95 border border-mint/60 shadow-md cursor-grab active:cursor-grabbing select-none backdrop-blur-md transition-colors ${
         isPlaced ? 'opacity-85 border-sage/40 cursor-default' : 'hover:border-sage'
       }`}
     >

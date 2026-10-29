@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 
 /**
  * Overlay de generación de tablero.
@@ -8,28 +9,23 @@ import { XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
  * - Sin `stage`, rota fases cosméticas para que la espera no se sienta rota.
  * - `onCancel` permite abortar la espera (AbortController en el llamador).
  */
-const GENERATION_STEPS = [
-  'Leyendo tu documento…',
-  'Detectando el área de estudio…',
-  'Diseñando el circuito de niveles…',
-  'Generando preguntas y distractores…',
-  'Calibrando la dificultad a tu perfil…',
-];
+const GENERATION_STEPS = ['gen.s1', 'gen.s2', 'gen.s3', 'gen.s4', 'gen.s5'];
 
 // Etapas reales reportadas por el job del backend → texto de UI
 const STAGE_LABELS = {
-  queued: 'En cola…',
-  reading: 'Leyendo tus documentos…',
-  cache: 'Buscando análisis previo…',
-  generating: 'Generando preguntas con IA…',
-  saving: 'Guardando tu tablero…',
-  done: '¡Listo!',
-  error: 'Algo salió mal…',
+  queued: 'gen.queued',
+  reading: 'gen.reading',
+  cache: 'gen.cache',
+  generating: 'gen.generating',
+  saving: 'gen.saving',
+  done: 'gen.done',
+  error: 'gen.error',
 };
 
 const STEP_MS = 2600;
 
 export default function GenerationOverlay({ stage = null, progress = null, errorMessage = null, onCancel = null, onRetry = null, onPlayDemo = null }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const isError = stage === 'error';
 
@@ -41,7 +37,7 @@ export default function GenerationOverlay({ stage = null, progress = null, error
     return () => clearInterval(id);
   }, [stage]);
 
-  const label = stage ? STAGE_LABELS[stage] || 'Procesando…' : GENERATION_STEPS[step];
+  const label = t(stage ? STAGE_LABELS[stage] || 'gen.processing' : GENERATION_STEPS[step]);
   // Con job real: % exacto reportado por el backend (fallback al mapa por
   // etapa si el campo aún no llega). Sin job: rotación cosmética.
   const progressPct = stage
@@ -54,9 +50,9 @@ export default function GenerationOverlay({ stage = null, progress = null, error
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md"
       role="status"
       aria-live="polite"
-      aria-label={isError ? 'Error generando el nivel' : 'Generando nivel'}
+      aria-label={isError ? t('gen.aria_err') : t('gen.aria_gen')}
     >
-      <div className={`flex flex-col items-center max-w-md w-full mx-4 p-8 bg-slate-900/90 border rounded-2xl ${
+      <div className={`flex flex-col items-center max-w-md w-full mx-4 p-8 bg-slate-900/90 border rounded-arcade ${
         isError
           ? 'border-rose-500/50 shadow-[0_0_50px_rgba(244,63,94,0.25)]'
           : 'border-cyan-500/40 shadow-[0_0_50px_rgba(6,182,212,0.25)]'
@@ -73,7 +69,7 @@ export default function GenerationOverlay({ stage = null, progress = null, error
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="w-12 h-14 rounded-xl skeleton-shimmer border border-cyan-500/25"
+                  className="w-12 h-14 rounded-arcade-sm skeleton-shimmer border border-cyan-500/25"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}
@@ -111,7 +107,7 @@ export default function GenerationOverlay({ stage = null, progress = null, error
             aria-valuenow={Math.round(progressPct)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="Progreso de la generación"
+            aria-label={t('gen.progress_aria')}
           >
             <motion.div
               className={`h-full rounded-full ${isError ? 'bg-rose-400' : 'bg-cyan-400'}`}
@@ -129,12 +125,11 @@ export default function GenerationOverlay({ stage = null, progress = null, error
 
         {isError ? (
           <p className="text-[12px] text-rose-200/90 mt-1 text-center leading-relaxed font-semibold">
-            {errorMessage || 'La generación no se completó. Puedes reintentar sin perder tu progreso.'}
+            {errorMessage || t('gen.err_default')}
           </p>
         ) : (
           <p className="text-[11px] text-slate-400 mt-1 text-center leading-relaxed">
-            Esto puede tardar unos segundos. Las matemáticas y la física se
-            generan al instante; los demás dominios usan IA.
+{t('gen.wait_note')}
           </p>
         )}
 
@@ -142,27 +137,27 @@ export default function GenerationOverlay({ stage = null, progress = null, error
           {isError && onPlayDemo && (
             <button
               onClick={onPlayDemo}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-cyan-500/90 hover:bg-cyan-400 border border-cyan-300/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#155e75]"
+              className="flex items-center gap-2 px-5 py-2 rounded-arcade-sm bg-cyan-500/90 hover:bg-cyan-400 border border-cyan-300/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#155e75]"
             >
-              Jugar demo local
+              {t('gen.play_demo')}
             </button>
           )}
           {isError && onRetry && (
             <button
               onClick={onRetry}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-500/90 hover:bg-emerald-400 border border-emerald-400/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#065f46]"
+              className="flex items-center gap-2 px-5 py-2 rounded-arcade-sm bg-emerald-500/90 hover:bg-emerald-400 border border-emerald-400/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#065f46]"
             >
               <RefreshCw className="w-4 h-4" />
-              Reintentar
+              {t('gen.retry')}
             </button>
           )}
           {onCancel && (
             <button
               onClick={onCancel}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+              className="flex items-center gap-2 px-5 py-2 rounded-arcade-sm bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95"
             >
               <XCircle className="w-4 h-4" />
-              {isError ? 'Cerrar' : 'Cancelar'}
+              {isError ? t('gen.close') : t('gen.cancel')}
             </button>
           )}
         </div>

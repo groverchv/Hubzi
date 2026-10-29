@@ -65,10 +65,10 @@ export default function ZenPage() {
       <AnimatedCloudsBackground />
 
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
-        <Link to="/" className="inline-flex items-center gap-2 rounded-2xl bg-white/70 px-4 py-2 text-sm font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
+        <Link to="/" className="inline-flex items-center gap-2 rounded-arcade bg-white/70 px-4 py-2 text-sm font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
           <ArrowLeft className="w-4 h-4" /> {t("common.back")}
         </Link>
-        <Link to="/arena" className="rounded-2xl bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white">
+        <Link to="/arena" className="rounded-arcade bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white">
           {t("nav.arena")} →
         </Link>
       </header>
@@ -83,7 +83,7 @@ export default function ZenPage() {
         </motion.div>
 
         {/* Check-in emocional */}
-        <section className="mt-8 rounded-3xl bg-white/85 p-6 border-b-6 border-slate-200 shadow-lg">
+        <section className="mt-8 rounded-arcade-lg bg-white/85 p-6 border-b-arcade-xl border-slate-200 shadow-lg">
           <h2 className="flex items-center gap-2 font-black text-[var(--color-arcade-navy)]">
             <HeartPulse className="w-5 h-5 text-rose-500" /> {t("zen.checkin")}
           </h2>
@@ -93,12 +93,12 @@ export default function ZenPage() {
               onChange={(e) => setCheckinText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && runCheckin()}
               placeholder="Ej: Estoy muy nervioso por el examen de mañana…"
-              className="flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-medium focus:border-emerald-400 focus:outline-none"
+              className="flex-1 rounded-arcade border-2 border-slate-200 bg-white px-4 py-3 text-sm font-medium focus:border-emerald-400 focus:outline-none"
               aria-label={t("zen.checkin")}
             />
             <button
               onClick={runCheckin}
-              className="rounded-2xl bg-emerald-500 px-5 font-black uppercase text-white text-sm border-b-4 border-emerald-700 hover:bg-emerald-400"
+              className="rounded-arcade bg-emerald-500 px-5 font-black uppercase text-white text-sm border-b-arcade border-emerald-700 hover:bg-emerald-400"
             >
               OK
             </button>
@@ -107,13 +107,13 @@ export default function ZenPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-3 rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800"
+              className="mt-3 rounded-arcade bg-emerald-50 p-4 text-sm font-semibold text-emerald-800"
             >
               {checkinResult.empathic_response}
               {checkinResult.recommended_intervention && protocols?.[checkinResult.recommended_intervention] && (
                 <button
                   onClick={() => startProtocol(checkinResult.recommended_intervention, protocols[checkinResult.recommended_intervention])}
-                  className="ml-3 inline-flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-black uppercase text-white"
+                  className="ml-3 inline-flex items-center gap-1 rounded-arcade-sm bg-emerald-500 px-3 py-1.5 text-xs font-black uppercase text-white"
                 >
                   <Play className="w-3 h-3" /> {protocols[checkinResult.recommended_intervention].name}
                 </button>
@@ -126,7 +126,7 @@ export default function ZenPage() {
         <AnimatePresence>
           {active && (
             <motion.section
-              className="mt-6 rounded-3xl bg-[var(--color-arcade-navy)] p-8 text-white shadow-2xl"
+              className="mt-6 rounded-arcade-lg bg-[var(--color-arcade-navy)] p-8 text-white shadow-2xl"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
@@ -151,14 +151,14 @@ export default function ZenPage() {
                     {stepIdx < (active.steps?.length || 1) - 1 ? (
                       <button
                         onClick={() => setStepIdx((s) => s + 1)}
-                        className="rounded-2xl bg-emerald-500 px-6 py-3 font-black uppercase text-sm border-b-4 border-emerald-700"
+                        className="rounded-arcade bg-emerald-500 px-6 py-3 font-black uppercase text-sm border-b-arcade border-emerald-700"
                       >
                         →
                       </button>
                     ) : (
                       <button
                         onClick={finishProtocol}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 font-black uppercase text-sm border-b-4 border-emerald-700"
+                        className="inline-flex items-center gap-2 rounded-arcade bg-emerald-500 px-6 py-3 font-black uppercase text-sm border-b-arcade border-emerald-700"
                       >
                         <Check className="w-4 h-4" /> OK
                       </button>
@@ -171,7 +171,7 @@ export default function ZenPage() {
                   <p className="mt-3 text-xl font-bold">Sesión registrada. Respira con calma.</p>
                   <button
                     onClick={() => setActive(null)}
-                    className="mt-5 rounded-2xl bg-white/10 px-6 py-3 font-black uppercase text-sm hover:bg-white/20"
+                    className="mt-5 rounded-arcade bg-white/10 px-6 py-3 font-black uppercase text-sm hover:bg-white/20"
                   >
                     {t("common.back")}
                   </button>
@@ -187,7 +187,7 @@ export default function ZenPage() {
             <button
               key={key}
               onClick={() => startProtocol(key, p)}
-              className="rounded-3xl bg-white/85 p-5 text-left border-b-6 border-slate-200 shadow hover:scale-[1.02] transition-transform"
+              className="rounded-arcade-lg bg-white/85 p-5 text-left border-b-arcade-xl border-slate-200 shadow hover:scale-[1.02] transition-transform"
             >
               <h3 className="font-black text-[var(--color-arcade-navy)]">{p.name}</h3>
               <p className="mt-1 text-xs font-semibold text-slate-600 line-clamp-2">{p.objective}</p>

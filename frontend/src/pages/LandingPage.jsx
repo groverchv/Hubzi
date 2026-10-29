@@ -61,7 +61,7 @@ export default function LandingPage() {
       <Check className="w-3 h-3 stroke-[2]" />
     </div>
   );
-  const proCheck = planCheck("bg-[var(--color-arcade-green)] text-white shadow-[0_2px_0_var(--color-arcade-green-shadow)]", "");
+  const proCheck = planCheck("bg-[var(--color-arcade-green)] text-white shadow-btn-green-press", "");
   const schoolCheck = planCheck("bg-emerald-400 text-emerald-950", "");
 
   return (
@@ -77,14 +77,14 @@ export default function LandingPage() {
           <button
             type="button"
             onClick={() => setIsPlansOpen(true)}
-            className="rounded-2xl bg-white/80 hover:bg-white px-3.5 py-1.5 text-xs font-black uppercase text-[var(--color-arcade-navy)] border-2 border-slate-300 hover:border-[var(--color-arcade-navy)] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+            className="rounded-arcade bg-white/80 hover:bg-white px-3.5 py-1.5 text-xs font-black uppercase text-[var(--color-arcade-navy)] border-2 border-slate-300 hover:border-[var(--color-arcade-navy)] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
           >
             <Crown className="w-4 h-4 text-amber-500 fill-current" />
             <span>Planes</span>
           </button>
           <Link
             to="/arena"
-            className="rounded-2xl bg-[var(--color-arcade-navy)] px-5 py-1.5 text-xs font-black uppercase text-white border-b-4 border-[var(--color-arcade-ink)] hover:bg-[var(--color-arcade-navy-hover)] transition-colors shadow-md"
+            className="rounded-arcade bg-[var(--color-arcade-navy)] px-5 py-1.5 text-xs font-black uppercase text-white border-b-arcade border-[var(--color-arcade-ink)] hover:bg-[var(--color-arcade-navy-hover)] transition-colors shadow-md"
           >
             {t("auth.login")}
           </Link>
@@ -118,14 +118,14 @@ export default function LandingPage() {
             <div className="mt-4 xl:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 to="/arena"
-                className="group inline-flex items-center gap-2 rounded-3xl bg-[var(--color-arcade-orange)] px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-white border-b-6 border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
+                className="group inline-flex items-center gap-2 rounded-arcade-lg bg-[var(--color-arcade-orange)] px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-white border-b-arcade-xl border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
               >
                 {t("landing.cta_start")}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
                 to="/zen"
-                className="inline-flex items-center gap-2 rounded-3xl bg-white/80 px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-[var(--color-arcade-navy)] border-b-6 border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
+                className="inline-flex items-center gap-2 rounded-arcade-lg bg-white/80 px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-[var(--color-arcade-navy)] border-b-arcade-xl border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
               >
                 <Wind className="w-5 h-5" /> {t("nav.zen")}
               </Link>
@@ -143,7 +143,7 @@ export default function LandingPage() {
                 type="button"
                 onClick={prevMascot}
                 aria-label="Mascota anterior"
-                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-arcade border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
               >
                 <ChevronLeft className="w-5 h-5 xl:w-6 xl:h-6" />
               </button>
@@ -159,14 +159,14 @@ export default function LandingPage() {
                     animate={{ opacity: 1, scale: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.9, x: -20 }}
                     transition={{ duration: 0.22 }}
-                    className="relative w-36 h-36 sm:w-44 sm:h-44 xl:w-60 xl:h-60 rounded-[2rem] bg-gradient-to-br from-white/90 to-slate-100/80 border-4 border-[var(--color-arcade-navy)] shadow-2xl overflow-hidden flex items-center justify-center"
+                    className="relative w-36 h-36 sm:w-44 sm:h-44 xl:w-60 xl:h-60 rounded-arcade-xl bg-gradient-to-br from-white/90 to-slate-100/80 border-4 border-[var(--color-arcade-navy)] shadow-2xl overflow-hidden flex items-center justify-center"
                   >
                     <img
                       src={activeMascot.image}
                       alt={activeMascot.name}
                       className="w-full h-full object-contain drop-shadow-md scale-105"
                     />
-                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-xl bg-[var(--color-arcade-navy)] shadow-md whitespace-nowrap">
+                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-arcade-sm bg-[var(--color-arcade-navy)] shadow-md whitespace-nowrap">
                       <span className="text-[10px] font-black uppercase tracking-wide text-[var(--color-arcade-yellow)]">
                         {activeMascot.name}
                       </span>
@@ -181,7 +181,7 @@ export default function LandingPage() {
                 type="button"
                 onClick={nextMascot}
                 aria-label="Siguiente mascota"
-                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-arcade border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
               >
                 <ChevronRight className="w-5 h-5 xl:w-6 xl:h-6" />
               </button>
@@ -194,13 +194,13 @@ export default function LandingPage() {
           {FEATURES.map((f, i) => (
             <motion.div
               key={i}
-              className="rounded-2xl bg-white/85 p-4 xl:p-5 border-b-4 border-slate-200 shadow-lg flex items-start gap-3 hover:-translate-y-1 hover:shadow-xl transition-transform"
+              className="rounded-arcade bg-white/85 p-4 xl:p-5 border-b-arcade border-slate-200 shadow-lg flex items-start gap-3 hover:-translate-y-1 hover:shadow-xl transition-transform"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.12 }}
             >
-              <div className="inline-flex rounded-xl bg-[var(--color-arcade-yellow)]/20 p-2 xl:p-2.5 shrink-0">
+              <div className="inline-flex rounded-arcade-sm bg-[var(--color-arcade-yellow)]/20 p-2 xl:p-2.5 shrink-0">
                 <f.icon className="w-5 h-5 xl:w-6 xl:h-6 text-[var(--color-arcade-orange)]" />
               </div>
               <div>
@@ -212,7 +212,7 @@ export default function LandingPage() {
         </section>
 
         {/* Mental health note */}
-        <div className="mx-auto mt-3 xl:mt-5 flex max-w-xl items-center gap-2 rounded-xl bg-white/70 px-3 py-1.5 xl:py-2.5 text-left text-[10px] xl:text-xs text-slate-600">
+        <div className="mx-auto mt-3 xl:mt-5 flex max-w-xl items-center gap-2 rounded-arcade-sm bg-white/70 px-3 py-1.5 xl:py-2.5 text-left text-[10px] xl:text-xs text-slate-600">
           <HeartHandshake className="w-4 h-4 shrink-0 text-rose-500" />
           <p>{t("landing.disclaimer")}</p>
         </div>
@@ -229,7 +229,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.22 }}
-            className="relative w-full max-w-6xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-gradient-to-b from-sky-200 to-emerald-100 p-3 sm:p-7 shadow-2xl border-4 border-white/70"
+            className="relative w-full max-w-6xl max-h-[92dvh] overflow-y-auto rounded-arcade-lg bg-gradient-to-b from-sky-200 to-emerald-100 p-3 sm:p-7 shadow-2xl border-4 border-white/70"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-2.5 sm:mb-5">
@@ -243,7 +243,7 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => setIsPlansOpen(false)}
                 aria-label="Cerrar"
-                className="w-9 h-9 rounded-xl bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-4 border-[var(--color-arcade-ink)] hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="w-9 h-9 rounded-arcade-sm bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-arcade border-[var(--color-arcade-ink)] hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -255,7 +255,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="relative rounded-3xl bg-white/90 p-4 border-4 border-slate-200 border-b-8 shadow-xl flex flex-col justify-between"
+              className="relative rounded-arcade-lg bg-white/90 p-4 border-4 border-slate-200 border-b-arcade-2xl shadow-xl flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -307,7 +307,7 @@ export default function LandingPage() {
               <div className="mt-4">
                 <Link
                   to="/arena"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-2xl bg-white hover:bg-slate-50 text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-4 border-b-[var(--color-arcade-ink)] shadow-md hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-arcade bg-white hover:bg-slate-50 text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-arcade border-b-[var(--color-arcade-ink)] shadow-md hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                 >
                   <span>Empezar Gratis</span>
                   <ArrowRight className="w-4 h-4" />
@@ -321,10 +321,10 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.15 }}
-              className="relative rounded-3xl bg-[var(--color-arcade-navy)] p-4 border-4 border-[var(--color-arcade-yellow)] border-b-8 border-b-[var(--color-arcade-yellow-shadow)] shadow-2xl flex flex-col justify-between text-white overflow-hidden"
+              className="relative rounded-arcade-lg bg-[var(--color-arcade-navy)] p-4 border-4 border-[var(--color-arcade-yellow)] border-b-arcade-2xl border-b-[var(--color-arcade-yellow-shadow)] shadow-2xl flex flex-col justify-between text-white overflow-hidden"
             >
               {/* Badge Más Popular */}
-              <div className="absolute top-0 right-0 bg-gradient-to-l from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] text-[var(--color-arcade-navy)] text-[9px] font-black uppercase tracking-wider py-1 px-3 rounded-bl-2xl shadow-md flex items-center gap-1">
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] text-[var(--color-arcade-navy)] text-[9px] font-black uppercase tracking-wider py-1 px-3 rounded-bl-arcade shadow-md flex items-center gap-1">
                 <Crown className="w-3 h-3 fill-current" />
                 <span>MÁS POPULAR</span>
               </div>
@@ -378,7 +378,7 @@ export default function LandingPage() {
                 <button
                   type="button"
                   onClick={() => { setIsPlansOpen(false); setIsSubscriptionModalOpen(true); }}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-2xl bg-gradient-to-r from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] hover:from-[var(--color-arcade-orange-bright)] hover:to-[#ffbf1a] text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-4 border-b-[#8c3b00] shadow-[0_4px_0_#8c3b00] hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-arcade bg-gradient-to-r from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] hover:from-[var(--color-arcade-orange-bright)] hover:to-[#ffbf1a] text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-arcade border-b-[#8c3b00] shadow-[0_4px_0_#8c3b00] hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                 >
                   <Crown className="w-4 h-4 fill-current" />
                   <span>Obtener Plan PRO ($2.99 / mes)</span>
@@ -392,7 +392,7 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
-              className="relative rounded-3xl bg-gradient-to-b from-emerald-900 to-[#0f2a1d] p-4 border-4 border-emerald-400 border-b-8 border-b-emerald-700 shadow-2xl flex flex-col justify-between text-white overflow-hidden"
+              className="relative rounded-arcade-lg bg-gradient-to-b from-emerald-900 to-[#0f2a1d] p-4 border-4 border-emerald-400 border-b-arcade-2xl border-b-emerald-700 shadow-2xl flex flex-col justify-between text-white overflow-hidden"
             >
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -442,7 +442,7 @@ export default function LandingPage() {
               <div className="mt-4">
                 <Link
                   to="/arena"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-black text-[11px] uppercase tracking-wider border-2 border-emerald-600 border-b-4 border-b-emerald-800 shadow-md hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-arcade bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-black text-[11px] uppercase tracking-wider border-2 border-emerald-600 border-b-arcade border-b-emerald-800 shadow-md hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
                 >
                   <School className="w-4 h-4" />
                   <span>Crear mi colegio gratis</span>

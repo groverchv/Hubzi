@@ -27,7 +27,7 @@ function RouteFallback() {
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="w-12 h-14 rounded-xl skeleton-shimmer border border-cyan-500/25"
+              className="w-12 h-14 rounded-arcade-sm skeleton-shimmer border border-cyan-500/25"
               style={{ animationDelay: `${i * 0.15}s` }}
             />
           ))}

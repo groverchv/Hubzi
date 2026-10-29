@@ -30,15 +30,50 @@
   /* Design tokens (Fase 4.1): radios/sombras repetidos del estilo arcade.
      Los componentes se migran a estas variables de forma incremental —
      ahora mismo los mismos valores están hardcodeados en cientos de clases. */
+  --radius-arcade-sm: 0.75rem;
   --radius-arcade: 1rem;
   --radius-arcade-lg: 1.5rem;
+  --radius-arcade-xl: 2rem;
   --shadow-btn-arcade: 0 4px 0 var(--color-arcade-ink);
   --shadow-btn-arcade-press: 0 1px 0 var(--color-arcade-ink);
+  --shadow-btn-arcade-sm: 0 2px 0 var(--color-arcade-ink);
+  --shadow-btn-arcade-lg: 0 5px 0 var(--color-arcade-ink);
+  --shadow-btn-arcade-xl: 0 6px 0 var(--color-arcade-ink);
   --shadow-btn-green: 0 4px 0 var(--color-arcade-green-shadow);
+  --shadow-btn-green-press: 0 2px 0 var(--color-arcade-green-shadow);
   --shadow-btn-orange: 0 4px 0 var(--color-arcade-orange-shadow);
+  --shadow-btn-orange-flat: 0 4px 0 var(--color-arcade-orange);
   --shadow-btn-yellow: 0 4px 0 var(--color-arcade-yellow-shadow);
+  --shadow-btn-yellow-press: 0 3px 0 var(--color-arcade-yellow-shadow);
+  --shadow-btn-emerald: 0 4px 0 #065f46;
   --shadow-hud: 0 3px 0 var(--color-arcade-ink);
   --shadow-modal: 0 10px 0 var(--color-arcade-navy);
+  --shadow-modal-lg: 0 12px 0 var(--color-arcade-ink);
+  --shadow-modal-xl: 0 16px 0 var(--color-arcade-ink), 0 25px 50px rgba(0, 0, 0, 0.7);
+  --shadow-modal-2xl: 0 16px 0 var(--color-arcade-ink), 0 25px 50px rgba(0, 0, 0, 0.8);
+  --shadow-glow-cyan-sm: 0 0 8px #22d3ee;
+  --shadow-glow-cyan-md: 0 0 12px #22d3ee;
+}
+
+/* Grosor del borde inferior "prensable" del estilo arcade — la pieza que
+   falta para que botones/chips no repitan border-b-3/4/5/6/8 literales. */
+@utility border-b-arcade-xs {
+  border-bottom-width: 2px;
+}
+@utility border-b-arcade-sm {
+  border-bottom-width: 3px;
+}
+@utility border-b-arcade {
+  border-bottom-width: 4px;
+}
+@utility border-b-arcade-lg {
+  border-bottom-width: 5px;
+}
+@utility border-b-arcade-xl {
+  border-bottom-width: 6px;
+}
+@utility border-b-arcade-2xl {
+  border-bottom-width: 8px;
 }
 
 /* Custom 3D Sky & Fluffy Cloud Environment (Card Clash Inspired for Focus & Immersion) */

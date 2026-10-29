@@ -11,7 +11,7 @@ export default function Node({ id, label, role, expectedCategory, placedCard, is
   return (
     <div
       data-node-id={id}
-      className={`relative w-56 sm:w-64 min-h-[170px] rounded-3xl p-4 transition-all duration-300 flex flex-col justify-between ${
+      className={`relative w-56 sm:w-64 min-h-[170px] rounded-arcade-lg p-4 transition-all duration-300 flex flex-col justify-between ${
         placedCard
           ? 'bg-mint/20 border-2 border-sage/50 shadow-zen-sm'
           : isOver
@@ -49,7 +49,7 @@ export default function Node({ id, label, role, expectedCategory, placedCard, is
             transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
             className="flex flex-col items-center gap-1.5 p-2"
           >
-            <div className="w-9 h-9 rounded-2xl bg-mint/30 flex items-center justify-center text-sage">
+            <div className="w-9 h-9 rounded-arcade bg-mint/30 flex items-center justify-center text-sage">
               <span className="text-sm font-semibold">{id}</span>
             </div>
             <p className="text-xs font-medium text-slate-600">{label}</p>

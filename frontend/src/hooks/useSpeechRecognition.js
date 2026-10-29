@@ -1,10 +1,11 @@
+const _t = i18n.t.bind(i18n);
 import { useEffect, useRef, useState } from "react";
 
 const LISTEN_GREETINGS = [
-  "¡Soy todo oídos! Pregúntame lo que quieras, estoy aquí para ti 💙",
-  "¡Habla conmigo! Tu voz es lo más bonito que puedo escuchar hoy 🎙️",
-  "¡Te escucho con todo mi corazón! ¿Qué necesitas, mi campeón?",
-  "¡Qué emoción que me hables! Dime todo lo que sientes o necesitas 🥰",
+  _t("speech.invite_1"),
+  _t("speech.invite_2"),
+  _t("speech.invite_3"),
+  _t("speech.invite_4"),
 ];
 
 // Idiomas en orden de preferencia según la región del usuario —
@@ -36,6 +37,8 @@ function pickRecognitionLang() {
  * - Solo funciona en contexto seguro (HTTPS o localhost) — se avisa si no.
  * - continuous+interimResults: no corta dictados largos ni pausas medias.
  */
+import i18n from "../i18n";
+
 export function useSpeechRecognition({ onTranscript, onFeedback, onInterim }) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
@@ -80,7 +83,7 @@ export function useSpeechRecognition({ onTranscript, onFeedback, onInterim }) {
       window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
       onFeedback?.(
-        "¡Ay, me muero por escucharte! Pero parece que tu navegador no soporta micrófono. Prueba con Chrome o Edge y yo estaré esperándote 🥹",
+        _t("speech.no_support"),
       );
       return;
     }
@@ -89,7 +92,7 @@ export function useSpeechRecognition({ onTranscript, onFeedback, onInterim }) {
     // voz falla con "network"/"not-allowed" sin pista clara al usuario.
     if (window.isSecureContext === false) {
       onFeedback?.(
-        "Tu micrófono solo funciona en una conexión segura (HTTPS) o en localhost. Ábreme desde una URL segura y vuelvo a escucharte 🔒",
+        _t("speech.no_https"),
       );
       return;
     }
@@ -105,19 +108,19 @@ export function useSpeechRecognition({ onTranscript, onFeedback, onInterim }) {
       const name = permErr?.name || "";
       if (name === "NotAllowedError" || name === "SecurityError") {
         onFeedback?.(
-          "¡No me dejes sin escucharte! Habilita el micrófono en el candado/permisos del navegador y vuelvo volando 🙏",
+          _t("speech.denied"),
         );
       } else if (name === "NotFoundError" || name === "OverconstrainedError") {
         onFeedback?.(
-          "No encuentro ningún micrófono en tu dispositivo. Conecta uno o revisa su configuración y lo intentamos 🎙️",
+          _t("speech.no_device"),
         );
       } else if (name === "NotReadableError" || name === "AbortError") {
         onFeedback?.(
-          "Otro programa está usando tu micrófono ahora mismo. Ciérralo (videollamadas, grabadoras) y hablo contigo al instante 🎧",
+          _t("speech.busy"),
         );
       } else {
         onFeedback?.(
-          "No puedo acceder a tu micrófono en este dispositivo. Revisa los permisos del sistema y vuelvo a intentarlo 🥹",
+          _t("speech.no_access"),
         );
       }
       return;
@@ -163,25 +166,25 @@ export function useSpeechRecognition({ onTranscript, onFeedback, onInterim }) {
         const kind = err?.error;
         if (kind === "not-allowed" || kind === "service-not-allowed") {
           onFeedback?.(
-            "¡No me dejes sin escucharte! Habilita el micrófono en los permisos de tu navegador/sistema y regreso a escucharte 🙏",
+            _t("speech.denied2"),
           );
         } else if (kind === "no-speech") {
           onFeedback?.(
-            "¡Casi te escucho! No capté bien tus palabras. ¿Puedes intentarlo de nuevo? ¡Adoro escuchar tu voz! 💙",
+            _t("speech.no_speech"),
           );
         } else if (kind === "audio-capture") {
           onFeedback?.(
-            "No puedo leer tu micrófono — parece ocupado por otra app o desconectado. Revisa el dispositivo y vuelvo 🎙️",
+            _t("speech.capture"),
           );
         } else if (kind === "network") {
           onFeedback?.(
-            "El servicio de voz de tu navegador no responde (suele necesitar internet). Revisa tu conexión e inténtalo otra vez 🌐",
+            _t("speech.network"),
           );
         } else if (kind === "aborted") {
           // Cancelación propia o del sistema: silenciar, sin mensaje
         } else {
           onFeedback?.(
-            "¡Quiero escucharte tanto! Pero algo falló con el micrófono. Verifica los permisos y regreso volando 🥹",
+            _t("speech.mic_fail"),
           );
         }
       };
@@ -206,7 +209,7 @@ export function useSpeechRecognition({ onTranscript, onFeedback, onInterim }) {
       shouldListenRef.current = false;
       setIsListening(false);
       onFeedback?.(
-        "¡Quiero escucharte tanto! Pero algo falló con el micrófono. Verifica los permisos y regreso volando 🥹",
+        _t("speech.mic_fail"),
       );
     }
   };

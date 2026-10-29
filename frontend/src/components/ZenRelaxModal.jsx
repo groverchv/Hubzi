@@ -4,6 +4,7 @@ import { Wind, Play, Volume2, VolumeX, Sparkles, ChevronRight } from 'lucide-rea
 import { capyVoice } from '../utils/capyVoice';
 import capyPsicologo from '../assets/mascots/capy_psicologo_m.webp';
 import { fetchWithAuth } from '../lib/api';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Técnica de Respiración Terapéutica 4-7-8 (Respaldada psicológicamente para reducir cortisol y ansiedad):
@@ -16,49 +17,50 @@ import { fetchWithAuth } from '../lib/api';
 const BREATH_PHASES = [
   {
     key: 'inhale',
-    title: 'Inhala profundamente',
-    instruction: 'Cierra los ojos... toma aire por la nariz, lentamente, sin prisa...',
+    title: 'modals.zen.p_inhale_t',
+    instruction: 'modals.zen.p_inhale_i',
     duration: 4,
     scale: 1.25,
     glow: 'rgba(186, 230, 253, 0.45)',
     borderColor: 'var(--color-sky-400)',
     textColor: '#0369a1',
-    speakText: 'Inhala... despacio... siente cómo el aire llena tu cuerpo.'
+    speakText: 'modals.zen.p_inhale_s'
   },
   {
     key: 'hold',
-    title: 'Sostén el aire',
-    instruction: 'Mantén el aire... en silencio... tu mente se asienta como el agua quieta...',
+    title: 'modals.zen.p_hold_t',
+    instruction: 'modals.zen.p_hold_i',
     duration: 7,
     scale: 1.25,
     glow: 'rgba(167, 243, 208, 0.45)',
     borderColor: '#34d399',
     textColor: '#047857',
-    speakText: 'Retén el aire... con calma... siente la paz que hay dentro de ti.'
+    speakText: 'modals.zen.p_hold_s'
   },
   {
     key: 'exhale',
-    title: 'Suelta todo',
-    instruction: 'Exhala lentamente... suelta cualquier tensión... suelta cualquier preocupación...',
+    title: 'modals.zen.p_exhale_t',
+    instruction: 'modals.zen.p_exhale_i',
     duration: 8,
     scale: 0.92,
     glow: 'rgba(253, 230, 138, 0.45)',
     borderColor: 'var(--color-amber-400)',
     textColor: '#b45309',
-    speakText: 'Exhala... muy despacio... deja ir todo lo que no necesitas.'
+    speakText: 'modals.zen.p_exhale_s'
   }
 ];
 
 // Frases terapéuticas concisas y sincronizadas con los tiempos exactos de respiración (4s, 7s, 8s)
 const ZEN_PHRASES = {
-  inhale: "Inhala despacio... llena tu pecho de aire...",
-  hold:   "Sostén el aire... con calma... siente la paz...",
-  exhale: "Exhala muy lento... suelta toda la tensión...",
-  cycle2: "Inhala otra vez... profundo y sereno...",
-  finish: "Excelente... tu mente está tranquila y en paz."
+  inhale: "modals.zen.z_inhale",
+  hold:   "modals.zen.z_hold",
+  exhale: "modals.zen.z_exhale",
+  cycle2: "modals.zen.z_cycle2",
+  finish: "modals.zen.z_finish"
 };
 
 export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
+  const { t } = useTranslation();
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(4);
   const [cycleCount, setCycleCount] = useState(1);
@@ -93,7 +95,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
       setHasStarted(true);
 
       const startTimer = setTimeout(() => {
-        speakVoice(ZEN_PHRASES.inhale);
+        speakVoice(t(ZEN_PHRASES.inhale));
       }, 400);
 
       return () => {
@@ -125,23 +127,23 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
       // Inhala (4s) terminado -> Pasar a Retén (7s)
       setPhaseIndex(1);
       setTimeLeft(7);
-      speakVoice(ZEN_PHRASES.hold);
+      speakVoice(t(ZEN_PHRASES.hold));
     } else if (phaseIndex === 1) {
       // Retén (7s) terminado -> Pasar a Exhala (8s)
       setPhaseIndex(2);
       setTimeLeft(8);
-      speakVoice(ZEN_PHRASES.exhale);
+      speakVoice(t(ZEN_PHRASES.exhale));
     } else if (phaseIndex === 2) {
       // Exhala (8s) terminado
       if (cycleCount < totalCycles) {
         setCycleCount(c => c + 1);
         setPhaseIndex(0);
         setTimeLeft(4);
-        speakVoice(ZEN_PHRASES.cycle2);
+        speakVoice(t(ZEN_PHRASES.cycle2));
       } else {
         // Fin de los 2 ciclos terapéuticos
         setHasStarted(false);
-        speakVoice(ZEN_PHRASES.finish);
+        speakVoice(t(ZEN_PHRASES.finish));
         try {
           fetchWithAuth('/api/v1/zen/log', {
             method: 'POST',
@@ -195,23 +197,23 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
           initial={{ scale: 0.9, y: 20 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.9, y: 20 }}
-          className="relative w-full max-w-lg rounded-3xl bg-[#0f172a] border border-slate-700/80 p-6 sm:p-9 text-center shadow-2xl flex flex-col items-center backdrop-blur-md"
+          className="relative w-full max-w-lg rounded-arcade-lg bg-[#0f172a] border border-slate-700/80 p-6 sm:p-9 text-center shadow-2xl flex flex-col items-center backdrop-blur-md"
         >
           {/* Header con Capibara Guía */}
           <div className="flex items-center justify-between w-full mb-6">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl overflow-hidden border border-emerald-400 shadow-sm bg-slate-900">
+              <div className="w-10 h-10 rounded-arcade overflow-hidden border border-emerald-400 shadow-sm bg-slate-900">
                 <img src={capyPsicologo} alt="Hubzi Zen" className="w-full h-full object-cover" />
               </div>
               <div className="text-left">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-white font-mono flex items-center gap-1.5">
                   <Sparkles className="w-3 h-3 text-amber-400" />
-                  Hubzi Zen Guía
+                  {t('modals.zen.guide')}
                 </h4>
                 <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                  <span>Terapia 4-7-8</span>
+                  <span>{t('modals.zen.therapy')}</span>
                   <span className="text-slate-600">•</span>
-                  <span className="text-emerald-400 font-semibold">Calma y Foco</span>
+                  <span className="text-emerald-400 font-semibold">{t('modals.zen.tagline')}</span>
                 </p>
               </div>
             </div>
@@ -225,22 +227,22 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
                   if (nextMuted) {
                     stopAllAudio();
                   } else {
-                    if (phaseIndex === 0) speakVoice(cycleCount === 1 ? ZEN_PHRASES.inhale : ZEN_PHRASES.cycle2);
-                    else if (phaseIndex === 1) speakVoice(ZEN_PHRASES.hold);
-                    else if (phaseIndex === 2) speakVoice(ZEN_PHRASES.exhale);
+                    if (phaseIndex === 0) speakVoice(t(cycleCount === 1 ? ZEN_PHRASES.inhale : ZEN_PHRASES.cycle2));
+                    else if (phaseIndex === 1) speakVoice(t(ZEN_PHRASES.hold));
+                    else if (phaseIndex === 2) speakVoice(t(ZEN_PHRASES.exhale));
                   }
                 }}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
-                title={isMuted ? "Activar voz local de Hubzi" : "Silenciar voz"}
+                className="p-2 rounded-arcade-sm bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+                title={isMuted ? t('modals.zen.unmute') : t('modals.zen.mute')}
               >
                 {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
               </button>
 
               <button
                 onClick={handleSkipNow}
-                className="text-[11px] font-medium text-slate-400 hover:text-white px-2.5 py-1.5 rounded-xl hover:bg-slate-800 transition-colors flex items-center gap-1 border border-slate-700"
+                className="text-[11px] font-medium text-slate-400 hover:text-white px-2.5 py-1.5 rounded-arcade-sm hover:bg-slate-800 transition-colors flex items-center gap-1 border border-slate-700"
               >
-                <span>Saltar</span>
+                <span>{t('modals.zen.skip')}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -248,7 +250,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
 
           {/* Indicador de Ciclo */}
           <div className="px-3.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-[10px] font-mono font-bold text-slate-300 tracking-wider mb-6">
-            CICLO DE RESPIRACIÓN {Math.min(cycleCount, totalCycles)} DE {totalCycles}
+            {t('modals.zen.cycle', { n: Math.min(cycleCount, totalCycles), total: totalCycles })}
           </div>
 
           {/* Círculo Principal de Respiración Animado */}
@@ -295,7 +297,7 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
 
               {/* Etiqueta de la fase */}
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400 mt-1">
-                {currentPhase.key === 'inhale' ? 'INHALAR' : currentPhase.key === 'hold' ? 'RETENER' : 'EXHALAR'}
+                {t('modals.zen.act_' + currentPhase.key)}
               </span>
             </motion.div>
           </div>
@@ -306,10 +308,10 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
               className="text-lg sm:text-xl font-bold tracking-wide uppercase transition-colors"
               style={{ color: currentPhase.borderColor }}
             >
-              {currentPhase.title}
+              {t(currentPhase.title)}
             </h3>
             <p className="text-xs sm:text-sm text-slate-300 font-sans mt-1 max-w-xs mx-auto">
-              {currentPhase.instruction}
+              {t(currentPhase.instruction)}
             </p>
           </div>
 
@@ -328,10 +330,10 @@ export default function ZenRelaxModal({ isOpen, onComplete, onSkip }) {
           {/* Botón Comenzar Ahora */}
           <button
             onClick={handleSkipNow}
-            className="mt-6 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-98"
+            className="mt-6 w-full py-2.5 rounded-arcade-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all active:scale-98"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Estoy Listo para Comenzar</span>
+            <span>{t('modals.zen.ready')}</span>
           </button>
         </motion.div>
       </motion.div>
