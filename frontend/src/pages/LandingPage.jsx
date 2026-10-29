@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, BookOpen, Swords, Wind, ArrowRight, HeartHandshake, GraduationCap, Crown, Check, School, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
+import A11yControls from "../components/A11yControls";
 import SubscriptionModal from "../components/SubscriptionModal";
 
 // Mascotas Oficiales desde src/assets/mascots
@@ -80,8 +81,9 @@ export default function LandingPage() {
             className="rounded-arcade bg-white/80 hover:bg-white px-3.5 py-1.5 text-xs font-black uppercase text-[var(--color-arcade-navy)] border-2 border-slate-300 hover:border-[var(--color-arcade-navy)] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
           >
             <Crown className="w-4 h-4 text-amber-500 fill-current" />
-            <span>Planes</span>
+            <span>{t("nav.plans")}</span>
           </button>
+          <A11yControls />
           <Link
             to="/arena"
             className="rounded-arcade bg-[var(--color-arcade-navy)] px-5 py-1.5 text-xs font-black uppercase text-white border-b-arcade border-[var(--color-arcade-ink)] hover:bg-[var(--color-arcade-navy-hover)] transition-colors shadow-md"

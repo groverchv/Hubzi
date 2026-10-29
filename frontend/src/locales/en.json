@@ -9,7 +9,8 @@
     "arena": "Arena",
     "zen": "Zen",
     "profile": "Profile",
-    "logout": "Log out"
+    "logout": "Log out",
+    "plans": "Plans"
   },
   "landing": {
     "hero_title": "Your notes become a game",

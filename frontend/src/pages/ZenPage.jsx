@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { apiFetch } from "../lib/api";
 import { useCrisis, checkCrisisFlag } from "../lib/crisis.jsx";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
+import A11yControls from "../components/A11yControls";
 
 /**
  * Modo Zen: técnicas de regulación emocional basadas en evidencia.
@@ -61,13 +62,14 @@ export default function ZenPage() {
   const protocolList = protocols ? Object.entries(protocols) : [];
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-indigo-200 via-sky-200 to-emerald-100 font-sans">
+    <div className="zen-stage min-h-screen w-full bg-gradient-to-b from-indigo-200 via-sky-200 to-emerald-100 font-sans">
       <AnimatedCloudsBackground />
 
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <Link to="/" className="inline-flex items-center gap-2 rounded-arcade bg-white/70 px-4 py-2 text-sm font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
           <ArrowLeft className="w-4 h-4" /> {t("common.back")}
         </Link>
+        <A11yControls />
         <Link to="/arena" className="rounded-arcade bg-[var(--color-arcade-navy)] px-4 py-2 text-xs font-black uppercase text-white">
           {t("nav.arena")} →
         </Link>

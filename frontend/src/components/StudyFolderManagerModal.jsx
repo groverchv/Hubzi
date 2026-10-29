@@ -64,6 +64,21 @@ const formatDate = (iso) => {
   return d.toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// Modo degradado (backend sin Mongo): la respuesta puede llegar vacía y
+// pisaría las carpetas guardadas en localStorage — unir por id, backend gana.
+const mergeSavedFolders = (backendList, storageKey) => {
+  let saved = [];
+  try {
+    saved = JSON.parse(localStorage.getItem(storageKey) || '[]') || [];
+  } catch {}
+  const list = (backendList || []).filter((f) => f?.id !== 'folder_administracion_default');
+  const ids = new Set(list.map((f) => f.id));
+  return [
+    ...list,
+    ...saved.filter((f) => f?.id && f.id !== 'folder_administracion_default' && !ids.has(f.id)),
+  ];
+};
+
 // "22447.4 KB" → "22.4 MB" (auto-escala KB→MB→GB)
 const formatDocSize = (size) => {
   if (!size) return '';
@@ -258,8 +273,11 @@ export default function StudyFolderManagerModal({
           const list = data.folders.filter(
             (f) => f?.id !== 'folder_administracion_default',
           );
-          setFolders(list);
-          localStorage.setItem(currentKey, JSON.stringify(list));
+          // Modo degradado (backend sin Mongo): la respuesta llega vacía
+          // y pisaría las carpetas guardadas en localStorage — unir por id.
+          const list_merged = mergeSavedFolders(list, currentKey);
+          setFolders(list_merged);
+          localStorage.setItem(currentKey, JSON.stringify(list_merged));
           setStorageInfo({
             used_mb: data.storage_used_mb ?? 0,
             limit_mb: data.storage_limit_mb ?? null,
@@ -503,7 +521,7 @@ export default function StudyFolderManagerModal({
     const refreshRes = await fetchWithAuth('/api/v1/folders').catch(() => null);
     if (refreshRes?.ok) {
       const data = await refreshRes.json();
-      if (data?.folders) setFolders(data.folders);
+      if (data?.folders) setFolders(mergeSavedFolders(data.folders, userStorageKey));
     }
   };
 
@@ -559,10 +577,11 @@ export default function StudyFolderManagerModal({
     if (refreshRes && refreshRes.ok) {
       const data = await refreshRes.json();
       if (data && data.folders) {
-        setFolders(data.folders);
+        const merged = mergeSavedFolders(data.folders, folderStorageKey(currentUser));
+        setFolders(merged);
         localStorage.setItem(
           folderStorageKey(currentUser),
-          JSON.stringify(data.folders),
+          JSON.stringify(merged),
         );
         setStorageInfo({
           used_mb: data.storage_used_mb ?? 0,
@@ -624,10 +643,11 @@ export default function StudyFolderManagerModal({
       if (res.ok) {
         const data = await res.json();
         if (data && data.folders) {
-          setFolders(data.folders);
+          const merged = mergeSavedFolders(data.folders, folderStorageKey(currentUser));
+          setFolders(merged);
           localStorage.setItem(
             folderStorageKey(currentUser),
-            JSON.stringify(data.folders),
+            JSON.stringify(merged),
           );
           const current = data.folders.find(f => f.id === activeFolderView.id);
           if (current) {
