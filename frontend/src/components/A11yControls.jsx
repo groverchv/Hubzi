@@ -91,7 +91,7 @@ export default function A11yControls() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 z-[70] w-56 p-3 rounded-arcade bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex flex-col gap-2"
+            className="absolute right-0 top-full mt-2 z-[110] w-56 max-w-[calc(100vw-1rem)] p-3 rounded-arcade bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex flex-col gap-2"
             role="menu"
             aria-label={t('a11y.open')}
           >
