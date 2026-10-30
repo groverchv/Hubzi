@@ -58,6 +58,7 @@ def _to_profile(user_id: str, doc: dict) -> UserProfileResponse:
         assigned_voice_gender=doc.get("assigned_voice_gender", "female"),
         created_at=str(doc.get("created_at", "")),
         plan=plan,
+        pro_since=doc.get("pro_since"),
         trial_days_left=(
             trial_days_left(str(doc.get("created_at", "")))
             if plan == "free"

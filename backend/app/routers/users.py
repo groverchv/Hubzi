@@ -135,6 +135,7 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
         assigned_voice_gender=current_user.get("assigned_voice_gender", "female"),
         created_at=str(current_user.get("created_at", "")),
         plan=plan,
+        pro_since=current_user.get("pro_since"),
         trial_days_left=(
             trial_days_left(str(current_user.get("created_at", "")))
             if plan == "free"
