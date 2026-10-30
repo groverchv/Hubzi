@@ -629,27 +629,7 @@ export default function CapyCompanion({
               </div>
             )}
 
-            <div
-              className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full animate-ping ${
-                isCapySad
-                  ? "bg-rose-400"
-                  : capyMood === "dancing"
-                    ? "bg-purple-400"
-                    : capyMood === "celebrating"
-                      ? "bg-amber-400"
-                      : capyMood === "love"
-                        ? "bg-rose-400"
-                        : capyMood === "happy"
-                          ? "bg-emerald-400"
-                          : capyMood === "thinking"
-                            ? "bg-cyan-300"
-                            : capyMood === "surprised"
-                              ? "bg-indigo-400"
-                              : isCapySpeaking
-                                ? "bg-amber-300"
-                                : "bg-cyan-300"
-              }`}
-            />
+
           </motion.div>
 
           {/* Badge 3D interactivo con estado — refleja todos los moods.
