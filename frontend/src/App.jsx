@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import LandingPage from './pages/LandingPage';
@@ -48,6 +48,11 @@ function RequireUser({ children }) {
 
 function App() {
   const lowPower = useLowPower();
+  // Revalidar el usuario persistido contra el backend (created_at real →
+  // el trial no se reinicia por un objeto local stale).
+  useEffect(() => {
+    useAuthStore.getState().refreshUser();
+  }, []);
   return (
     <MotionConfig reducedMotion={lowPower ? 'always' : 'user'}>
     <CrisisProvider>
