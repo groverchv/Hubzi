@@ -463,7 +463,7 @@
     "already_inst": "¡Hubzy ya está instalada en tu dispositivo!",
     "inst_ok": "¡Hubzy instalada con éxito en tu equipo!",
     "inst_check": "Revisa la barra de direcciones de tu navegador para confirmar",
-    "pro_days": "Plan Pro · {{days}}d",
+    "pro_days": "Plan Pro · {{time}}",
     "school_plan": "Plan Escuela"
   },
   "gen": {

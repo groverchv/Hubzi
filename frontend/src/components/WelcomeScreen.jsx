@@ -57,24 +57,23 @@ export default function WelcomeScreen({
     return Number.isFinite(created) ? created + TRIAL_DAYS * 86400000 : null;
   })();
 
+  // Plan PRO: fin del ciclo de 30 días (desde pro_since)
+  const PRO_CYCLE_DAYS = 30;
+  const proEndsAt = (() => {
+    if (!isLoggedIn || !user || user.plan !== 'pro' || !user.pro_since) return null;
+    const since = new Date(user.pro_since).getTime();
+    return Number.isFinite(since) ? since + PRO_CYCLE_DAYS * 86400000 : null;
+  })();
+
   const [now, setNow] = useState(Date.now());
   React.useEffect(() => {
-    if (!trialEndsAt) return;
+    if (!trialEndsAt && !proEndsAt) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [trialEndsAt]);
+  }, [trialEndsAt, proEndsAt]);
 
   const trialRemainingMs = trialEndsAt ? trialEndsAt - now : null;
-
-  // Plan PRO: días restantes del ciclo de 30 días (desde pro_since)
-  const PRO_CYCLE_DAYS = 30;
-  const proDaysLeft = (() => {
-    if (!isLoggedIn || !user || user.plan !== 'pro') return null;
-    if (!user.pro_since) return PRO_CYCLE_DAYS;
-    const since = new Date(user.pro_since).getTime();
-    if (!Number.isFinite(since)) return PRO_CYCLE_DAYS;
-    return Math.max(0, Math.ceil((since + PRO_CYCLE_DAYS * 86400000 - now) / 86400000));
-  })();
+  const proRemainingMs = proEndsAt ? Math.max(0, proEndsAt - now) : null;
   const trialDaysLeft =
     trialRemainingMs !== null
       ? Math.max(0, Math.ceil(trialRemainingMs / 86400000))
@@ -196,8 +195,8 @@ export default function WelcomeScreen({
                 <Sparkles className="w-3 h-3" />
                 {user?.plan === 'school'
                   ? t('welcome.school_plan')
-                  : proDaysLeft !== null
-                    ? t('welcome.pro_days', { days: proDaysLeft })
+                  : proRemainingMs !== null
+                    ? t('welcome.pro_days', { time: formatTrialCountdown(proRemainingMs) })
                     : 'Plan Pro'}
               </span>
             ) : trialRemainingMs !== null ? (
