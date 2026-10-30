@@ -641,7 +641,13 @@
     "dark": "Night mode",
     "dark_d": "Dark sky and dimmed ambience",
     "lang": "Language",
-    "lang_d": "ES · EN · PT"
+    "lang_d": "ES · EN · PT",
+    "low_power": "Lite mode",
+    "low_power_d": "Fewer effects, less CPU",
+    "music_vol": "Music",
+    "music_vol_d": "Music volume",
+    "voice_vol": "Hubzi voice",
+    "voice_vol_d": "Mascot voice volume"
   },
   "cookies": {
     "title": "Your Privacy on Hubzy",

@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Type, Contrast, Moon, Languages } from 'lucide-react';
+import { Settings, Type, Contrast, Moon, Languages, Zap, Music, Mic } from 'lucide-react';
+import { useLowPower, setLowPower } from '../utils/lowPower';
+import { hubziAmbient } from '../utils/hubziAmbient';
+import { lobbyAmbient } from '../utils/lobbyAmbient';
+import { getVoiceVolume, setVoiceVolume } from '../utils/capyVoice';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -38,6 +42,14 @@ export default function A11yControls() {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(readPrefs);
+  const lowPower = useLowPower();
+  const [musicVol, setMusicVol] = useState(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('hubzy_music_vol'));
+      return Number.isFinite(v) ? v : 0.8;
+    } catch { return 0.8; }
+  });
+  const [voiceVol, setVoiceVolState] = useState(getVoiceVolume);
   const wrapRef = useRef(null);
 
   useEffect(() => {
@@ -135,6 +147,84 @@ export default function A11yControls() {
                 </button>
               );
             })}
+
+            {/* Modo ligero — gama baja: apaga efectos pesados. La activación
+                manual de música sigue disponible aunque esté encendido. */}
+            <button
+              onClick={() => setLowPower(!lowPower)}
+              role="menuitemcheckbox"
+              aria-checked={lowPower}
+              className={`flex items-center gap-2.5 p-2.5 rounded-arcade-sm border-2 text-left transition-all cursor-pointer ${
+                lowPower
+                  ? 'bg-[var(--color-arcade-navy-hover)] border-[var(--color-arcade-cyan)]'
+                  : 'bg-[var(--color-arcade-navy-dark)]/60 border-slate-700 hover:border-slate-500'
+              }`}
+            >
+              <Zap className={`w-4 h-4 shrink-0 ${lowPower ? 'text-[var(--color-arcade-cyan)]' : 'text-slate-400'}`} />
+              <span className="flex-1 leading-tight">
+                <span className="block text-[11px] font-black uppercase tracking-wide text-white">
+                  {t('a11y.low_power')}
+                </span>
+                <span className="block text-[9px] text-slate-400">{t('a11y.low_power_d')}</span>
+              </span>
+              <span
+                className={`w-8 h-[18px] rounded-full border flex items-center px-0.5 transition-colors ${
+                  lowPower ? 'bg-emerald-500/80 border-emerald-300 justify-end' : 'bg-slate-700 border-slate-600 justify-start'
+                }`}
+              >
+                <span className="w-3 h-3 rounded-full bg-white shadow" />
+              </span>
+            </button>
+
+            {/* Volúmenes: música ambiental y voz de Hubzi (persisten) */}
+            {[
+              {
+                key: 'music',
+                icon: Music,
+                label: t('a11y.music_vol'),
+                desc: t('a11y.music_vol_d'),
+                value: musicVol,
+                onChange: (v) => {
+                  setMusicVol(v);
+                  hubziAmbient.setVolume(v);
+                  lobbyAmbient.setVolume(v);
+                },
+              },
+              {
+                key: 'voice',
+                icon: Mic,
+                label: t('a11y.voice_vol'),
+                desc: t('a11y.voice_vol_d'),
+                value: voiceVol,
+                onChange: (v) => {
+                  setVoiceVolState(v);
+                  setVoiceVolume(v);
+                },
+              },
+            ].map(({ key, icon: Icon, label, desc, value, onChange }) => (
+              <div
+                key={key}
+                className="flex items-center gap-2.5 p-2.5 rounded-arcade-sm border-2 bg-[var(--color-arcade-navy-dark)]/60 border-slate-700"
+              >
+                <Icon className="w-4 h-4 shrink-0 text-[var(--color-arcade-cyan)]" />
+                <span className="flex-1 leading-tight">
+                  <span className="block text-[11px] font-black uppercase tracking-wide text-white">
+                    {label}
+                  </span>
+                  <span className="block text-[9px] text-slate-400">{desc}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={value}
+                    onChange={(e) => onChange(parseFloat(e.target.value))}
+                    aria-label={label}
+                    className="mt-1.5 w-full accent-[var(--color-arcade-cyan)] cursor-pointer"
+                  />
+                </span>
+              </div>
+            ))}
 
             {/* Selector de idioma — persiste en localStorage(hubzy_lang)
                 vía el listener de i18n.js */}

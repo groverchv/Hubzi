@@ -23,7 +23,12 @@ class LobbyAmbientEngine {
     this.isMuted = false;
     this.melodyTimer = null;
     this.padNodes = [];
-    this.targetVolume = 0.38;
+    this.targetVolume = (() => {
+      try {
+        const v = parseFloat(localStorage.getItem('hubzy_music_vol'));
+        return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.38;
+      } catch (_) { return 0.38; }
+    })();
     this._listeners = [];
 
     // Notas de título en Sol Mayor brillante (G, A, B, D, E, G):
@@ -308,6 +313,15 @@ class LobbyAmbientEngine {
     }
 
     this._notify();
+  }
+
+  setVolume(vol) {
+    this.targetVolume = Math.max(0, Math.min(1, vol));
+    try { localStorage.setItem('hubzy_music_vol', String(this.targetVolume)); } catch (_) {}
+    if (this.ctx && this.masterGain && this.isPlaying) {
+      const now = this.ctx.currentTime;
+      this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 0.5);
+    }
   }
 
   toggleMute() {

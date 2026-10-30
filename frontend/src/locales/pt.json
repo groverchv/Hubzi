@@ -32,7 +32,13 @@
     "dark": "Modo noturno",
     "dark_d": "Céu escuro e ambiente suavizado",
     "lang": "Idioma",
-    "lang_d": "ES · EN · PT"
+    "lang_d": "ES · EN · PT",
+    "low_power": "Modo leve",
+    "low_power_d": "Menos efeitos e CPU",
+    "music_vol": "Música",
+    "music_vol_d": "Volume da música",
+    "voice_vol": "Voz do Hubzi",
+    "voice_vol_d": "Volume da mascote"
   },
   "auth": {
     "close": "Fechar",

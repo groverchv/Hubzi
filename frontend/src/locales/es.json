@@ -633,7 +633,13 @@
     "dark": "Modo noche",
     "dark_d": "Cielo oscuro y ambiente atenuado",
     "lang": "Idioma",
-    "lang_d": "ES · EN · PT"
+    "lang_d": "ES · EN · PT",
+    "low_power": "Modo ligero",
+    "low_power_d": "Menos efectos y CPU",
+    "music_vol": "Música",
+    "music_vol_d": "Volumen de la música",
+    "voice_vol": "Voz de Hubzi",
+    "voice_vol_d": "Volumen de la mascota"
   },
   "cookies": {
     "title": "Tu Privacidad en Hubzy",

@@ -131,6 +131,7 @@ class CapyVoiceEngine {
         if (this.currentRequestId !== requestId) return;
         const audioUrl = this.audioCache.get(cacheKey);
         const audio = new Audio(audioUrl);
+        audio.volume = getVoiceVolume();
         this.currentAudio = audio;
         audio.onended = () => {
           if (this.currentRequestId === requestId) {
@@ -183,6 +184,7 @@ class CapyVoiceEngine {
         this.audioCache.set(cacheKey, audioUrl);
 
         const audio = new Audio(audioUrl);
+        audio.volume = getVoiceVolume();
         this.currentAudio = audio;
         audio.onended = () => {
           if (this.currentRequestId === requestId) {
@@ -219,6 +221,7 @@ class CapyVoiceEngine {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.volume = getVoiceVolume();
     utterance.lang = 'es-ES';
     if (options.profile === 'zen' || options.mood === 'zen') {
       utterance.rate = 0.82;
@@ -501,6 +504,17 @@ class CapyVoiceEngine {
     this.markSpoken(candidate);
     return candidate;
   }
+}
+
+const VOICE_VOL_KEY = 'hubzy_voice_vol';
+export function getVoiceVolume() {
+  try {
+    const v = parseFloat(localStorage.getItem(VOICE_VOL_KEY));
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+  } catch (_) { return 1; }
+}
+export function setVoiceVolume(v) {
+  try { localStorage.setItem(VOICE_VOL_KEY, String(Math.max(0, Math.min(1, v)))); } catch (_) {}
 }
 
 export const capyVoice = new CapyVoiceEngine();

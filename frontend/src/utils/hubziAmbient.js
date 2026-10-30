@@ -27,7 +27,12 @@ class HubziAmbientEngine {
     this.isPlaying = false;
     this.melodyTimerId = null;
     this.padNodes = [];
-    this.targetVolume = 0.80;
+    this.targetVolume = (() => {
+      try {
+        const v = parseFloat(localStorage.getItem('hubzy_music_vol'));
+        return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.80;
+      } catch (_) { return 0.80; }
+    })();
 
     // Escala pentatónica menor en Do: Do, Mib, Fa, Sol, Sib
     // Universalmente calmante — usada en música meditativa y ambient asiático
@@ -441,6 +446,7 @@ class HubziAmbientEngine {
 
   setVolume(vol) {
     this.targetVolume = Math.max(0, Math.min(1, vol));
+    try { localStorage.setItem('hubzy_music_vol', String(this.targetVolume)); } catch (_) {}
     if (this.ctx && this.masterGain && this.isPlaying && !this._effectiveMuted()) {
       const now = this.ctx.currentTime;
       this.masterGain.gain.linearRampToValueAtTime(this.targetVolume, now + 0.5);
