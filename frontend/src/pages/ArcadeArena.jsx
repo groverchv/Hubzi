@@ -85,6 +85,7 @@ export default function ArcadeArena() {
   // Racha de aciertos consecutivos (feedback positivo — nunca castiga)
   const [streak, setStreak] = useState(0);
   const [successNotif, setSuccessNotif] = useState(null);
+  const [isProModalOpen, setIsProModalOpen] = useState(false);
   const [errorNotif, setErrorNotif] = useState(null);
   // Estado consolidado de Hubzi (Fase 3.2): burbuja + mood + tristeza en
   // una sola fuente — useHubziState devuelve los mismos setters.
@@ -191,22 +192,30 @@ export default function ArcadeArena() {
     if (payment === "success" && sessionId) {
       fetchWithAuth(`/api/v1/payments/verify-session/${sessionId}`)
         .then((res) => res.json())
-        .then((data) => {
+        .then(async (data) => {
           if (data.is_paid) {
-            setSuccessNotif(
-              t('arena.pay_success'),
-            );
-            if (currentUser) {
-              const updated = { ...currentUser, plan: "pro" };
+            setIsProModalOpen(true);
+            // Resincronizar contra /auth/me: trae plan/pro_since reales de la DB
+            await useAuthStore.getState().refreshUser();
+            const fresh = useAuthStore.getState().user;
+            const updated =
+              fresh?.id && currentUser
+                ? { ...fresh }
+                : currentUser
+                  ? { ...currentUser, plan: "pro" }
+                  : null;
+            if (updated) {
               setCurrentUser(updated);
               localStorage.setItem(
                 "hubzy_current_user",
                 JSON.stringify(updated),
               );
             }
+          } else {
+            setErrorNotif(t('arena.pay_pending'));
           }
         })
-        .catch(console.error)
+        .catch(() => setErrorNotif(t('arena.pay_verify_err')))
         .finally(() => {
           // Limpiar URL sin recargar
           window.history.replaceState(
@@ -216,7 +225,7 @@ export default function ArcadeArena() {
           );
         });
     } else if (payment === "cancelled") {
-      setSuccessNotif(t('arena.pay_cancel'));
+      setErrorNotif(t('arena.pay_cancel'));
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -2910,6 +2919,44 @@ export default function ArcadeArena() {
       />
 
       {logoutConfirmModal}
+
+      {/* MODAL ¡ERES PRO! — confirmación visible tras volver de Stripe */}
+      <AnimatePresence>
+        {isProModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[var(--color-arcade-navy-dark)]/80 backdrop-blur-sm"
+            onClick={() => setIsProModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 24 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.85, y: 12 }}
+              transition={{ type: "spring", stiffness: 300, damping: 22 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-arcade-lg bg-gradient-to-b from-[var(--color-arcade-navy)] to-[var(--color-arcade-navy-dark)] border-4 border-amber-400 shadow-modal-2xl p-6 text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-400 border-4 border-amber-200 shadow-[0_0_30px_rgba(251,191,36,0.7)] flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-[var(--color-arcade-navy-dark)]" />
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-widest text-amber-300">
+                {t('arena.pro_title')}
+              </h2>
+              <p className="mt-2 text-sm font-bold text-slate-200 leading-snug">
+                {t('arena.pro_body')}
+              </p>
+              <button
+                onClick={() => setIsProModalOpen(false)}
+                className="mt-4 w-full py-3 rounded-arcade bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-arcade border-b-[var(--color-arcade-green-shadow)] text-white font-black uppercase tracking-widest text-sm shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+              >
+                {t('arena.pro_cta')}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MODAL DE VICTORIA Y ESTRELLAS CON EFECTO CONFETTI */}
       <VictoryModal

@@ -65,6 +65,16 @@ export default function WelcomeScreen({
   }, [trialEndsAt]);
 
   const trialRemainingMs = trialEndsAt ? trialEndsAt - now : null;
+
+  // Plan PRO: días restantes del ciclo de 30 días (desde pro_since)
+  const PRO_CYCLE_DAYS = 30;
+  const proDaysLeft = (() => {
+    if (!isLoggedIn || !user || user.plan !== 'pro') return null;
+    if (!user.pro_since) return PRO_CYCLE_DAYS;
+    const since = new Date(user.pro_since).getTime();
+    if (!Number.isFinite(since)) return PRO_CYCLE_DAYS;
+    return Math.max(0, Math.ceil((since + PRO_CYCLE_DAYS * 86400000 - now) / 86400000));
+  })();
   const trialDaysLeft =
     trialRemainingMs !== null
       ? Math.max(0, Math.ceil(trialRemainingMs / 86400000))
@@ -184,7 +194,11 @@ export default function WelcomeScreen({
             {isPremium ? (
               <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/90 border-2 border-emerald-300 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_3px_0_rgba(4,120,87,0.6)]">
                 <Sparkles className="w-3 h-3" />
-                Plan {user?.plan === 'school' ? 'Escuela' : 'Pro'}
+                {user?.plan === 'school'
+                  ? t('welcome.school_plan')
+                  : proDaysLeft !== null
+                    ? t('welcome.pro_days', { days: proDaysLeft })
+                    : 'Plan Pro'}
               </span>
             ) : trialRemainingMs !== null ? (
               <span

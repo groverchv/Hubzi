@@ -294,7 +294,12 @@
     "pro_active": "¡Tu cuenta ahora tiene acceso a Hubzy Pro!",
     "folder_default": "Carpeta",
     "world_default": "Mundo de Aprendizaje",
-    "theme_default": "Tema de Estudio"
+    "theme_default": "Tema de Estudio",
+    "pro_title": "¡YA ERES PRO!",
+    "pro_body": "Tu plan Pro está activo: carpetas ilimitadas, 30 preguntas por partida y voz premium. Se renueva cada 30 días.",
+    "pro_cta": "¡A JUGAR!",
+    "pay_pending": "Pago registrado — se activará al confirmarse.",
+    "pay_verify_err": "No se pudo verificar el pago — si ya pagaste, se activará solo en minutos."
   },
   "hubzi": {
     "listening": "ESCUCHANDO:",
@@ -455,7 +460,9 @@
     "close": "Cerrar",
     "already_inst": "¡Hubzy ya está instalada en tu dispositivo!",
     "inst_ok": "¡Hubzy instalada con éxito en tu equipo!",
-    "inst_check": "Revisa la barra de direcciones de tu navegador para confirmar"
+    "inst_check": "Revisa la barra de direcciones de tu navegador para confirmar",
+    "pro_days": "Plan Pro · {days}d",
+    "school_plan": "Plan Escuela"
   },
   "gen": {
     "s1": "Leyendo tu documento…",
