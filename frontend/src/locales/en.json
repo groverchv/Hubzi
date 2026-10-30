@@ -471,7 +471,7 @@
     "already_inst": "Hubzy is already installed on your device!",
     "inst_ok": "Hubzy installed successfully on your device!",
     "inst_check": "Check your browser's address bar to confirm",
-    "pro_days": "Pro Plan · {days}d",
+    "pro_days": "Pro Plan · {{days}}d",
     "school_plan": "School Plan"
   },
   "gen": {

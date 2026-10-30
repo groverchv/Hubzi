@@ -142,7 +142,7 @@
     "b1_d": "Sem barras nem abas que te distraiam",
     "b2_t": "Acesso Imediato",
     "b2_d": "Ícone direto no seu desktop ou celular",
-    "pro_days": "Plano Pro · {days}d",
+    "pro_days": "Plano Pro · {{days}}d",
     "school_plan": "Plano Escola"
   },
   "gen": {
