@@ -23,7 +23,8 @@
     "feature_2_desc": "20-level circuits, trap cards and battles that turn studying into a challenge.",
     "feature_3_title": "Hubzi keeps you calm",
     "feature_3_desc": "Breathing techniques and CBT-based emotional support when anxiety kicks in.",
-    "disclaimer": "Hubzy is not a mental health service. If you're in crisis, please seek professional help."
+    "disclaimer": "Hubzy is not a mental health service. If you're in crisis, please seek professional help.",
+    "cta_pro": "Pro Account"
   },
   "dashboard": {
     "welcome": "Hi, {{name}}",
@@ -118,7 +119,8 @@
     "save": "Save",
     "delete": "Delete",
     "deleting": "Deleting…",
-    "back": "Back"
+    "back": "Back",
+    "close": "Close"
   },
   "school": {
     "title": "Hubzy for Schools",

@@ -23,7 +23,8 @@
     "feature_2_desc": "Circuitos de 20 niveles, cartas trampa y batallas que convierten estudiar en un reto.",
     "feature_3_title": "Hubzi cuida tu calma",
     "feature_3_desc": "Técnicas de respiración y apoyo emocional con base en TCC cuando la ansiedad aprieta.",
-    "disclaimer": "Hubzy no es un servicio de salud mental. Si estás en crisis, busca ayuda profesional."
+    "disclaimer": "Hubzy no es un servicio de salud mental. Si estás en crisis, busca ayuda profesional.",
+    "cta_pro": "Cuenta Pro"
   },
   "dashboard": {
     "welcome": "Hola, {{name}}",
@@ -118,7 +119,8 @@
     "save": "Guardar",
     "delete": "Eliminar",
     "deleting": "Eliminando…",
-    "back": "Volver"
+    "back": "Volver",
+    "close": "Cerrar"
   },
   "school": {
     "title": "Hubzy para Colegios",

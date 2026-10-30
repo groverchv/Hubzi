@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
 import A11yControls from "../components/A11yControls";
 import SubscriptionModal from "../components/SubscriptionModal";
+import { useAuthStore } from "../store/authStore";
 
 // Mascotas Oficiales desde src/assets/mascots
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
@@ -35,6 +36,8 @@ export default function LandingPage() {
   const [selectedMascotIndex, setSelectedMascotIndex] = useState(0);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isPlansOpen, setIsPlansOpen] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const isPro = user?.plan === 'pro' || user?.plan === 'school';
   const activeMascot = SHOWCASE_MASCOTS[selectedMascotIndex];
 
   useEffect(() => {
@@ -122,8 +125,12 @@ export default function LandingPage() {
                 to="/arena"
                 className="group inline-flex items-center gap-2 rounded-arcade-lg bg-[var(--color-arcade-orange)] px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-white border-b-arcade-xl border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
               >
-                {t("landing.cta_start")}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {isPro ? t("landing.cta_pro") : t("landing.cta_start")}
+                {isPro ? (
+                  <Crown className="w-5 h-5 text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)]" />
+                ) : (
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                )}
               </Link>
               <Link
                 to="/zen"

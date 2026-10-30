@@ -6,6 +6,10 @@ import AnimatedCloudsBackground from './components/AnimatedCloudsBackground';
 import RotatePhoneOverlay from './components/RotatePhoneOverlay';
 import { CrisisProvider } from './lib/crisis.jsx';
 import { useAuthStore } from './store/authStore';
+import { fetchWithAuth } from './lib/api';
+import { X, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 import { useLowPower } from './utils/lowPower';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -48,17 +52,81 @@ function RequireUser({ children }) {
 
 function App() {
   const lowPower = useLowPower();
+  const { t } = useTranslation();
+  const [paymentNotice, setPaymentNotice] = useState(null);
   // Revalidar el usuario persistido contra el backend (created_at real →
   // el trial no se reinicia por un objeto local stale).
   useEffect(() => {
     useAuthStore.getState().refreshUser();
   }, []);
+
+  // Retorno global de Stripe Checkout: success_url apunta a "/" (landing),
+  // no a /arena — la verificación vive aquí para que el plan se acredite
+  // aunque el usuario aterrice fuera de la arena.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    const sessionId = params.get('session_id');
+    const strip = () =>
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+    if (payment === 'success' && sessionId) {
+      fetchWithAuth(`/api/v1/payments/verify-session/${sessionId}`)
+        .then((res) => res.json())
+        .then(async (data) => {
+          await useAuthStore.getState().refreshUser();
+          setPaymentNotice(data.is_paid ? 'success' : 'pending');
+        })
+        .catch(() => setPaymentNotice('error'))
+        .finally(strip);
+    } else if (payment === 'cancelled') {
+      setPaymentNotice('cancelled');
+      strip();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!paymentNotice) return;
+    const t = setTimeout(() => setPaymentNotice(null), 12000);
+    return () => clearTimeout(t);
+  }, [paymentNotice]);
+
+  const paymentBanner = paymentNotice && (
+    <div
+      role="status"
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-2.5 px-5 py-3 rounded-arcade border-2 text-white text-sm font-bold shadow-2xl max-w-lg ${
+        paymentNotice === 'success'
+          ? 'bg-emerald-600/95 border-emerald-300/70'
+          : 'bg-rose-600/95 border-rose-300/60'
+      }`}
+    >
+      <Sparkles className="w-5 h-5 shrink-0" />
+      <span>
+        {paymentNotice === 'success'
+          ? t('arena.pay_success')
+          : paymentNotice === 'pending'
+            ? t('arena.pay_pending')
+            : paymentNotice === 'cancelled'
+              ? t('arena.pay_cancel')
+              : t('arena.pay_verify_err')}
+      </span>
+      <button
+        onClick={() => setPaymentNotice(null)}
+        aria-label={t('common.close')}
+        className="ml-1 p-0.5 rounded hover:bg-white/20 cursor-pointer"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+
   return (
     <MotionConfig reducedMotion={lowPower ? 'always' : 'user'}>
     <CrisisProvider>
       <ErrorBoundary>
       <BrowserRouter>
         <RotatePhoneOverlay />
+        {paymentBanner}
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
