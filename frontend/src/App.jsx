@@ -71,8 +71,18 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
 
     if (payment === 'success' && sessionId) {
-      fetchWithAuth(`/api/v1/payments/verify-session/${sessionId}`)
-        .then((res) => res.json())
+      // Reintento único: el backend/Stripe puede tardar unos segundos en
+      // cerrar la sesión — un fallo de red momentáneo no debe asustar.
+      const verify = () =>
+        fetchWithAuth(`/api/v1/payments/verify-session/${sessionId}`).then(
+          async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+            return data;
+          },
+        );
+      verify()
+        .catch(() => new Promise((r) => setTimeout(r, 3000)).then(verify))
         .then(async (data) => {
           await useAuthStore.getState().refreshUser();
           setPaymentNotice(data.is_paid ? 'success' : 'pending');
