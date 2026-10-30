@@ -35,7 +35,7 @@ function CardDetailModal({ isOpen, card, onClose }) {
             </div>
             <div>
               <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40">
-                {card.domain || t('modals.cardDetail.domain')}
+                {(card.isTrap || card.isDistractor) ? t('modals.cardDetail.domain') : (card.domain || t('modals.cardDetail.domain'))}
               </span>
             </div>
           </div>

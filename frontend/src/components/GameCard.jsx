@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useMotionValue, animate } from 'framer-motion';
-import { Sparkles, EyeOff } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { getDomainIcon, DOMAIN_ICONS, resolveDynamicIcon } from '../utils/domainIcons';
 
 // Paleta de cartas / fichas 100% fiel a la imagen de referencia:
@@ -212,18 +212,6 @@ export default function GameCard({
       >
         {/* Brillo especular superior simulando plástico curvo de ficha */}
         <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-white/35 to-transparent rounded-t-arcade pointer-events-none" />
-
-        {/* SELLO SUTIL DE CARTA TRAMPA — esquina oscura con ojo tachado:
-            pista visual tenue (no regala la respuesta, solo "algo raro") */}
-        {isTrap && (
-          <>
-            <div
-              className="absolute top-0 right-0 w-0 h-0 border-t-[26px] border-l-[26px] border-t-slate-950/85 border-l-transparent pointer-events-none z-10"
-              aria-hidden="true"
-            />
-            <EyeOff className="absolute top-[3px] right-[3px] w-3 h-3 text-slate-400 pointer-events-none z-10" aria-hidden="true" />
-          </>
-        )}
 
         {/* Contenedor de Icono en relieve + nombre de la respuesta */}
         <div className="flex-1 flex flex-col items-center justify-center w-full gap-1 min-h-0">

@@ -2844,7 +2844,7 @@ export default function ArcadeArena() {
           >
             <div className="flex items-center justify-between">
               <span className="text-[8px] font-mono font-bold text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-400">
-                {flyingCard.card.domain?.toUpperCase() || t('arena.flying_domain')}
+                {(flyingCard.card.isTrap || flyingCard.card.isDistractor) ? t('arena.flying_domain') : (flyingCard.card.domain?.toUpperCase() || t('arena.flying_domain'))}
               </span>
               <span className="text-[10px] font-bold text-amber-300 font-mono">
                 {flyingCard.card.cost || "+1"}
