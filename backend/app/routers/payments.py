@@ -165,9 +165,9 @@ async def verify_payment_session(
     # "complete" con payment_status "unpaid" ocurre con métodos asíncronos —
     # solo "paid"/"no_payment_required" significan dinero confirmado.
     is_paid = session.payment_status in ("paid", "no_payment_required")
-    session_user = session.client_reference_id or (session.metadata or {}).get("user_id")
+    meta = session.metadata.to_dict() if session.metadata else {}
+    session_user = session.client_reference_id or meta.get("user_id")
     uid = str(current_user.get("id") or current_user.get("_id"))
-    meta = session.metadata or {}
 
     if meta.get("kind") == "school":
         # Licencia institucional: solo el admin de esa institución la activa.
@@ -237,6 +237,7 @@ async def stripe_webhook(request: Request):
         logger.warning(f"Firma de webhook Stripe inválida: {e}")
         raise HTTPException(status_code=400, detail="Firma inválida.") from e
 
+    event = event.to_dict_recursive()
     etype = event["type"]
     data = event["data"]["object"]
 
