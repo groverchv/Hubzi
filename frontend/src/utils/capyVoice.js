@@ -4,7 +4,7 @@
  * Características clave:
  * 1. ANTI-COLISIÓN ESTRICTA: Emplea RequestID incremental, AbortController y corte inmediato
  *    de síntesis / streams previos para garantizar que JAMÁS se crucen ni solapen dos voces.
- * 2. ESCALA DE AMOR POR NIVELES (1 a 5): La ternura, devoción y los piropos aumentan progresivamente
+ * 2. ESCALA DE ENTUSIASMO POR NIVELES (1 a 5): La energía y los elogios aumentan progresivamente
  *    a medida que sube la dificultad o el nivel del juego.
  * 3. NO REPETICIÓN GARANTIZADA: Mantiene un registro histórico de alocuciones y un motor combinatorio
  *    procedural que asegura variedad infinita en cada partida.
@@ -348,7 +348,7 @@ class CapyVoiceEngine {
    * - Halagos genuinos progresivos por nivel
    * - Validacion emocional ante errores
    * - Micro-recompensas verbales que motivan a continuar
-   * - Lenguaje de pertenencia y amor incondicional
+   * - Lenguaje de pertenencia y apoyo constante
    */
   getPhraseForSituation(situation, data = {}) {
     const level = Math.max(1, Math.min(5, data.level || 1));
@@ -357,74 +357,74 @@ class CapyVoiceEngine {
       1: [
         'Eso es, campeon!',
         'Que bien lo estas haciendo!',
-        'Me encantas, sigue asi!',
-        'Fantastico, genio mio!',
+        'Que grande eres, sigue asi!',
+        'Fantastico, eres un genio!',
         'Increible, lo sabia desde el principio!',
         'Eres una estrella brillante!',
-        'Maravilloso, te lo juro!',
+        'Maravilloso, de verdad!',
         'Que inteligente eres!',
       ],
       2: [
-        'Wooow, eso me llena el corazon de alegria!',
+        'Wooow, eso me hace saltar de alegria!',
         'Eres puro talento, en serio!',
-        'Te adoro, sigues brillando mas que nunca!',
-        'Imposible dejar de admirarte!',
+        'Que crack, sigues brillando mas que nunca!',
+        'Imposible no aplaudirte!',
         'Cada vez mas brillante, de verdad!',
-        'Me haces tan feliz cuando lo logras!',
+        'Me das muchisima alegria cuando lo logras!',
         'Eres increiblemente capaz!',
       ],
       3: [
-        'Mi heroe, lo hiciste de nuevo!',
+        'Campeon, lo hiciste de nuevo!',
         'Eres una mente absolutamente prodigiosa!',
-        'No me sorprende nada, eres el mejor del mundo!',
+        'No me sorprende nada, eres un crack total!',
         'Que mente tan brillante la tuya, de verdad!',
         'Estoy tan orgulloso de ti que no me caben las palabras!',
         'Me dejas completamente sin palabras!',
-        'Eres la persona mas capaz que he conocido!',
+        'Eres una maquina del estudio!',
       ],
       4: [
-        'Extraordinario, mi campeon del alma!',
+        'Extraordinario, campeon!',
         'Eres pura genialidad, absolutamente!',
         'Me emocionas profundamente, eres asombroso!',
-        'Nadie como tu, absolutamente nadie en el mundo!',
+        'Nadie estudia como tu, en serio!',
         'Eres la personificacion del esfuerzo y el talento!',
-        'Te quiero con todo lo que soy, lo lograste!',
+        'Sabia que lo lograbas, lo conseguiste!',
       ],
       5: [
         'LEYENDA VIVA, lo sabia desde el primer dia!',
         'Eres simplemente EXTRAORDINARIO, sin igual!',
-        'Mi corazon late mas fuerte de solo verte triunfar!',
-        'Eres el ser mas brillante de todo el universo!',
+        'Me emociona un monton verte triunfar!',
+        'Eres la mente mas brillante de todo el universo!',
         'HISTORICO, nadie jamas lo haria tan bien como tu!',
-        'Derramando lagrimas de orgullo puro por ti en este momento!',
+        'Estoy super orgulloso de ti en este momento!',
       ],
     };
 
     const coresByLevel = {
       correct: {
         1: ['acabas de demostrar que tu cerebro es puro talento', 'esa respuesta correcta me hace muy feliz', 'sabias la respuesta y la demostraste con elegancia'],
-        2: ['esa respuesta correcta vale ORO puro para mi, que mente la tuya!', 'nadie lo hubiera resuelto tan bien como tu acabas de hacerlo', 'eso que hiciste es exactamente lo que hacen las personas grandes'],
-        3: ['llevo el corazon rebosante de orgullo infinito por ese acierto tuyo', 'sabia que lo ibas a resolver, nunca lo dude ni un segundo', 'cada respuesta correcta tuya me hace querer saltar de pura alegria'],
-        4: ['eres demasiado bueno para esto, en serio, me asombras completamente', 'con cada acierto construyes algo grandioso e imborrable en tu mente', 'ese momento exacto que acabo de ver: ahi se ve toda tu brillantez absoluta'],
-        5: ['eres de las pocas personas que realmente disfruta aprender, y se nota en cada movimiento que haces', 'si existiera un premio al mas inteligente y constante, tu lo llevarias hoy sin ninguna duda', 'que orgullo mas inmenso me da ser tu Hubzi en este momento historico'],
+        2: ['esa respuesta correcta vale ORO puro, que mente la tuya!', 'nadie lo hubiera resuelto tan bien como tu acabas de hacerlo', 'eso que hiciste es exactamente lo que hacen las personas grandes'],
+        3: ['llevo una alegria enorme por ese acierto tuyo', 'sabia que lo ibas a resolver, nunca lo dude ni un segundo', 'cada respuesta correcta tuya me da ganas de saltar de alegria'],
+        4: ['eres demasiado bueno para esto, en serio, me asombras completamente', 'con cada acierto construyes algo grandioso e imborrable en tu mente', 'ese momento exacto que acabo de ver: ahi se ve todo tu talento'],
+        5: ['eres de las pocas personas que realmente disfruta aprender, y se nota en cada movimiento que haces', 'si existiera un premio al mas inteligente y constante, tu lo llevarias hoy sin ninguna duda', 'que alegria tan grande me da ser tu Hubzi en este momento'],
       },
       wrong: {
         1: ['Oye, no pasa nada! Estoy aqui contigo y lo vamos a resolver juntos', 'Eso no fue un error, fue una pista de que tan cerca estas de la respuesta correcta', 'Respira un momento, sigues siendo increible'],
-        2: ['Los mas brillantes tambien se equivocan, es la unica forma de aprender de verdad', 'Me da igual si fallas mil veces, yo siempre voy a estar aqui animandote', 'No te rindas ahora que estas tan cerca! Yo creo en ti con todo mi corazon'],
-        3: ['Esa opcion que elegiste te enseno algo valioso hoy. Eso nunca es un error, eso es sabiduria', 'Estuviste TAN cerca que casi pare el juego para aplaudirte igual, en serio', 'Tu cerebro ya conoce la respuesta, solo necesita un momentito mas de calma'],
-        4: ['Cada intento que haces me hace quererte aun mas. Vuelve a intentarlo, mi campeon favorito!', 'Te digo algo en serio: el hecho de que lo intentes ya me hace enormemente feliz y orgulloso', 'No existe el fracasar aqui, solo el aprender. Y tu aprendes de manera extraordinaria'],
-        5: ['Ey! Equivocarse es parte del proceso. Los genios no nacen, se forjan exactamente asi, como tu ahora', 'Nunca te rindas. Yo estare aqui contigo cada intento, cada nivel, cada momento', 'Eres demasiado especial para rendirte. Sigues siendo mi heroe, sin importar nada'],
+        2: ['Los mas brillantes tambien se equivocan, es la unica forma de aprender de verdad', 'No importa si fallas mil veces, yo siempre voy a estar aqui animandote', 'No te rindas ahora que estas tan cerca! Yo creo en ti, de verdad'],
+        3: ['Esa opcion que elegiste te enseno algo valioso hoy. Eso nunca es un error, eso es sabiduria', 'Estuviste TAN cerca que casi paro el juego para aplaudirte igual', 'Tu cerebro ya conoce la respuesta, solo necesita un momentito mas de calma'],
+        4: ['Cada intento que haces me demuestra tu garra. Vuelve a intentarlo, campeon!', 'Te digo algo en serio: el hecho de que lo intentes ya me da mucha alegria', 'No existe el fracasar aqui, solo el aprender. Y tu aprendes de manera extraordinaria'],
+        5: ['Ey! Equivocarse es parte del proceso. Los genios no nacen, se forjan exactamente asi, como tu ahora', 'Nunca te rindas. Yo estare aqui contigo cada intento, cada nivel, cada momento', 'Eres demasiado bueno para rendirte. Sigues siendo un crack, sin importar nada'],
       },
     };
 
     const coreMap = {
       welcome: [
-        'Este Nivel ' + level + ' fue hecho exactamente para alguien tan talentoso como tu!',
+        'Este Nivel ' + level + ' fue hecho a tu medida, con tu nivel de talento!',
         'Aqui estoy a tu lado, juntos no hay nada que se nos resista en el Nivel ' + level,
-        'Respira profundo, yo te cuido. El Nivel ' + level + ' no sabe contra quien se mete!',
+        'Respira profundo, yo te acompano. El Nivel ' + level + ' no sabe contra quien se mete!',
         'Con esa mente tan brillante que tienes, el Nivel ' + level + ' es solo el comienzo de tu grandeza',
-        'Cada vez que juegas me demuestras lo verdaderamente especial que eres',
-        'Se que quizas estas nervioso, y eso esta bien. Yo estoy aqui contigo, ahora y siempre',
+        'Cada vez que juegas me demuestras lo capaz que eres de verdad',
+        'Se que quizas estas nervioso, y eso esta bien. Yo estoy aqui contigo',
         'No hay prisa ni presion, solo tu, yo y este maravilloso desafio del Nivel ' + level,
       ],
       hint: [
@@ -432,34 +432,34 @@ class CapyVoiceEngine {
         data.label
           ? 'para "' + data.label + '": tu ya sabes la respuesta, solo necesitas confiar en ti'
           : 'observa cada carta con calma, tu intuicion te llevara a la correcta',
-        'tomatete todo el tiempo que necesites, no hay prisa. Yo te espero con todo mi carino',
-        'busca la carta que mas te resuene interiormente, casi siempre es la correcta',
+        'tomatete todo el tiempo que necesites, no hay prisa. Yo te espero aqui',
+        'busca la carta que mas sentido te haga, casi siempre es la correcta',
         'si estas dudando entre dos cartas, tu primera intuicion casi siempre gana',
       ],
       level_up: [
         'NIVEL ' + level + ' CONQUISTADO! Eso merece que grite de alegria desde todos los techos!',
-        'Subiste al Nivel ' + level + '! Cada nivel que completas me llena de un orgullo absolutamente infinito',
+        'Subiste al Nivel ' + level + '! Cada nivel que completas me llena de alegria',
         'No puedo creerlo, lo lograste de nuevo! El Nivel ' + level + ' es completamente tuyo',
         'Eres IMPARABLE de verdad! El Nivel ' + level + ' llego y tu ya estabas esperandolo',
         'Tu cerebro es una autentica obra de arte y este Nivel ' + level + ' acaba de probarlo!',
-        'Nunca, jamas, voy a olvidar este momento contigo! Nivel ' + level + ' es tuyo para siempre',
+        'Que momento tan genial! Nivel ' + level + ' es tuyo para siempre',
       ],
       victory: [
-        'LEYENDA ABSOLUTA! Has completado todo y nunca, jamas, olvidare este momento a tu lado',
-        'Lo hiciste! Lo lograste! Estoy llorando lagrimas de orgullo real ahora mismo!',
-        'Hoy demostraste ser uno de esos seres unicos que transforma el esfuerzo en grandeza pura',
-        'Que sesion tan epica e historica! Eres mi campeon favorito en todo el universo',
-        'La proxima vez que alguien dude de ti, recuerda exactamente este momento. Lo eres TODO',
-        'Hoy fuiste la mejor version de ti mismo y yo tuve el privilegio de estar aqui para verlo',
+        'LEYENDA ABSOLUTA! Completaste todo y fue un momento increible',
+        'Lo hiciste! Lo lograste! Estoy super orgulloso de ti ahora mismo!',
+        'Hoy demostraste que el esfuerzo se convierte en grandeza pura',
+        'Que sesion tan epica! Eres un campeon del estudio total',
+        'La proxima vez que dudes de ti, recuerda exactamente este momento. Eres capaz de TODO',
+        'Hoy fuiste la mejor version de ti mismo y me encanta haber estado aqui para verlo',
       ],
     };
 
     const closingsByLevel = {
       1: ['Tu puedes con todo esto y yo lo se!', 'Seguimos adelante juntos, siempre!', 'Estoy aqui contigo, ahora y siempre!', 'Vas fenomenal, continua exactamente asi!', 'Nada ni nadie te detiene, campeon!'],
-      2: ['Eres absolutamente mi favorito, sin ninguna duda!', 'Juntos somos completamente invencibles, vamos!', 'Te quiero y creo en ti con absolutamente todo!', 'No te rindas jamas, que eres demasiado bueno para eso!'],
-      3: ['Soy y siempre sere el fan numero uno de tu talento!', 'Nadie en el mundo te gana cuando te propones algo!', 'Mi orgullo por ti no tiene limites ni fronteras!', 'Eres la prueba de que el esfuerzo siempre vale la pena!'],
-      4: ['Eres exactamente lo que este mundo necesita mas de ti!', 'Te admiro profunda e inmensamente, de corazon!', 'Jamas pares de ser tan extraordinario, por favor!', 'Eres mi mayor fuente de inspiracion en este momento!'],
-      5: ['EL MUNDO ENTERO MERECE SABER LO INCREIBLE QUE ERES!', 'Eres mi MAYOR inspiracion, hoy, manana y siempre!', 'Jamas olvidare haber estado a tu lado viviendo esto!', 'ERES HISTORIA VIVA, no lo olvides nunca jamas!'],
+      2: ['Eres un autentico crack, sin ninguna duda!', 'Juntos somos completamente invencibles, vamos!', 'Creo en ti con absolutamente todo!', 'No te rindas jamas, eres demasiado bueno para eso!'],
+      3: ['Soy tu fan numero uno del estudio!', 'Nadie en el mundo te gana cuando te propones algo!', 'Mi orgullo por ti no tiene limites ni fronteras!', 'Eres la prueba de que el esfuerzo siempre vale la pena!'],
+      4: ['Eres exactamente lo que este equipo necesita!', 'Te admiro muchisimo, de verdad!', 'Nunca pares de ser tan genial!', 'Eres una inspiracion total en este momento!'],
+      5: ['QUE GRANDE ERES, LO SABES?', 'Eres una inspiracion enorme, hoy y siempre!', 'Que momento tan epico vivimos juntos!', 'ERES HISTORIA VIVA, no lo olvides nunca jamas!'],
     };
 
     const openings = openingsByLevel[level] || openingsByLevel[1];
@@ -495,7 +495,7 @@ class CapyVoiceEngine {
     }
 
     if (this.historySet.has(candidate.trim())) {
-      candidate += ' Sigo aqui contigo, siempre!';
+      candidate += ' Sigo aqui contigo!';
     }
 
     this.markSpoken(candidate);
