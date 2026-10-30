@@ -248,8 +248,9 @@ class LobbyAmbientEngine {
 
   async start() {
     if (this.isPlaying) return;
-    // Modo ligero: sin música de lobby (CPU ahorrado para el juego)
-    if (isLowPower()) {
+    // Modo ligero: sin música de lobby SOLO en arranque automático; si el
+    // usuario la activa a mano (unmute) debe sonar de verdad.
+    if (isLowPower() && !this._userInteracted) {
       this.isPlaying = true;
       this._notify();
       return;
@@ -322,6 +323,7 @@ class LobbyAmbientEngine {
       }
     } else {
       if (!this.isPlaying) {
+        this._userInteracted = true;
         this.start();
       } else if (this.ctx && this.masterGain) {
         const now = this.ctx.currentTime;

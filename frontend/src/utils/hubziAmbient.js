@@ -300,9 +300,11 @@ class HubziAmbientEngine {
   async start() {
     if (this.isPlaying) return;
     // Modo ligero: sin audio ambiental — los osciladores + convolver
-    // consumen CPU constante en gama baja. Se omite sin marcar isPlaying
-    // para que un cambio de modo posterior sí inicie el audio.
-    if (isLowPower()) return;
+    // consumen CPU constante en gama baja. Solo se omite el AUTO-arranque:
+    // si el usuario pulsa el botón de música explícitamente (toggle marca
+    // _userInteracted) el audio sí inicia — bloquearlo apaga la música en
+    // la mayoría de teléfonos sin forma de recuperarla.
+    if (isLowPower() && !this._userInteracted) return;
     if (!this._init()) return;
     await this._resume();
     // Autoplay policy: sin gesto del usuario el ctx queda 'suspended' y
