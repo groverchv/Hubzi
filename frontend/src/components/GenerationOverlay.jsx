@@ -24,7 +24,7 @@ const STAGE_LABELS = {
 
 const STEP_MS = 2600;
 
-export default function GenerationOverlay({ stage = null, progress = null, errorMessage = null, onCancel = null, onRetry = null, onPlayDemo = null }) {
+export default function GenerationOverlay({ stage = null, progress = null, errorMessage = null, onCancel = null, onRetry = null }) {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const isError = stage === 'error';
@@ -134,14 +134,6 @@ export default function GenerationOverlay({ stage = null, progress = null, error
         )}
 
         <div className="mt-5 flex items-center gap-3 flex-wrap justify-center">
-          {isError && onPlayDemo && (
-            <button
-              onClick={onPlayDemo}
-              className="flex items-center gap-2 px-5 py-2 rounded-arcade-sm bg-cyan-500/90 hover:bg-cyan-400 border border-cyan-300/50 text-slate-950 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-[0_3px_0_#155e75]"
-            >
-              {t('gen.play_demo')}
-            </button>
-          )}
           {isError && onRetry && (
             <button
               onClick={onRetry}

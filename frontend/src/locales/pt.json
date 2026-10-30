@@ -145,7 +145,6 @@
     "done": "Pronto!",
     "error": "Algo deu errado…",
     "processing": "Processando…",
-    "play_demo": "Jogar demo local",
     "retry": "Tentar de novo",
     "close": "Fechar",
     "cancel": "Cancelar",
@@ -158,7 +157,8 @@
     "aria_gen": "Gerando nível",
     "progress_aria": "Progresso da geração",
     "err_default": "A geração não foi concluída. Você pode tentar de novo sem perder o progresso.",
-    "wait_note": "Isso pode levar alguns segundos. Matemática e física são geradas na hora; os demais domínios usam IA."
+    "wait_note": "Isso pode levar alguns segundos. Matemática e física são geradas na hora; os demais domínios usam IA.",
+    "offline": "Sem conexão com o servidor do Hubzy. Verifique sua internet e tente de novo em alguns minutos."
   },
   "modals": {
     "close": "Fechar",
@@ -428,8 +428,6 @@
     "empty_t": "Seu baú está vazio",
     "empty_p": "Crie uma pasta para organizar seus materiais de estudo e começar a jogar.",
     "create_first": "Criar Primeira Pasta",
-    "demo_t": "Jogue uma partida de exemplo sobre o Sistema Solar — sem enviar documentos",
-    "demo_btn": "Testar com documento de exemplo",
     "created_on": "Criada em {{date}}",
     "active_mission": "Missão Ativa",
     "school": "Escola",
@@ -562,7 +560,6 @@
     "trap_content2": "Carta armadilha! Esta afirmação contradiz o conteúdo oficial do tema.",
     "streak_greet": "{{days}} dias seguidos estudando! Sua constância é seu superpoder — bom ritmo.",
     "new_island": "Descobrimos uma ilha nova: {{name}}! Estou emocionada — vamos explorá-la juntos, passo a passo.",
-    "demo_ready": "Demo pronta — é assim que se joga Hubzy. Depois envie seus documentos para criar suas ilhas.",
     "gen_fail": "Não foi possível gerar os itens do nível com IA.",
     "job_progress_fail": "Não foi possível consultar o progresso ({{status}}).",
     "select_folder": "Selecione uma pasta de estudo para começar.",

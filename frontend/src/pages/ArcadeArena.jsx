@@ -9,7 +9,6 @@ import {
   Folder as FolderIcon,
   Home,
   Compass,
-  CheckCircle2,
   AlertCircle,
   Flame,
   EyeOff,
@@ -51,7 +50,6 @@ import { useAuthStore } from "../store/authStore";
 import { useCrisis, checkCrisisFlag } from "../lib/crisis.jsx";
 import { GAME_LEVELS, levelName } from "../utils/gameConfig";
 import { useTranslation } from "react-i18next";
-import { DEMO_BOARD, DEMO_FOLDER } from "../utils/demoBoard";
 import { analyzeIntentLocally } from "../utils/localNlp";
 import { getDynamicLayout } from "../utils/boardLayout";
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
@@ -1526,23 +1524,6 @@ export default function ArcadeArena() {
     return true;
   };
 
-  // DEMO INMEDIATA: jugar con el documento de ejemplo sin subir nada —
-  // tablero local, sin llamadas a la IA ni a la carpeta del backend.
-  const handlePlayDemo = () => {
-    setIsFolderModalOpen(false);
-    setIsWelcomeScreenVisible(false);
-    setActiveFolder({ ...DEMO_FOLDER });
-    setActiveIsland(null);
-    lockLandscape();
-    const ok = applyBoardData(DEMO_BOARD, DEMO_FOLDER.name, 5, null);
-    if (ok) {
-      setCurrentLevel(5);
-      setSuccessNotif(
-        t('arena.demo_ready'),
-      );
-    }
-  };
-
   // CARGAR NIVEL ESPECÍFICO (1 A 5) DESDE EL BACKEND
   // Cancela la espera de generación. El job del backend termina igual y su
   // resultado queda en caché, así que cancelar no desperdicia el trabajo.
@@ -2127,24 +2108,11 @@ export default function ArcadeArena() {
       errorMessage={genError?.message}
       onCancel={handleCancelGeneration}
       onRetry={genError ? handleRetryGeneration : null}
-      onPlayDemo={genError?.offline ? handlePlayDemo : null}
     />
   );
 
   const notificationToasts = (
     <AnimatePresence>
-      {successNotif && (
-        <motion.div
-          key="success-notif"
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -16 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 px-5 py-3 rounded-arcade bg-emerald-600/95 border-2 border-emerald-300/60 text-white text-sm font-bold shadow-[0_8px_30px_rgba(16,185,129,0.35)] max-w-lg"
-        >
-          <CheckCircle2 className="w-5 h-5 shrink-0" />
-          <span>{successNotif}</span>
-        </motion.div>
-      )}
       {errorNotif && (
         <motion.div
           key="error-notif"
@@ -2335,7 +2303,6 @@ export default function ArcadeArena() {
             setIsMapVisible(false);
             setIsWelcomeScreenVisible(true);
           }}
-          onPlayDemo={handlePlayDemo}
           onSelectFolder={async (folder) => {
             lockLandscape();
             const island = folder.selectedIsland || null;
@@ -2416,7 +2383,6 @@ export default function ArcadeArena() {
           setIsFolderModalOpen(false);
           setIsWelcomeScreenVisible(true);
         }}
-        onPlayDemo={handlePlayDemo}
         onSelectFolder={async (folder) => {
           lockLandscape();
           const island = folder.selectedIsland || null;

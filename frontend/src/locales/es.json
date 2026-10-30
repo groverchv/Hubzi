@@ -225,7 +225,6 @@
     "trap_content2": "¡Carta trampa! Esta afirmación contradice el contenido oficial del tema.",
     "streak_greet": "¡{{days}} días seguidos estudiando! Tu constancia es tu superpoder — buen ritmo.",
     "new_island": "¡Descubrimos una isla nueva: {{name}}! Estoy emocionada — vamos a explorarla juntos, paso a paso.",
-    "demo_ready": "Demo lista — así se juega Hubzy. Luego sube tus documentos para crear tus islas.",
     "gen_fail": "No se pudieron generar los reactivos del nivel con IA.",
     "job_progress_fail": "No se pudo consultar el progreso ({{status}}).",
     "select_folder": "Selecciona una carpeta de estudio para comenzar.",
@@ -477,10 +476,10 @@
     "progress_aria": "Progreso de la generación",
     "err_default": "La generación no se completó. Puedes reintentar sin perder tu progreso.",
     "wait_note": "Esto puede tardar unos segundos. Las matemáticas y la física se generan al instante; los demás dominios usan IA.",
-    "play_demo": "Jugar demo local",
     "retry": "Reintentar",
     "close": "Cerrar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "offline": "Sin conexión con el servidor de Hubzy. Revisa tu internet e inténtalo de nuevo en unos minutos."
   },
   "modals": {
     "close": "Cerrar",
@@ -723,8 +722,6 @@
     "empty_t": "Tu baúl está vacío",
     "empty_p": "Crea una carpeta para organizar tus materiales de estudio y comenzar a jugar.",
     "create_first": "Crear Primera Carpeta",
-    "demo_t": "Juega una partida de ejemplo sobre el Sistema Solar — sin subir documentos",
-    "demo_btn": "Probar con documento de ejemplo",
     "created_on": "Creada el {{date}}",
     "active_mission": "Misión Activa",
     "school": "Colegio",

@@ -225,7 +225,6 @@
     "trap_content2": "Trap card! This statement contradicts the official topic content.",
     "streak_greet": "{{days}} days studying in a row! Your consistency is your superpower — great pace.",
     "new_island": "We discovered a new island: {{name}}! I'm so excited — let's explore it together, step by step.",
-    "demo_ready": "Demo ready — this is how you play Hubzy. Then upload your documents to create your islands.",
     "gen_fail": "The level items could not be generated with AI.",
     "job_progress_fail": "Could not check progress ({{status}}).",
     "select_folder": "Select a study folder to start.",
@@ -485,10 +484,10 @@
     "progress_aria": "Generation progress",
     "err_default": "Generation didn't complete. You can retry without losing progress.",
     "wait_note": "This may take a few seconds. Math and physics are generated instantly; other domains use AI.",
-    "play_demo": "Play local demo",
     "retry": "Retry",
     "close": "Close",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "offline": "No connection to the Hubzy server. Check your internet and try again in a few minutes."
   },
   "modals": {
     "close": "Close",
@@ -731,8 +730,6 @@
     "empty_t": "Your trunk is empty",
     "empty_p": "Create a folder to organize your study materials and start playing.",
     "create_first": "Create First Folder",
-    "demo_t": "Play a sample game about the Solar System — no documents needed",
-    "demo_btn": "Try with the sample document",
     "created_on": "Created on {{date}}",
     "active_mission": "Active Mission",
     "school": "School",

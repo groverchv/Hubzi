@@ -97,8 +97,7 @@ export default function StudyFolderManagerModal({
   onClose,
   onBackToMenu,
   onSelectFolder,
-  onUpgradeToPro,
-  onPlayDemo
+  onUpgradeToPro
 }) {
   const { t } = useTranslation();
   const userStorageKey = currentUser?.id ? `hubzy_user_study_folders_${currentUser.id}` : 'hubzy_user_study_folders';
@@ -1018,17 +1017,6 @@ export default function StudyFolderManagerModal({
                       <Plus className="w-4 h-4 stroke-[3]" />
                       <span>{t('folders.create_first')}</span>
                     </button>
-                    {/* DEMO INMEDIATA: jugar sin subir nada */}
-                    {onPlayDemo && (
-                      <button
-                        onClick={onPlayDemo}
-                        className="px-5 py-2.5 rounded-arcade bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wide flex items-center gap-2 shadow-btn-emerald active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                        title={t('folders.demo_t')}
-                      >
-                        <PlayCircle className="w-4 h-4 stroke-[2.5]" />
-                        <span>{t('folders.demo_btn')}</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               ) : (
