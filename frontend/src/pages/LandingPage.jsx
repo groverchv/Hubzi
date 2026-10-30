@@ -73,7 +73,7 @@ export default function LandingPage() {
       <AnimatedCloudsBackground />
 
       {/* Nav */}
-      <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-3 xl:py-4">
+      <header className="relative z-30 flex items-center justify-between px-6 sm:px-10 py-3 xl:py-4">
         <div className="flex items-center gap-2.5">
           <span className="text-xl xl:text-2xl font-black uppercase tracking-wider text-[var(--color-arcade-navy)]">Hubzi</span>
         </div>

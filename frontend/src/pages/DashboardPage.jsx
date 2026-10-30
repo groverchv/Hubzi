@@ -70,7 +70,7 @@ export default function DashboardPage() {
     <div className="min-h-screen w-full bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-100 font-sans">
       <AnimatedCloudsBackground />
 
-      <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
+      <header className="relative z-30 flex items-center justify-between px-6 sm:px-10 py-5">
         <Link to="/" className="flex items-center gap-2">
           <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-arcade-sm border-2 border-[var(--color-arcade-navy)] object-cover" />
           <span className="text-xl font-black uppercase text-[var(--color-arcade-navy)]">Hubzy</span>
