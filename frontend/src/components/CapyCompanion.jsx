@@ -746,8 +746,8 @@ export default function CapyCompanion({
               </span>
             </div>
 
-          {/* FILA DE CONTROLES — micrófono, voz, música y respiración */}
-          <div className="flex items-center gap-2.5">
+          {/* CONTROLES 2x2 — micrófono, voz, música y respiración */}
+          <div className="grid grid-cols-2 gap-2.5 place-items-center">
             {/* Botón Micrófono para hablar por voz con Hubzi */}
             <span className="relative inline-flex">
               <CoachMark id="mic" position="top">
@@ -857,7 +857,7 @@ export default function CapyCompanion({
                   e.stopPropagation();
                   if (onZenAccept) onZenAccept();
                 }}
-                className="px-2 py-1 rounded-full bg-emerald-600/95 border border-emerald-300 text-white text-[8px] font-black uppercase tracking-wider shadow-[0_0_14px_rgba(52,211,153,0.7)] animate-pulse cursor-pointer flex items-center gap-1"
+                className="col-span-2 px-2 py-1 rounded-full bg-emerald-600/95 border border-emerald-300 text-white text-[8px] font-black uppercase tracking-wider shadow-[0_0_14px_rgba(52,211,153,0.7)] animate-pulse cursor-pointer flex items-center gap-1"
                 title={t('hubzi.breathe_t')}
               >
                 <Wind className="w-3 h-3" />

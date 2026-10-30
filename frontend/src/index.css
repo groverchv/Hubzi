@@ -450,6 +450,17 @@ html.low-power .drop-shadow-xl {
     width: calc(100vw / 0.55) !important;
     height: calc(100dvh / 0.55) !important;
   }
+  /* El tablero + bandeja deben caber en el layout ampliado: la altura del
+     tablero baja cuando la pantalla es muy baja (nodos son %, no se rompen)
+     y se anula el margen superior extra del contenedor. */
+  .arena-stage .board-table-3d {
+    height: min(485px, calc(100dvh / 0.55 - 205px)) !important;
+    max-height: none !important;
+  }
+  .arena-stage .isometric-board-container {
+    margin-top: 3.5rem !important;
+    margin-bottom: 0 !important;
+  }
   .landing-stage {
     transform: scale(0.55);
     transform-origin: top left;
@@ -567,6 +578,49 @@ html.dark-mode .hand-tray {
 }
 html.dark-mode .hand-slot {
   background: rgba(30, 58, 108, 0.4);
+}
+
+/* === MODO NOCHE — Tablero de juego === */
+html.dark-mode .board-table-3d {
+  background-color: #122443;
+  border-color: #1e3a6c;
+}
+html.dark-mode .board-table-3d .bg-\[\#f8fafc\] {
+  background-color: #0a162b;
+  border-color: #1e3a6c;
+}
+html.dark-mode .board-table-3d .bg-\[\#f8fafc\]\/70 {
+  background-color: rgba(10, 22, 43, 0.7);
+  border-color: rgba(30, 58, 108, 0.8);
+}
+html.dark-mode .board-table-3d .border-slate-300,
+html.dark-mode .board-table-3d .border-slate-300\/80 {
+  border-color: #1e3a6c;
+}
+/* Rejilla interior tenue sobre navy */
+html.dark-mode .board-table-3d [style*="background-image"] {
+  background-image: linear-gradient(rgba(91, 131, 196, 0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(91, 131, 196, 0.16) 1px, transparent 1px) !important;
+}
+/* Conexiones: el trazo oscuro se aclara para verse en navy */
+html.dark-mode .board-table-3d line[stroke="#1e293b"] {
+  stroke: #5b83c4;
+}
+/* Casillas de nodo: vacías y estados de respuesta */
+html.dark-mode .board-table-3d .bg-slate-200\/80 {
+  background-color: rgba(30, 58, 108, 0.5);
+  border-color: rgba(91, 131, 196, 0.6);
+}
+html.dark-mode .board-table-3d .bg-green-100 {
+  background-color: rgba(16, 185, 129, 0.25);
+}
+html.dark-mode .board-table-3d .bg-rose-100 {
+  background-color: rgba(244, 63, 94, 0.2);
+}
+html.dark-mode .board-table-3d .bg-orange-100 {
+  background-color: rgba(249, 115, 22, 0.22);
+}
+html.dark-mode .board-table-3d .text-slate-600 {
+  color: #9fb4d8;
 }
 
 /* === MODO NOCHE — Baúl de Carpetas (StudyFolderManagerModal):

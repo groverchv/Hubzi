@@ -24,107 +24,65 @@ function BoardConsole({
   const totalNodes = nodeArr.length;
 
   return (
-    <div className="isometric-board-container flex-1 flex items-center justify-center w-full my-1 sm:my-auto px-2 z-10 overflow-visible">
-      {/* Carcasa Octogonal Externa con Extrusión de Sombra 3D */}
+    <div className="isometric-board-container flex-1 flex items-center justify-center w-full mt-14 mb-1 sm:mb-auto pl-[10%] pr-2 z-10 overflow-visible">
+      {/* Panel frontal rectangular (recto, sin tilt 3D ni módulos
+          decorativos): marco arcade + pantalla táctica interior. */}
       <div
-        className="board-table-3d table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] p-3 sm:p-4 flex flex-col justify-between"
+        className="board-table-3d relative w-[96%] max-w-6xl h-[410px] sm:h-[445px] lg:h-[485px] max-h-[66vh] bg-[#e2e8f0] border-4 border-[#cbd5e1] rounded-arcade-lg p-3 sm:p-4 flex flex-col justify-between"
         style={{
-          clipPath:
-            "polygon(5% 0%, 95% 0%, 100% 9%, 100% 91%, 95% 100%, 5% 100%, 0% 91%, 0% 9%)",
           boxShadow:
-            "0 28px 45px -8px rgba(15, 23, 42, 0.40), 0 14px 0 #94a3b8, inset 0 3px 6px rgba(255,255,255,0.95)",
+            "0 20px 40px -12px rgba(15, 23, 42, 0.35), inset 0 2px 4px rgba(255,255,255,0.9)",
         }}
       >
-        {/* Superficie Interior Biselada del Tablero */}
+        {/* Superficie interior del tablero (grid sutil) */}
         <div
-          className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 pointer-events-none"
+          className="absolute inset-2 bg-[#f8fafc] border-2 border-slate-300 rounded-arcade pointer-events-none"
           style={{
-            clipPath:
-              "polygon(4.8% 0%, 95.2% 0%, 100% 8.5%, 100% 91.5%, 95.2% 100%, 4.8% 100%, 0% 91.5%, 0% 8.5%)",
             backgroundImage:
               "linear-gradient(rgba(148,163,184,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.20) 1px, transparent 1px)",
             backgroundSize: "32px 32px",
           }}
         />
 
-        {/* MÓDULOS DECORATIVOS COLORIDOS INCRUSTADOS EN LOS BORDES */}
-        {/* 1. ESQUINA SUPERIOR IZQUIERDA */}
-        <div className="absolute top-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-arcade-sm bg-gradient-to-r from-[#1e293b] to-[#334155] border border-[#475569] shadow-md transform -rotate-[35deg] board-deco pointer-events-none">
-          <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-glow-cyan-sm animate-pulse" />
-          <span className="w-5 h-1 rounded-full bg-slate-300/60" />
-        </div>
-
-        {/* 2. ESQUINA SUPERIOR DERECHA */}
-        <div className="absolute top-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-arcade-sm bg-gradient-to-r from-[#ea580c] to-[#f97316] border border-[#fb923c] shadow-md transform rotate-[35deg] board-deco pointer-events-none">
-          <div className="w-2 h-2 rounded-full bg-amber-200 shadow-[0_0_8px_#fde68a]" />
-          <span className="w-5 h-1 rounded-full bg-white/70" />
-        </div>
-
-        {/* 3. ESQUINA INFERIOR IZQUIERDA */}
-        <div className="absolute bottom-1 left-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-arcade-sm bg-gradient-to-r from-[#312e81] to-[#4f46e5] border border-[#6366f1] shadow-md transform rotate-[35deg] board-deco pointer-events-none">
-          <div className="w-2 h-2 rounded-full bg-indigo-200 shadow-[0_0_8px_#c7d2fe]" />
-          <span className="w-5 h-1 rounded-full bg-white/60" />
-        </div>
-
-        {/* 4. ESQUINA INFERIOR DERECHA */}
-        <div className="absolute bottom-1 right-2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-arcade-sm bg-gradient-to-r from-[#ca8a04] to-[#eab308] border border-[#facc15] shadow-md transform -rotate-[35deg] board-deco pointer-events-none">
-          <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#ffffff]" />
-          <span className="w-5 h-1 rounded-full bg-amber-950/40" />
-        </div>
-
-        {/* 5. LATERAL IZQUIERDO */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-arcade bg-gradient-to-b from-[#f87171] to-[#fb923c] border-2 border-[#fdba74] shadow-[0_4px_12px_rgba(248,113,113,0.35)] board-deco pointer-events-none">
-          <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70 flex items-center justify-center">
-            <div className="w-1 h-4 rounded-full bg-white" />
+        {/* ESQUINAS ARCADE — remaches, marcos en L y LEDs de esquina */}
+        {[
+          { pos: "top-1.5 left-1.5", led: "cyan" },
+          { pos: "top-1.5 right-1.5", led: "amber" },
+          { pos: "bottom-1.5 left-1.5", led: "amber" },
+          { pos: "bottom-1.5 right-1.5", led: "cyan" },
+        ].map(({ pos, led }, i) => (
+          <div key={i} className={`absolute ${pos} w-5 h-5 pointer-events-none z-10`}>
+            {/* Remache */}
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 border border-slate-600 shadow-[inset_0_1px_2px_rgba(255,255,255,0.7),0_1px_2px_rgba(0,0,0,0.3)] flex items-center justify-center">
+              <div className="w-2.5 h-[1.5px] bg-slate-700 rounded-full rotate-45" />
+            </div>
+            {/* LED de esquina con parpadeo suave */}
+            <div
+              className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                led === "cyan"
+                  ? "bg-cyan-400 shadow-[0_0_8px_2px_rgba(34,211,238,0.7)]"
+                  : "bg-amber-400 shadow-[0_0_8px_2px_rgba(251,191,36,0.7)]"
+              } animate-pulse`}
+              style={{ animationDelay: `${i * 0.7}s` }}
+            />
           </div>
-          <div className="w-4 h-4 rounded-lg bg-[#b91c1c]/50 border border-white/80 flex items-center justify-center shadow-inner">
-            <div className="w-2 h-2 rounded-full bg-white shadow-sm" />
-          </div>
-          <div className="w-2 h-8 rounded-full bg-white/50 border border-white/70" />
-        </div>
-
-        {/* 6. LATERAL DERECHO */}
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2.5 py-4 px-1.5 rounded-arcade bg-gradient-to-b from-[#0f172a] to-[#1e293b] border-2 border-[#475569] shadow-[0_4px_12px_rgba(15,23,42,0.45)] board-deco pointer-events-none">
-          <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
-          <div className="w-4 h-4 rounded-lg bg-orange-500 border border-orange-300 flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.8)]">
-            <div className="w-0 h-0 border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent border-l-[6px] border-l-white ml-0.5" />
-          </div>
-          <div className="w-2 h-8 rounded-full bg-slate-700/80 border border-slate-500/60" />
-        </div>
-
-        {/* 7. BORDE SUPERIOR */}
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-6 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner board-deco pointer-events-none">
-          <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_var(--color-amber-400)]" />
-          <span className="w-10 h-1.5 rounded-full bg-[#64748b]/40" />
-        </div>
-
-        {/* 8. BORDE INFERIOR */}
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4 px-10 py-1 rounded-full bg-[#cbd5e1] border border-[#94a3b8] shadow-inner board-deco pointer-events-none">
-          <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]" />
-          <span className="w-16 h-1.5 rounded-full bg-[#64748b]/40" />
-        </div>
+        ))}
+        {/* Marcos en L de las esquinas interiores */}
+        {[
+          "top-3 left-3 rounded-tl-xl border-t-2 border-l-2",
+          "top-3 right-3 rounded-tr-xl border-t-2 border-r-2",
+          "bottom-3 left-3 rounded-bl-xl border-b-2 border-l-2",
+          "bottom-3 right-3 rounded-br-xl border-b-2 border-r-2",
+        ].map((cls, i) => (
+          <div
+            key={i}
+            className={`absolute w-10 h-10 pointer-events-none z-10 border-[var(--color-arcade-orange)]/70 ${cls}`}
+          />
+        ))}
 
         {/* PANTALLA TÁCTICA CON DISTRIBUCIÓN ESPACIAL ABIERTA */}
         <div className="w-full h-full rounded-arcade bg-[#f8fafc]/70 border border-slate-300/80 p-3 sm:p-4 flex flex-col justify-between relative overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-300/70 pb-2 z-10">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-300">
-                {boardInfo?.theme || t('board.theme_default')}
-              </span>
-              <h1 className="text-sm sm:text-base font-black tracking-widest text-slate-700 font-mono uppercase">
-                {boardInfo?.title || t('board.title_default')}
-              </h1>
-            </div>
 
-            {/* Título de Nivel Actual Discreto */}
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-arcade-sm bg-orange-500/10 border border-orange-300/60 shadow-xs">
-              <span className="text-[10px] font-black uppercase text-orange-600 font-mono tracking-wider">
-{t('board.level_of', { level: currentLevel, name: levelName(GAME_LEVELS.find((l) => l.level === currentLevel), t) || t('board.level_easy') })}
-              </span>
-            </div>
-          </div>
 
           {/* ÁREA CENTRAL DE NODOS */}
           <div className="relative flex-1 w-full h-full my-2 flex items-center justify-center" role="group" aria-label={t('board.nodes_aria', { done: nodeArr.filter((n) => n.placedCard).length, total: totalNodes })}>

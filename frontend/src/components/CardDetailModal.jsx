@@ -21,7 +21,7 @@ function CardDetailModal({ isOpen, card, onClose }) {
         animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
         exit={{ opacity: 0, y: 50, scale: 0.9, x: 20 }}
         transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-80 sm:w-96 rounded-arcade-lg bg-gradient-to-b from-[#182338] via-[#101726] to-[#0a0f19] border-2 border-cyan-400 p-4 sm:p-5 shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(6,182,212,0.4)] text-slate-100 flex flex-col select-none backdrop-blur-md"
+        className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:bottom-6 sm:right-6 z-50 w-auto max-w-full sm:w-96 rounded-arcade-lg bg-gradient-to-b from-[#182338] via-[#101726] to-[#0a0f19] border-2 border-cyan-400 p-4 sm:p-5 shadow-[0_15px_40px_rgba(0,0,0,0.85),0_0_30px_rgba(6,182,212,0.4)] text-slate-100 flex flex-col select-none backdrop-blur-md"
       >
         {/* Luces decorativas */}
         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-amber-400 rounded-sm shadow-md" />

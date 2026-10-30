@@ -141,7 +141,7 @@ function CompactBoard({
   const done = nodeArr.filter((n) => n.placedCard).length;
 
   return (
-    <div className="flex-1 min-h-0 w-full px-2 py-1 flex z-10 overflow-hidden">
+    <div className="flex-1 min-h-0 w-full px-2 pt-14 pb-1 flex z-10 overflow-hidden">
       {/* ml-[104px] deja el carril izquierdo libre para Hubzi */}
       <div className="flex-1 min-h-0 ml-[104px] rounded-arcade bg-[#f8fafc]/95 border-2 border-slate-300 shadow-[0_10px_24px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-300/80 bg-white/60 shrink-0">

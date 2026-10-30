@@ -202,7 +202,7 @@ export default function GameCard({
 
       {/* ── CARD BODY (FICHA DE JUEGO 3D) ── */}
       <div
-        className={`game-card relative w-[78px] sm:w-[84px] h-[96px] sm:h-[104px] rounded-arcade bg-gradient-to-b ${cardTheme.gradient} border-2 ${cardTheme.border} p-2 flex flex-col items-center justify-between overflow-hidden transition-all duration-200 cursor-pointer touch-none`}
+        className={`game-card relative ${compact ? "w-[58px] h-[72px]" : "w-[78px] sm:w-[84px] h-[96px] sm:h-[104px]"} rounded-arcade bg-gradient-to-b ${cardTheme.gradient} border-2 ${cardTheme.border} p-2 flex flex-col items-center justify-between overflow-hidden transition-all duration-200 cursor-pointer touch-none`}
         style={{ 
           boxShadow: isSelected 
             ? '0 0 25px rgba(249, 115, 22, 0.9), 0 8px 0 #ea580c' 

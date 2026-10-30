@@ -92,7 +92,7 @@ export default function HandTray({
           </div>
         )}
 
-        <div className="hand-tray relative px-4 py-3 rounded-arcade bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center max-w-full" role="group" aria-label={t('hand.aria', { count: hand.length })}>
+        <div className={`hand-tray relative px-4 ${compact ? "py-1.5" : "py-3"} rounded-arcade bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center max-w-full`} role="group" aria-label={t('hand.aria', { count: hand.length })}>
           <div className={`flex items-center gap-2.5 px-1 py-0.5 ${
             compact
               ? "overflow-x-auto overflow-y-visible w-full max-w-[86vw]"

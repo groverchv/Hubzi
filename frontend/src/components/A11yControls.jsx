@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Accessibility, Type, Contrast, Moon, Languages } from 'lucide-react';
+import { Settings, Type, Contrast, Moon, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -62,14 +62,14 @@ export default function A11yControls() {
     <div ref={wrapRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`p-3 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer ${
+        className={`px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-white shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer ${
           active ? 'ring-2 ring-[var(--color-arcade-cyan)]' : ''
         }`}
         title={t('a11y.title')}
         aria-label={t('a11y.open')}
         aria-expanded={open}
       >
-        <Accessibility className="w-5 h-5 text-[var(--color-arcade-cyan)]" />
+        <Settings className="w-4 h-4 text-[var(--color-arcade-cyan)]" />
       </button>
 
       <AnimatePresence>

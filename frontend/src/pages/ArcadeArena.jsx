@@ -36,7 +36,7 @@ import RestartOptionsModal from "../components/RestartOptionsModal";
 import A11yControls from "../components/A11yControls";
 import HandTray from "../components/HandTray";
 import BoardConsole from "../components/BoardConsole";
-import CompactBoard from "../components/CompactBoard";
+import { lockLandscape } from "../utils/orientation";
 import HubziChatPanel from "../components/HubziChatPanel";
 import { capyAudio } from "../utils/capyAudio";
 import { capyVoice } from "../utils/capyVoice";
@@ -56,7 +56,7 @@ import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 import { useHubziState, deriveHubziStatus } from "../hooks/useHubziState";
 import { track } from "../utils/uxTelemetry";
 import { bandForAge, getBand } from "../utils/ageConfig";
-import { lockLandscape, useCompactMobile } from "../utils/orientation";
+
 import { useGlobalMuted, setGlobalMuted, isGlobalMuted } from "../utils/globalMute";
 
 export default function ArcadeArena() {
@@ -509,7 +509,6 @@ export default function ArcadeArena() {
 
   // Layout adaptativo móvil: lista compacta de nodos + deck horizontal
   // (sin escala de "laptop" — UI real a tamaño táctil).
-  const compactMobile = useCompactMobile();
 
   // Hubzi reactiva: nudge suave si llevas >40s sin actuar (una vez por
   // racha de inactividad). idleBlinkSeq re-dispara su parpadeo.
@@ -2341,7 +2340,7 @@ export default function ArcadeArena() {
   return (
     <div
       className={`arena-stage relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none${
-        compactMobile ? " arena-compact" : ""
+        ""
       }`}
     >
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
@@ -2571,7 +2570,6 @@ export default function ArcadeArena() {
           isThinkingHint={isThinkingHint}
           isCapyMuted={isCapyMuted}
           isAmbientPlaying={isAmbientPlaying}
-          compact={compactMobile}
           zenOffer={{ ...wellbeing, show: wellbeing.stage === 1 }}
           idleBlinkSeq={idleBlinkSeq}
           hubziStatus={hubziStatus}
@@ -2599,7 +2597,6 @@ export default function ArcadeArena() {
         <HubziChatPanel
           open={isChatOpen}
           messages={chatLog}
-          compact={compactMobile}
           username={currentUser?.username}
           onClose={() => setIsChatOpen(false)}
         />
@@ -2681,16 +2678,6 @@ export default function ArcadeArena() {
           <span className="hidden sm:inline">{t('arena.menu_btn')}</span>
         </button>
 
-        {/* BOTÓN CÓMO JUGAR / TUTORIAL (ESTILO CARD CLASH PLAY TUTORIAL) */}
-        <button
-          onClick={() => setIsTutorialOpen(true)}
-          className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-orange-flat active:translate-y-1 active:shadow-none cursor-pointer"
-          title={t('arena.tut_title')}
-        >
-          <BookOpen className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
-          <span className="hidden lg:inline">{t('arena.tut_btn')}</span>
-        </button>
-
         {/* ACCESIBILIDAD: alto contraste y texto grande */}
         <A11yControls />
 
@@ -2722,28 +2709,6 @@ export default function ArcadeArena() {
       {/* Marcadores de Nivel y Progreso — solo con partida en curso */}
       {Object.keys(nodes).length > 0 && (
       <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
-        {/* BREADCRUMB PERSISTENTE — el jugador nunca se pierde:
-            Carpeta › Isla › Nivel actual */}
-        {(activeFolder || activeIsland) && (
-          <div
-            className="hud-chip hidden sm:flex items-center gap-1 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-arcade shadow-hud max-w-[300px]"
-            title={t('arena.crumb', { folder: activeFolder?.name || t('arena.campaign'), island: activeIsland?.name || t('arena.island_general'), level: currentLevel })}
-          >
-            <Compass className="w-3.5 h-3.5 text-[var(--color-arcade-cyan)] shrink-0" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-300 truncate">
-              {activeFolder?.name || t('arena.campaign')}
-            </span>
-            <span className="text-[10px] font-black text-slate-500">›</span>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-arcade-cyan)] truncate">
-              {activeIsland?.name || t('arena.island_general')}
-            </span>
-            <span className="text-[10px] font-black text-slate-500">›</span>
-            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-arcade-yellow)] shrink-0">
-              {t('arena.level_n', { level: currentLevel })}
-            </span>
-          </div>
-        )}
-
         {/* Indicador de Nivel 1 a 20 */}
         {(() => {
           const lvlInfo =
@@ -2758,7 +2723,7 @@ export default function ArcadeArena() {
                 {t('arena.level_tag', { level: currentLevel, max: 20 })}
               </span>
               <span className="text-xs font-black text-white uppercase tracking-wide">
-                {levelName(lvlInfo, t)} ({lvlInfo.questions})
+                ({lvlInfo.questions})
               </span>
               {/* Estrellas ganadas en ESTE nivel (HUD de campaña, 3.5) */}
               <span
@@ -2779,6 +2744,22 @@ export default function ArcadeArena() {
             </div>
           );
         })()}
+
+        {/* CARPETA ACTIVA + NIVEL — nombre de la carpeta y nivel en curso */}
+        {(activeFolder?.name || boardInfo?.theme) && (
+          <div
+            className="hud-chip flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-arcade shadow-hud max-w-[280px]"
+            title={boardInfo?.title}
+          >
+            <FolderIcon className="w-3.5 h-3.5 text-[var(--color-arcade-cyan)] shrink-0" />
+            <span className="text-[10px] font-black uppercase text-white tracking-wider truncate">
+              {activeFolder?.name || boardInfo?.theme}
+            </span>
+            <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider whitespace-nowrap">
+              · {t('arena.level_tag', { level: currentLevel, max: 20 })}
+            </span>
+          </div>
+        )}
 
         {/* SIGUIENTE NIVEL SIEMPRE VISIBLE (3.5): acceso directo al mapa
             cuando ya está desbloqueado */}
@@ -2887,32 +2868,18 @@ export default function ArcadeArena() {
       {/* TABLERO Y MANO — SOLO CON PARTIDA ACTIVA (sin partida: solo cielo + barra) */}
       {Object.keys(nodes).length > 0 && (
         <>
-          {/* TABLERO — consola octogonal en desktop / lista compacta en móvil */}
-          {compactMobile ? (
-            <CompactBoard
-              boardInfo={boardInfo}
-              currentLevel={currentLevel}
-              nodes={nodes}
-              hintNodeId={effHintNodeId}
-              nodeFx={nodeFx}
-              hasActiveCard={Boolean(activeCardForDrop)}
-              matchNodeId={matchNodeId}
-              dragPreview={dragPreview}
-              onNodeClick={handleNodeClick}
-            />
-          ) : (
-            <BoardConsole
-              boardInfo={boardInfo}
-              currentLevel={currentLevel}
-              nodes={nodes}
-              hintNodeId={effHintNodeId}
-              nodeFx={nodeFx}
-              hasActiveCard={Boolean(activeCardForDrop)}
-              matchNodeId={matchNodeId}
-              dragPreview={dragPreview}
-              onNodeClick={handleNodeClick}
-            />
-          )}
+          {/* TABLERO — consola frontal en todas las pantallas */}
+          <BoardConsole
+            boardInfo={boardInfo}
+            currentLevel={currentLevel}
+            nodes={nodes}
+            hintNodeId={effHintNodeId}
+            nodeFx={nodeFx}
+            hasActiveCard={Boolean(activeCardForDrop)}
+            matchNodeId={matchNodeId}
+            dragPreview={dragPreview}
+            onNodeClick={handleNodeClick}
+          />
 
           {/* MANO DE CARTAS EN ABANICO — SOLO SI HAY PARTIDA ACTIVA */}
           <HandTray
@@ -2923,8 +2890,7 @@ export default function ArcadeArena() {
             selectedCardInHand={selectedCardInHand}
             isActualTurn={isActualTurn}
             theme={boardInfo?.theme}
-            compact={compactMobile}
-            onCardClick={(card) => {
+              onCardClick={(card) => {
               registerUserActivity();
               handleCardClick(card);
             }}

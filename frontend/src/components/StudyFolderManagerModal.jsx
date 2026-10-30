@@ -854,7 +854,7 @@ export default function StudyFolderManagerModal({
         {!activeFolderView && (
           <>
             {/* Cabecera Estilo Taberna / Inventario de Videojuego */}
-            <div className="p-6 border-b-arcade-sm border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
+            <div className="p-3 sm:p-6 border-b-arcade-sm border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-arcade bg-[var(--color-arcade-yellow)] border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-[var(--color-arcade-navy)] shadow-btn-yellow">
                   <FolderArchive className="w-8 h-8 text-[var(--color-arcade-navy)]" />
@@ -904,7 +904,7 @@ export default function StudyFolderManagerModal({
             </div>
 
             {/* Contenido Principal con Tablero de Carpetas */}
-            <div className="p-6 flex-1 overflow-y-auto space-y-4 bg-[#eaf1fb]">
+            <div className="p-3 sm:p-6 flex-1 overflow-y-auto space-y-4 bg-[#eaf1fb]">
               
               {/* Formulario de Creación de Carpeta */}
               <AnimatePresence>
@@ -1020,7 +1020,7 @@ export default function StudyFolderManagerModal({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
                   {folders.map((folder) => {
                     const docsCount = folder.documents?.length || 0;
                     const gamesCount = folder.games?.length || 0;
@@ -1181,7 +1181,7 @@ export default function StudyFolderManagerModal({
         {activeFolderView && (
           <>
             {/* Cabecera Interior de la Carpeta */}
-            <div className="p-6 border-b-arcade-sm border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
+            <div className="p-3 sm:p-6 border-b-arcade-sm border-[#bfd2ea] bg-[#e2ecf9] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => { setActiveFolderView(null); setShowIslandPicker(false); }}
@@ -1220,7 +1220,7 @@ export default function StudyFolderManagerModal({
             </div>
 
             {/* Listado de Documentos de la Carpeta */}
-            <div className="p-6 flex-1 overflow-y-auto space-y-4 bg-[#eaf1fb]">
+            <div className="p-3 sm:p-6 flex-1 overflow-y-auto space-y-4 bg-[#eaf1fb]">
               {/* "Tu isla se está generando" — detección de temas en curso
                   tras la subida; desaparece solo cuando el archipiélago
                   llega vía sondeo a /folders (o tras ~75s). */}
@@ -1275,7 +1275,7 @@ export default function StudyFolderManagerModal({
                   <p className="text-[11px] text-slate-600 mb-3">
                     {t('folders.arch_d')}
                   </p>
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                     {(activeFolderView.islands || []).map((isl, islIdx) => {
                       const p = isl.campaign_progress || {};
                       const style = ISLAND_STYLES[islIdx % ISLAND_STYLES.length];
@@ -1485,7 +1485,7 @@ export default function StudyFolderManagerModal({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                     {activeFolderView.documents.map((doc) => (
                       <div
                         key={doc.id}
