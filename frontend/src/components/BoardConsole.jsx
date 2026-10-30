@@ -178,7 +178,7 @@ function BoardConsole({
                     questionLatex={node.questionLatex}
                     hint={node.hint}
                     placedCard={node.placedCard}
-                    isOver={dragPreview?.nodeId === node.id && dragPreview.correct}
+                    isOver={dragPreview?.nodeId === node.id}
                     fx={nodeFx?.nodeId === node.id ? nodeFx : null}
                     afford={
                       node.placedCard || dragPreview?.nodeId === node.id
@@ -189,13 +189,7 @@ function BoardConsole({
                             ? "open"
                             : null
                     }
-                    preview={
-                      dragPreview?.nodeId === node.id
-                        ? dragPreview.correct
-                          ? "correct"
-                          : "wrong"
-                        : null
-                    }
+                    preview={null}
                     onClick={onNodeClick}
                   />
                 </div>

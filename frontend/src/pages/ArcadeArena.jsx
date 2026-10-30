@@ -2063,18 +2063,14 @@ export default function ArcadeArena() {
   };
 
   // Carta "activa" para la affordance de drop: la seleccionada por toque
-  // o la que se está arrastrando. matchNodeId es la casilla compatible
-  // (pista sutil — las demás vacías solo muestran anillo de "suelta aquí").
+  // o la que se está arrastrando. Todas las casillas vacías muestran el
+  // anillo de "suelta aquí" por igual — sin marcar la compatible.
   const activeCardForDrop =
     selectedCardInHand ||
     (dragPreview
       ? hand.find((c) => String(c.id) === String(dragPreview.cardId))
       : null);
-  const matchNodeId = activeCardForDrop
-    ? Object.values(nodes).find(
-        (n) => !n.placedCard && cardMatchesNode(activeCardForDrop, n),
-      )?.id || null
-    : null;
+  const matchNodeId = null;
 
   // Pistas efectivas: durante el onboarding apuntan al objetivo del
   // primer movimiento; terminada la guía vuelven a la pista de inactividad.
