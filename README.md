@@ -143,3 +143,4 @@ Frontend: ver `frontend/.env.example` (`VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY`).
 ## Equipo
 
 **SynapseHub** — Hackathon project convertido en startup MVP.
+# Hubi_security
