@@ -1,5 +1,5 @@
 # Build: compila el bundle estático de Vite
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
