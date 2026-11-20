@@ -21,7 +21,7 @@ slowapi==0.1.10
 sentry-sdk[fastapi]==2.72.0
 pyotp==2.9.0           # MFA TOTP (RFC 6238)
 cryptography==50.0.1   # cifrado field-level (Fernet) de datos sensibles
-redis==5.2.1           # backend de storage para slowapi en multi-réplica
+redis==8.1.0           # backend de storage para slowapi en multi-réplica
 httpx==0.28.1          # cliente HTTP (HIBP k-anonymity) — también test dep
 
 # Pins de seguridad de dependencias transitivas (pip-audit 2026): sin ellos el
