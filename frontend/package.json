@@ -16,7 +16,7 @@
     "@sentry/react": "^11.8.0",
     "@tailwindcss/vite": "^4.3.3",
     "canvas-confetti": "^1.9.4",
-    "framer-motion": "^13.3.0",
+    "framer-motion": "^14.14.0",
     "i18next": "^26.4.6",
     "katex": "^0.19.1",
     "lucide-react": "^1.46.0",
