@@ -38,7 +38,40 @@ class Settings(BaseSettings):
     # Auth / JWT
     JWT_SECRET: str = _DEV_JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 días
+    # 24 h: un JWT en localStorage robado por XSS solo vale un día; la
+    # revocación real viene de user.token_version (claim "tv" del token).
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+    # Identidad de invitado por dispositivo (cookie HttpOnly): 30 días —
+    # larga porque representa al dispositivo, no una sesión de cuenta.
+    GUEST_TOKEN_EXPIRE_DAYS: int = 30
+    # Rotación de JWT: si se configura, decode intenta JWT_SECRET y luego
+    # esta clave vieja — permite rotar sin cerrar todas las sesiones.
+    JWT_SECRET_PREVIOUS: str | None = None
+    # Protección anti fuerza-bruta por cuenta (además del rate-limit por IP):
+    # tras N fallos seguidos la cuenta queda bloqueada un tiempo creciente.
+    LOGIN_MAX_FAILURES: int = 5
+    LOGIN_LOCKOUT_BASE_MINUTES: int = 15  # backoff: 15, 30, 60… (2^racha x base)
+    # Captcha (Cloudflare Turnstile) tras N fallos de login — corta el
+    # credential stuffing antes de llegar al lockout. Sin secret = off.
+    LOGIN_CAPTCHA_AFTER: int = 3
+    TURNSTILE_SECRET_KEY: str | None = None
+    # HaveIBeenPwned k-anonymity: rechaza contraseñas vistas en breaches.
+    # Falla abierta (si la API no responde, no bloquea el registro).
+    HIBP_ENABLED: bool = True
+    # Retención: carpetas de invitados sin cuenta se purgan tras N días.
+    GUEST_FOLDER_TTL_DAYS: int = 30
+    # Retención de cuentas inactivas (GDPR minimización): aviso a los ~23
+    # meses sin entrar, purga a los 24 con ≥30d de margen tras el aviso.
+    INACTIVE_ACCOUNT_WARN_AFTER_DAYS: int = 700
+    INACTIVE_ACCOUNT_PURGE_DAYS: int = 730
+    RETENTION_SWEEP_ENABLED: bool = True
+    # Cifrado field-level (Fernet urlsafe-b64 de 32B) para datos sensibles
+    # en reposo — p. ej. notas de bienestar de menores en zen_logs.
+    # Sin clave: se guarda en claro (dev) — OBLIGATORIA en producción.
+    ENCRYPTION_KEY: str | None = None
+    # Enforcement institucional de MFA: cuentas con mfa_required=True y sin
+    # mfa_enabled quedan bloqueadas hasta enrolar. Desactivable en tests.
+    MFA_ENFORCE_INSTITUTIONS: bool = True
 
     # Seguridad / Entorno
     ENVIRONMENT: str = "development"  # development | staging | production

@@ -1,23 +1,33 @@
 import logging
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from app.core.age_bands import band_for_age, needs_parental_consent
+from app.core.audit import audit_event
+from app.core.crypto import decrypt_field
 from app.core.database import db_manager
 from app.core.plans import trial_days_left
-from app.core.security import get_current_user, utcnow_iso
+from app.core.rate_limit import limiter
+from app.core.security import (
+    get_current_user,
+    get_current_verified_user,
+    utcnow_iso,
+    verify_password,
+)
 from app.core.session_store import in_memory_auth_users, in_memory_study_folders
 from app.models.user import UserProfileResponse, UserRegisterRequest
 from app.routers.auth import assign_voice_gender
-from app.services.rag_service import rag_service
+from app.services.account_lifecycle import DeletionError, delete_user_everywhere
 
 logger = logging.getLogger("hubzy.users")
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
 
 @router.post("/register", response_model=UserProfileResponse)
-async def register_or_login_user(payload: UserRegisterRequest):
+@limiter.limit("10/minute")
+async def register_or_login_user(request: Request, payload: UserRegisterRequest):
     """
     Flujo ligero (sin contraseña) para invitados: registra o actualiza un perfil
     con nombre, sexo y edad, y asigna el género de voz complementario de Hubzi.
@@ -154,7 +164,7 @@ async def get_user_profile(user_id: str, current_user: dict = Depends(get_curren
 
 
 @router.delete("/me")
-async def delete_my_account(current_user: dict = Depends(get_current_user)):
+async def delete_my_account(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Elimina la cuenta del usuario autenticado y todos sus datos asociados
     (carpetas, documentos y vectores RAG). Requisito de privacidad para datos
@@ -162,86 +172,76 @@ async def delete_my_account(current_user: dict = Depends(get_current_user)):
     """
     uid = str(current_user.get("id") or current_user.get("_id"))
     email = (current_user.get("email") or "").strip().lower()
-    deleted = {"folders": 0, "vectors": 0, "user": False}
+    try:
+        deleted = await delete_user_everywhere(uid, email)
+    except DeletionError as e:
+        logger.error(f"Error en borrado en cascada del usuario {uid}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo completar la eliminación de tus datos. Intenta de nuevo.",
+        ) from e
 
-    # 1. Vectores RAG de los documentos del usuario (mejor esfuerzo)
-    folder_ids = []
-    if db_manager.db is not None:
-        try:
-            async for f in db_manager.db["study_folders"].find(
-                {"user_id": uid}, {"documents.id": 1}
-            ):
-                folder_ids.append(str(f["_id"]))
-                for doc in f.get("documents", []):
-                    if doc.get("id"):
-                        await rag_service.delete_document_vectors(doc["id"])
-                        deleted["vectors"] += 1
-        except Exception as e:
-            logger.warning(f"Error limpiando vectores RAG del usuario {uid}: {e}")
-
-    for f in in_memory_study_folders.values():
-        if f.get("user_id") == uid:
-            for doc in f.get("documents", []):
-                if doc.get("id"):
-                    await rag_service.delete_document_vectors(doc["id"])
-                    deleted["vectors"] += 1
-
-    # 2. Carpetas del usuario — si falla con BD configurada se aborta:
-    # una supresión parcial silenciosa viola el derecho de supresión.
-    if db_manager.db is not None:
-        try:
-            res = await db_manager.db["study_folders"].delete_many({"user_id": uid})
-            deleted["folders"] += res.deleted_count
-        except Exception as e:
-            logger.error(f"Error eliminando carpetas del usuario {uid}: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="No se pudo completar la eliminación de tus datos. Intenta de nuevo.",
-            ) from e
-
-    mem_folder_ids = [fid for fid, f in in_memory_study_folders.items() if f.get("user_id") == uid]
-    for fid in mem_folder_ids:
-        del in_memory_study_folders[fid]
-        deleted["folders"] += 1
-
-    # 3. El usuario
-    if db_manager.db is not None:
-        try:
-            from bson import ObjectId
-
-            query = {"_id": ObjectId(uid)} if ObjectId.is_valid(uid) else {"id": uid}
-            res = await db_manager.db["users"].delete_one(query)
-            deleted["user"] = deleted["user"] or res.deleted_count > 0
-        except Exception as e:
-            logger.error(f"Error eliminando usuario {uid} de MongoDB: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="No se pudo completar la eliminación de tu cuenta. Intenta de nuevo.",
-            ) from e
-
-    if email and email in in_memory_auth_users:
-        del in_memory_auth_users[email]
-        deleted["user"] = True
-    else:
-        for key, u in list(in_memory_auth_users.items()):
-            if u.get("id") == uid:
-                del in_memory_auth_users[key]
-                deleted["user"] = True
-
-    logger.info(
-        f"Cuenta eliminada: user={uid} folders={deleted['folders']} vectors={deleted['vectors']}"
-    )
+    await audit_event("account_deleted", request=request, actor_id=uid)
     return {"status": "account_deleted", "deleted": deleted}
 
 
-@router.get("/me/export")
-async def export_my_data(current_user: dict = Depends(get_current_user)):
+class AiConsentRequest(BaseModel):
+    consent: bool
+
+
+@router.put("/me/ai-consent")
+async def set_ai_consent(
+    request: Request,
+    payload: AiConsentRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Opt-in/out: el usuario decide si su material puede alimentar el
+    dataset de entrenamiento de Hubzy. Default False — nadie aporta
+    contenido de menores sin consentimiento explícito."""
+    uid = str(current_user.get("id") or current_user.get("_id"))
+    email = (current_user.get("email") or "").strip().lower()
+
+    if db_manager.db is not None:
+        from bson import ObjectId
+
+        query = {"_id": ObjectId(uid)} if ObjectId.is_valid(uid) else {"id": uid}
+        await db_manager.db["users"].update_one(
+            query, {"$set": {"ai_training_consent": bool(payload.consent)}}
+        )
+    elif email in in_memory_auth_users:
+        in_memory_auth_users[email]["ai_training_consent"] = bool(payload.consent)
+
+    # Al retirar el consentimiento, purgar lo ya aportado al dataset.
+    if not payload.consent and db_manager.db is not None:
+        await db_manager.db["ai_training_dataset"].delete_many({"user_id": uid})
+
+    await audit_event("ai_consent_changed", request=request, actor_id=uid)
+    return {"status": "ok", "ai_training_consent": bool(payload.consent)}
+
+
+class ExportDataRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/me/export")
+@limiter.limit("5/minute")
+async def export_my_data(
+    request: Request,
+    payload: ExportDataRequest,
+    current_user: dict = Depends(get_current_verified_user),
+):
     """
     Portabilidad de datos: devuelve TODO lo que el sistema guarda del usuario
     autenticado en un solo JSON descargable (perfil, carpetas con documentos,
-    dominio de habilidades BKT). Sin campos internos sensibles como el hash.
+    dominio de habilidades BKT, registros zen y progreso).
+
+    Step-up auth: exige la contraseña actual — quien robe una sesión no puede
+    exportar la vida entera del usuario. Requiere email verificado.
     """
     uid = str(current_user.get("id") or current_user.get("_id"))
+    if not verify_password(current_user.get("password_hash", ""), payload.password):
+        await audit_event("data_export_denied", request=request, actor_id=uid)
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta.")
 
     profile = {
         "id": uid,
@@ -272,22 +272,37 @@ async def export_my_data(current_user: dict = Depends(get_current_user)):
             if f.get("user_id") == uid:
                 folders.append(f)
 
-    skills = []
-    if db_manager.db is not None:
-        try:
-            async for s in db_manager.db["skill_mastery"].find({"user_id": uid}):
-                s.pop("_id", None)
-                skills.append(s)
-        except Exception as e:
-            logger.error(f"Error exportando habilidades del usuario {uid}: {e}")
-            raise HTTPException(
-                status_code=500, detail="No se pudo completar la exportación. Intenta de nuevo."
-            ) from e
+    async def _collect(collection: str) -> list:
+        if db_manager.db is None:
+            return []
+        out = []
+        async for doc in db_manager.db[collection].find({"user_id": uid}):
+            doc.pop("_id", None)
+            out.append(doc)
+        return out
 
+    try:
+        skills = await _collect("skill_mastery")
+        zen_logs = await _collect("zen_logs")
+        progress = await _collect("student_progress")
+    except Exception as e:
+        logger.error(f"Error exportando datos del usuario {uid}: {e}")
+        raise HTTPException(
+            status_code=500, detail="No se pudo completar la exportación. Intenta de nuevo."
+        ) from e
+
+    # zen_logs.notes va cifrado en reposo — se descifra para el dueño
+    for log in zen_logs:
+        if log.get("notes"):
+            log["notes"] = decrypt_field(log["notes"])
+
+    await audit_event("data_export", request=request, actor_id=uid)
     return {
         "exported_at": utcnow_iso(),
         "profile": profile,
         "folders": folders,
         "skill_mastery": skills,
+        "student_progress": progress,
+        "zen_logs": zen_logs,
         "note": "Exportación completa de tus datos personales en Hubzy.",
     }

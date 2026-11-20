@@ -2,7 +2,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/psychology", tags=["Psychology"])
 
 
 class PsychologyAnalyzeRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=4000)
     context: dict | None = None
 
 
@@ -35,7 +35,7 @@ async def get_anti_stress_protocols():
 
 
 class PsychologyReframeRequest(BaseModel):
-    thought: str
+    thought: str = Field(..., max_length=1000)
 
 
 @router.post("/reframe")

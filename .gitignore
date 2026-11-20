@@ -6,9 +6,25 @@ __pycache__/
 venv/
 env/
 
-# Environment files
+# Environment files — toda variante de .env queda fuera del repo;
+# solo los .example se commitean.
 .env
-.env.local
+.env.*
+!.env.example
+!.env.*.example
+
+# Claves y certificados
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Backups / volcados de BD (mongodump y archivos de exportación)
+backup*/
+*.archive
+*.dump
+*.bson
 
 # Build artifacts
 dist/

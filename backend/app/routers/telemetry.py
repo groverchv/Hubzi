@@ -5,13 +5,15 @@ y los persiste en Mongo (`ux_events`) o en memoria sin BD. Sin auth:
 los eventos no llevan identidad ni contenido del usuario.
 """
 
+import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from app.core.database import db_manager
+from app.core.rate_limit import limiter
 from app.core.security import utcnow_iso
 
 logger = logging.getLogger("hubzy.telemetry")
@@ -34,7 +36,8 @@ class TelemetryBatch(BaseModel):
 
 
 @router.post("/events")
-async def ingest_events(batch: TelemetryBatch):
+@limiter.limit("30/minute")
+async def ingest_events(request: Request, batch: TelemetryBatch):
     stored = 0
     now = utcnow_iso()
     docs = []
@@ -43,6 +46,10 @@ async def ingest_events(batch: TelemetryBatch):
         if name not in _ALLOWED:
             continue
         props = ev.get("props")
+        # Cap de tamaño por evento: sin auth + props arbitrarias era un
+        # vector directo de llenado de la colección ux_events.
+        if isinstance(props, dict) and len(json.dumps(props)) > 2048:
+            props = {}
         docs.append(
             {
                 "event": name,

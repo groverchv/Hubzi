@@ -1,5 +1,5 @@
 // Service Worker de Hubzy (PWA)
-const CACHE_NAME = "hubzy-v5";
+const CACHE_NAME = "hubzy-v6";
 const STATIC_ASSETS = [
   "/favicon.png",
   "/favicon.ico",
@@ -52,7 +52,10 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        return cached || Response.error();
+      })
   );
 });
 

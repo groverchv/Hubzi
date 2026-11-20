@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mail, 
@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot' | 'mfa'
   
   // Estados de formulario
   const [email, setEmail] = useState('');
@@ -37,6 +37,38 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  // MFA: challenge tras contraseña correcta (mfa_token de 5 min + código TOTP/backup)
+  const [mfaToken, setMfaToken] = useState(null);
+  const [mfaCode, setMfaCode] = useState('');
+
+  // Captcha (Turnstile): el backend lo exige tras varios fallos de login
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaNeeded, setCaptchaNeeded] = useState(false);
+  const turnstileRef = useRef(null);
+  const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+
+  // Carga el widget Turnstile bajo demanda — solo cuando el backend pide
+  // captcha (tras varios fallos); el script no se inyecta antes.
+  useEffect(() => {
+    if (!captchaNeeded || !TURNSTILE_SITE_KEY) return;
+    const render = () => {
+      if (window.turnstile && turnstileRef.current && !turnstileRef.current.dataset.rendered) {
+        window.turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+        });
+        turnstileRef.current.dataset.rendered = '1';
+      }
+    };
+    if (window.turnstile) { render(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    s.async = true;
+    s.onload = render;
+    document.head.appendChild(s);
+  }, [captchaNeeded, TURNSTILE_SITE_KEY]);
 
   if (!isOpen) return null;
 
@@ -53,6 +85,35 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    // Challenge MFA: canjea el código TOTP (o backup code) por la sesión.
+    if (mode === 'mfa') {
+      if (!mfaCode.trim() || mfaCode.trim().length < 6) {
+        setErrorMsg(t('auth.err_mfa_code', 'Ingresa el código de 6 dígitos.'));
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const res = await fetchWithAuth('/api/v1/auth/mfa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mfa_token: mfaToken, code: mfaCode.trim() })
+        });
+        const data = await res.json();
+        if (res.ok && data.user) {
+          useAuthStore.getState().setSession({ user: data.user });
+          setTimeout(() => onAuthSuccess(data.user), 500);
+        } else {
+          setErrorMsg(data.detail || t('auth.err_mfa_code', 'Código incorrecto.'));
+        }
+      } catch (err) {
+        console.warn("Error verificando MFA:", err);
+        setErrorMsg(t('auth.err_network'));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
@@ -106,7 +167,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     try {
       const endpoint = mode === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/register';
       const bodyData = mode === 'login' 
-        ? { email: cleanEmail, password } 
+        ? { email: cleanEmail, password, captcha_token: captchaToken || undefined } 
         : {
             email: cleanEmail,
             password,
@@ -126,15 +187,29 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
       const data = await res.json();
 
+      // Captcha exigido tras varios fallos de login para ese correo.
+      if (res.status === 403 && data.detail === 'captcha_required') {
+        setCaptchaNeeded(true);
+        setErrorMsg(t('auth.err_captcha', 'Demasiados intentos. Completa la verificación.'));
+        setIsLoading(false);
+        return;
+      }
+
+      // Segundo factor: la cuenta tiene MFA — pedir el código antes de
+      // emitir la sesión real.
+      if (res.ok && data.mfa_required) {
+        setMfaToken(data.mfa_token);
+        setMode('mfa');
+        setIsLoading(false);
+        return;
+      }
+
       if (res.ok && data.user) {
         setSuccessMsg(t(mode === 'login' ? 'auth.welcome_back' : 'auth.created'));
         
-        // Guardar token y usuario (store global + claves legadas)
-        useAuthStore.getState().setSession({ user: data.user, token: data.token });
-        if (data.token) {
-          localStorage.setItem('hubzy_auth_token', data.token);
-        }
-        localStorage.setItem('hubzy_current_user', JSON.stringify(data.user));
+        // El JWT llega en cookie HttpOnly (inaccesible a JS); solo se
+        // guarda el perfil no-sensible en el store.
+        useAuthStore.getState().setSession({ user: data.user });
 
         setTimeout(() => {
           onAuthSuccess(data.user);
@@ -143,25 +218,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         setErrorMsg(data.detail || t('auth.err_generic'));
       }
     } catch (err) {
-      console.warn("Error en autenticación API, intentando fallback:", err);
-      // Fallback local en caso de desconexión momentánea de red
-      const fallbackUser = {
-        id: `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        email: cleanEmail,
-        username: mode === 'register' ? username.trim() : cleanEmail.split('@')[0],
-        gender: mode === 'register' ? gender : 'masculino',
-        age: mode === 'register' ? parseInt(age, 10) : 14,
-        avatar: 'capy_fan',
-        voice_preference: 'auto',
-        assigned_voice_gender: (mode === 'register' ? gender : 'masculino') === 'masculino' ? 'female' : 'male',
-        created_at: new Date().toISOString()
-      };
-      localStorage.setItem('hubzy_current_user', JSON.stringify(fallbackUser));
-      useAuthStore.getState().setUser(fallbackUser);
-      setSuccessMsg(t('auth.local_ok'));
-      setTimeout(() => {
-        onAuthSuccess(fallbackUser);
-      }, 500);
+      // Sin fallback local: crear una sesión "autenticada" sin credenciales
+      // cuando fallaba la red convertía cualquier caída del backend en un
+      // bypass de login — el guard RequireUser la aceptaba como real.
+      console.warn("Error en autenticación API:", err);
+      setErrorMsg(t('auth.err_network'));
     } finally {
       setIsLoading(false);
     }
@@ -222,7 +283,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         </div>
 
         {/* Selector de Pestañas (Login / Registro estilo Card Clash) */}
-        {mode !== 'forgot' && (
+        {mode !== 'forgot' && mode !== 'mfa' && (
         <div className="grid grid-cols-2 p-1.5 rounded-arcade bg-[var(--color-arcade-navy-dark)] border-3 border-[var(--color-arcade-navy-light)] mb-5">
           <button
             type="button"
@@ -255,6 +316,13 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         {mode === 'forgot' && (
           <div className="mb-4 p-3 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] text-xs text-slate-300 leading-snug">
             {t('auth.forgot_note')}
+          </div>
+        )}
+
+        {/* Cabecera del challenge MFA */}
+        {mode === 'mfa' && (
+          <div className="mb-4 p-3 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] text-xs text-slate-300 leading-snug">
+            {t('auth.mfa_note', 'Tu cuenta tiene verificación en dos pasos. Ingresa el código de 6 dígitos de tu app de autenticación (o un código de respaldo).')}
           </div>
         )}
 
@@ -307,6 +375,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           )}
 
           {/* Campo Correo Electrónico */}
+          {mode !== 'mfa' && (
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-cyan-400" />
@@ -321,9 +390,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               className="w-full px-3.5 py-2.5 rounded-arcade-sm bg-slate-900/90 border border-slate-700 focus:border-cyan-400 focus:outline-none text-white text-xs font-medium placeholder:text-slate-500 transition-colors"
             />
           </div>
+          )}
 
-          {/* Campo Contraseña con Toggle de Ojo (oculto en modo forgot) */}
-          {mode !== 'forgot' && (
+          {/* Campo Contraseña con Toggle de Ojo (oculto en modo forgot/mfa) */}
+          {mode !== 'forgot' && mode !== 'mfa' && (
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -362,6 +432,37 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               </button>
             )}
           </div>
+          )}
+
+          {/* Widget Turnstile (solo cuando el backend exige captcha) */}
+          {captchaNeeded && TURNSTILE_SITE_KEY && mode === 'login' && (
+            <div ref={turnstileRef} className="flex justify-center py-1" />
+          )}
+          {captchaNeeded && !TURNSTILE_SITE_KEY && mode === 'login' && (
+            <p className="text-[11px] font-bold text-amber-300 text-center">
+              {t('auth.err_captcha', 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.')}
+            </p>
+          )}
+
+          {/* Campo código MFA (solo en modo mfa) */}
+          {mode === 'mfa' && (
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{t('auth.mfa_code', 'Código de verificación')}</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                autoFocus
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                placeholder="000000"
+                className="w-full px-3.5 py-2.5 rounded-arcade-sm bg-slate-900/90 border border-slate-700 focus:border-emerald-400 focus:outline-none text-white text-center text-lg font-bold tracking-[0.4em] placeholder:text-slate-600 transition-colors"
+              />
+            </div>
           )}
 
           {/* Opciones de Perfil (Solo en Registro) */}
@@ -475,6 +576,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>{t('auth.processing')}</span>
                 </div>
+              ) : mode === 'mfa' ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-white" />
+                  <span>{t('auth.btn_verify', 'Verificar')}</span>
+                </>
               ) : mode === 'login' ? (
                 <>
                   <LogIn className="w-4 h-4 text-white" />

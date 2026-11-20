@@ -7,6 +7,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { apiFetch, fetchWithAuth } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
+import SecuritySettings from "../components/SecuritySettings";
 import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 
@@ -25,6 +26,8 @@ export default function DashboardPage() {
   const [plan, setPlan] = useState("free");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
+  const [exportPassword, setExportPassword] = useState("");
 
   const handleDeleteAccount = async () => {
     if (!confirmDelete) {
@@ -209,6 +212,9 @@ export default function DashboardPage() {
           </div>
         </section>
 
+        {/* Seguridad de la cuenta — sesiones activas + MFA */}
+        {user && !user.is_guest && <SecuritySettings user={user} />}
+
         {/* Portabilidad de datos — derecho a exportar */}
         <section className="mt-14 rounded-arcade-lg border-2 border-slate-200 bg-white/80 p-6">
           <h2 className="text-sm font-black uppercase tracking-wide text-[var(--color-arcade-navy)]">
@@ -220,29 +226,66 @@ export default function DashboardPage() {
               "Descarga toda la información que Hubzy guarda de ti: perfil, carpetas, documentos y progreso de habilidades.",
             )}
           </p>
-          <button
-            onClick={async () => {
-              try {
-                const res = await fetchWithAuth("/api/v1/users/me/export");
-                const data = await res.json();
-                const blob = new Blob([JSON.stringify(data, null, 2)], {
-                  type: "application/json",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `hubzy-mis-datos-${new Date().toISOString().slice(0, 10)}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              } catch (err) {
-                console.warn("Error exportando datos:", err);
-              }
-            }}
-            className="mt-4 inline-flex items-center gap-2 rounded-arcade bg-slate-700 hover:bg-slate-600 px-4 py-2.5 text-xs font-black uppercase text-white border-b-arcade border-slate-900 transition-all"
-          >
-            <Download className="w-4 h-4" />
-            {t("dashboard.export_data", "Descargar mis datos")}
-          </button>
+          {/* Step-up: la exportación exige la contraseña — quien robe una
+              sesión no puede descargar la vida entera del usuario. */}
+          {!showExportConfirm ? (
+            <button
+              onClick={() => setShowExportConfirm(true)}
+              className="mt-4 inline-flex items-center gap-2 rounded-arcade bg-slate-700 hover:bg-slate-600 px-4 py-2.5 text-xs font-black uppercase text-white border-b-arcade border-slate-900 transition-all"
+            >
+              <Download className="w-4 h-4" />
+              {t("dashboard.export_data", "Descargar mis datos")}
+            </button>
+          ) : (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                type="password"
+                value={exportPassword}
+                onChange={(e) => setExportPassword(e.target.value)}
+                placeholder={t("dashboard.export_password_ph", "Tu contraseña actual")}
+                className="rounded-arcade bg-white border-2 border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 focus:border-slate-500 focus:outline-none"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetchWithAuth("/api/v1/users/me/export", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ password: exportPassword }),
+                    });
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({}));
+                      alert(err.detail || t("dashboard.export_err", "No se pudo exportar."));
+                      return;
+                    }
+                    const data = await res.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], {
+                      type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `hubzy-mis-datos-${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    setShowExportConfirm(false);
+                    setExportPassword("");
+                  } catch (err) {
+                    console.warn("Error exportando datos:", err);
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-arcade bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-black uppercase text-white border-b-arcade border-emerald-800 transition-all"
+              >
+                {t("dashboard.export_confirm", "Confirmar")}
+              </button>
+              <button
+                onClick={() => { setShowExportConfirm(false); setExportPassword(""); }}
+                className="text-xs font-bold text-slate-500 hover:text-slate-700 uppercase"
+              >
+                {t("cancel", "Cancelar")}
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Zona de peligro — derecho de supresión de datos */}

@@ -157,10 +157,9 @@ export default function ArcadeArena() {
   // Modal secundario de edición de perfil (género, edad, apodo)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
-  // Cerrar Sesión
+  // Cerrar Sesión — el store limpia token, perfil y datos cacheados del
+  // usuario (carpetas, progreso local, colas) en una sola pasada.
   const handleLogout = () => {
-    localStorage.removeItem("hubzy_current_user");
-    localStorage.removeItem("hubzy_auth_token");
     chatHistoryRef.current = []; // la memoria de Hubzi es privada por sesión
     setChatLog([]);
     useAuthStore.getState().logout();

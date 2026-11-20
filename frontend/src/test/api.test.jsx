@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fetchWithAuth, apiFetch, ApiError } from "../lib/api";
 import { useAuthStore } from "../store/authStore";
 
@@ -9,33 +9,26 @@ function mockResponse(status, body = {}) {
   });
 }
 
-describe("fetchWithAuth", () => {
+describe("fetchWithAuth (cookie auth)", () => {
   beforeEach(() => {
     localStorage.clear();
-    useAuthStore.setState({ user: null, token: null });
+    useAuthStore.setState({ user: null });
     vi.restoreAllMocks();
   });
 
-  it("inyecta el JWT del store en el header Authorization", async () => {
-    useAuthStore.setState({ token: "jwt-de-prueba", user: { id: "u1" } });
+  it("envía credentials:include y el header anti-CSRF — nunca un Bearer", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse(200));
 
     await fetchWithAuth("/api/v1/folders");
 
-    const headers = spy.mock.calls[0][1].headers;
-    expect(headers.get("Authorization")).toBe("Bearer jwt-de-prueba");
+    const opts = spy.mock.calls[0][1];
+    expect(opts.credentials).toBe("include");
+    expect(opts.headers.get("X-Requested-With")).toBe("XMLHttpRequest");
+    expect(opts.headers.get("Authorization")).toBeNull();
   });
 
-  it("lee el token de localStorage cuando el store está vacío", async () => {
-    localStorage.setItem("hubzy_auth_token", "jwt-legado");
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse(200));
-
-    await fetchWithAuth("/api/v1/auth/me");
-
-    expect(spy.mock.calls[0][1].headers.get("Authorization")).toBe("Bearer jwt-legado");
-  });
-
-  it("no envía Authorization si no hay token", async () => {
+  it("el JWT no es legible por JS: ningún header Authorization aunque haya sesión", async () => {
+    useAuthStore.setState({ user: { id: "u1" } });
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse(200));
 
     await fetchWithAuth("/api/v1/auth/me");
@@ -44,21 +37,19 @@ describe("fetchWithAuth", () => {
   });
 
   it("cierra sesión local cuando el servidor responde 401", async () => {
-    useAuthStore.setState({ token: "jwt-expirado", user: { id: "u1" } });
+    useAuthStore.setState({ user: { id: "u1" } });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse(401));
 
     await fetchWithAuth("/api/v1/auth/me");
 
     expect(useAuthStore.getState().user).toBeNull();
-    expect(useAuthStore.getState().token).toBeNull();
-    expect(localStorage.getItem("hubzy_auth_token")).toBeNull();
   });
 });
 
 describe("apiFetch", () => {
   beforeEach(() => {
     localStorage.clear();
-    useAuthStore.setState({ user: null, token: null });
+    useAuthStore.setState({ user: null });
     vi.restoreAllMocks();
   });
 
@@ -76,6 +67,8 @@ describe("apiFetch", () => {
     const [_, opts] = globalThis.fetch.mock.calls[0];
     expect(JSON.parse(opts.body)).toEqual({ name: "Carpeta" });
     expect(opts.headers["Content-Type"]).toBe("application/json");
+    expect(opts.headers["X-Requested-With"]).toBe("XMLHttpRequest");
+    expect(opts.credentials).toBe("include");
   });
 
   it("lanza ApiError con el detail del backend en errores", async () => {

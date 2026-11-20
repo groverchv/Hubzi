@@ -29,6 +29,28 @@ export function initAnalytics() {
         api_host: import.meta.env.VITE_POSTHOG_HOST || "https://app.posthog.com",
         autocapture: true,
         capture_pageview: true,
+        // Minimización GDPR: la IP no se almacena en los eventos y session
+        // replay (si se activa) enmascara texto e inputs — nunca sale PII
+        // tecleada por menores a analytics de terceros.
+        ip: false,
+        mask_all_element_attributes: true,
+        mask_all_text: true,
+        mask_text_selector: "*",
+        // Sin esto $current_url lleva el query string completo a PostHog:
+        // ?token= de reset/verify-email y ?session_id= de Stripe acababan
+        // en analytics de terceros (tokens canjeables fuera de casa).
+        before_send: (event) => {
+          try {
+            const props = event?.properties;
+            for (const k of ["$current_url", "$initial_current_url", "$referrer", "$initial_referrer"]) {
+              const u = props?.[k];
+              if (typeof u === "string" && u.includes("?")) {
+                props[k] = u.split("?")[0];
+              }
+            }
+          } catch { /* noop */ }
+          return event;
+        },
       });
     })
     .catch(() => {});

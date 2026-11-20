@@ -10,6 +10,13 @@ export default function ResetPasswordPage() {
   const [params] = useSearchParams();
   const token = params.get('token');
 
+  // Scrub inmediato: el token es canjeable — no puede quedar en la barra
+  // de direcciones, el historial del navegador ni las URLs que PostHog/
+  // Sentry capturan en pageviews.
+  React.useEffect(() => {
+    if (token) window.history.replaceState({}, '', '/reset-password');
+  }, [token]);
+
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
@@ -32,7 +39,10 @@ export default function ResetPasswordPage() {
     try {
       const res = await fetch('/api/v1/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
         body: JSON.stringify({ token, new_password: password }),
       });
       const data = await res.json().catch(() => ({}));

@@ -1,0 +1,36 @@
+name: DAST (OWASP ZAP baseline)
+
+# Escaneo dinámico semanal contra STAGING — necesita una URL desplegada.
+# Configurar: Settings → Variables → STAGING_URL=https://staging.hubzy.app
+on:
+  schedule:
+    - cron: "0 6 * * 1" # lunes 06:00 UTC
+  workflow_dispatch: # ejecución manual bajo demanda
+
+permissions:
+  contents: read
+  issues: write # para reportar hallazgos como issues
+
+jobs:
+  zap-baseline:
+    name: ZAP baseline scan (staging)
+    runs-on: ubuntu-latest
+    if: vars.STAGING_URL != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: OWASP ZAP Baseline
+        uses: zaproxy/action-baseline@v0.13.1
+        with:
+          target: ${{ vars.STAGING_URL }}
+          rules_file_name: .zap/rules.tsv
+          cmd_options: "-a -j -m 5 -T 20"
+          fail_action: false # informativo — los hallazgos salen en el artifact
+
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: report_html.html
+          retention-days: 30

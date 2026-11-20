@@ -22,14 +22,22 @@ services:
     profiles:
       - local-db
     # SIN "ports:" — la BD nunca se expone fuera de la red interna de compose.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       - mongodb_storage:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-hubzy}
       # Requerido SOLO si arrancas --profile local-db (con Atlas este
       # contenedor ni existe y la var puede quedar vacía). Sin ella Mongo
-      # arrancaría SIN autenticación en la red interna.
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-}
+      # arrancaría SIN autenticación en la red interna — por eso es
+      # obligatoria (compose falla si falta, no arranca inseguro).
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD requerido para el perfil local-db}
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -38,7 +46,8 @@ services:
       start_period: 20s
 
   qdrant:
-    image: qdrant/qdrant:latest
+    # Tag pineado: :latest arrastraría versiones no revisadas en cada deploy.
+    image: qdrant/qdrant:v1.19.2
     container_name: hubzy-qdrant
     restart: always
     profiles:
@@ -46,6 +55,13 @@ services:
     # SIN "ports:" — solo accesible desde el backend.
     # Con Qdrant Cloud (QDRANT_URL+QDRANT_API_KEY en .env) este contenedor
     # no arranca — el backend usa la nube directamente.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
@@ -56,6 +72,29 @@ services:
       timeout: 5s
       retries: 6
       start_period: 15s
+
+  redis:
+    # Rate-limit compartido entre réplicas (slowapi storage). Sin puerto al
+    # host — solo red interna. Para Redis gestionado (ElastiCache/Upstash):
+    # quita este servicio y pon RATE_LIMIT_STORAGE_URI en backend/.env.
+    image: redis:7-alpine
+    container_name: hubzy-redis
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    command:
+      ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
 
   backend:
     build:
@@ -71,11 +110,28 @@ services:
       # los contenedores local-db). Nada de overrides que pisarían la nube.
       MONGODB_DB_NAME: ${MONGODB_DB_NAME:-hubzy_db}
       ENVIRONMENT: production
+      # Rate-limit global entre réplicas vía Redis interno. Para Redis
+      # gestionado, sobreescribe con RATE_LIMIT_STORAGE_URI del env_file.
+      RATE_LIMIT_STORAGE_URI: ${RATE_LIMIT_STORAGE_URI:-redis://redis:6379/0}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Límites anti-exhaustión: un proceso desbocado (o explotado) no puede
+    # tumbar el host. Ajustar según la instancia real.
+    mem_limit: 1536m
+    cpus: 1.5
     depends_on:
       mongodb:
         condition: service_healthy
         required: false
       qdrant:
+        condition: service_healthy
+        required: false
+      redis:
         condition: service_healthy
         required: false
     # Sin puerto publicado: nginx es la única puerta de entrada.
@@ -91,6 +147,20 @@ services:
     # Sin puerto publicado: caddy es la única puerta de entrada (80/443).
     expose:
       - "80"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # nginx master corre como root y bindea :80 — la única cap necesaria.
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      # Rutas que nginx escribe en runtime con el filesystem en solo-lectura.
+      - /var/cache/nginx
+      - /var/run
+      - /var/log/nginx
+      - /tmp
     depends_on:
       - backend
 
@@ -101,6 +171,16 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # Bindea 80/443 en el host.
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     volumes:

@@ -1,0 +1,5 @@
+# Reglas OWASP ZAP baseline — se ignoran falsos positivos conocidos.
+# Formato: RULE_ID	ACTION	(more info https://www.zaproxy.org/docs/desktop/addons/passive-scan-rules/)
+10011	IGNORE	# Cookie without SameSite — cubierto por SameSite=Lax en el backend (falso positivo en assets estáticos)
+10015	IGNORE	# Re-examine Cache-control — los assets de Vite llevan hash inmutable, es deseado
+10038	IGNORE	# Content Security Policy — el frontend sirve CSP vía nginx/security-headers.conf

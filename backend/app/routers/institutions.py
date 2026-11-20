@@ -22,13 +22,13 @@ import unicodedata
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.age_bands import band_for_age
 from app.core.config import settings
 from app.core.database import db_manager
 from app.core.rate_limit import limiter
-from app.core.security import get_optional_user, hash_password, utcnow_iso
+from app.core.security import get_optional_user, hash_password, safe_redirect_url, utcnow_iso
 from app.core.session_store import in_memory_auth_users, in_memory_study_folders
 
 logger = logging.getLogger("hubzy.institutions")
@@ -265,8 +265,8 @@ class InstitutionCreateRequest(BaseModel):
 
 class SchoolCheckoutRequest(BaseModel):
     seats: int  # estudiantes licenciados (mínimo MIN_SEATS)
-    success_url: str | None = None
-    cancel_url: str | None = None
+    success_url: str | None = Field(default=None, max_length=500)
+    cancel_url: str | None = Field(default=None, max_length=500)
 
 
 class GradeCreateRequest(BaseModel):
@@ -329,8 +329,11 @@ async def create_institution(
     await _save_institution(inst)
     # El plan "school" lo activa el checkout Stripe — el plan PERSONAL del
     # usuario no cambia (las carpetas escolares no consumen su cuota).
+    # Quien administra datos de menores lleva MFA obligatorio — el gate
+    # `mfa_required` de security.py le fuerza el enrolamiento en su siguiente
+    # request hasta completar /auth/mfa/setup+enable.
     await _update_user_membership(
-        uid, {"institution_id": inst["id"], "role": "admin"}
+        uid, {"institution_id": inst["id"], "role": "admin", "mfa_required": True}
     )
     logger.info(f"🏫 Institución '{name}' creada por {uid}")
     return {"institution": _serialize_inst(inst)}
@@ -445,9 +448,10 @@ async def join_by_code(
         teachers.add(uid)
         inst["teacher_ids"] = sorted(teachers)
         await _save_institution(inst)
+        # Docente = acceso a datos de menores → MFA obligatorio.
         await _update_user_membership(
             uid,
-            {"institution_id": inst["id"], "role": "teacher"},
+            {"institution_id": inst["id"], "role": "teacher", "mfa_required": True},
         )
         return {"role": "teacher", "institution": _serialize_inst(inst)}
 
@@ -504,8 +508,13 @@ async def school_checkout(
 
     stripe = _stripe()
     frontend = settings.FRONTEND_URL.rstrip("/")
-    success_url = payload.success_url or f"{frontend}/arena?school_payment=success"
-    cancel_url = payload.cancel_url or f"{frontend}/arena?school_payment=cancelled"
+    # URLs de retorno solo al frontend configurado (anti-phishing).
+    success_url = safe_redirect_url(
+        payload.success_url, f"{frontend}/arena?school_payment=success"
+    )
+    cancel_url = safe_redirect_url(
+        payload.cancel_url, f"{frontend}/arena?school_payment=cancelled"
+    )
 
     if settings.STRIPE_SCHOOL_PRICE_ID:
         line_items = [{"price": settings.STRIPE_SCHOOL_PRICE_ID, "quantity": seats}]
@@ -854,6 +863,7 @@ async def bulk_enroll_students(
             "grade_ids": [gid],
             "school_managed": True,
             "email_verified": True,
+            "must_change_password": True,
             "created_at": utcnow_iso(),
         }
         if db_manager.db is not None:

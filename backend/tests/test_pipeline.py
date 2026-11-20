@@ -28,7 +28,7 @@ from app.services.topic_detector import (
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Requested-With": "XMLHttpRequest"}) as c:
         yield c
 
 

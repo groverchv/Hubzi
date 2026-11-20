@@ -34,6 +34,32 @@ L1_RAM_CACHE: dict[str, Any] = {}
 L1_CACHE_MAX_SIZE = 200
 
 
+async def _user_consents_training(user_id: str | None) -> bool:
+    """True solo si el usuario optó compartir su material para entrenamiento
+    (campo ai_training_consent). Invitados/sin-cuenta → False: default deny."""
+    if not user_id or str(user_id).startswith("g_") or user_id == "default_user":
+        return False
+    try:
+        if db_manager.db is not None:
+            from bson import ObjectId
+
+            query = (
+                {"_id": ObjectId(user_id)}
+                if ObjectId.is_valid(user_id)
+                else {"id": user_id}
+            )
+            doc = await db_manager.db["users"].find_one(query, {"ai_training_consent": 1})
+            return bool(doc and doc.get("ai_training_consent"))
+        from app.core.session_store import in_memory_auth_users
+
+        return any(
+            u.get("id") == user_id and u.get("ai_training_consent")
+            for u in in_memory_auth_users.values()
+        )
+    except Exception:
+        return False
+
+
 def get_from_l1_cache(signature_hash: str) -> GameBoardResponse | None:
     return L1_RAM_CACHE.get(signature_hash)
 
@@ -353,13 +379,21 @@ async def generate_board(
                                 "multiplier": correct_card.points_multiplier,
                             }
                         )
-                if training_samples:
+                # Solo si el usuario consintió explícitamente que su material
+                # alimente el dataset de entrenamiento (opt-in GDPR; invitados
+                # y cuentas sin opt-in nunca aportan su contenido).
+                if training_samples and await _user_consents_training(user_id):
                     await db_manager.db["ai_training_dataset"].insert_one(
                         {
                             "content_hash": content_hash,
                             "level": level,
                             "difficulty": difficulty,
+                            # PII/retención: el extracto del documento va ligado
+                            # al user_id para poder borrarse con la cuenta
+                            # (derecho de supresión — antes quedaba huérfano).
                             "document_context_sample": payload.text[:1000],
+                            "user_id": user_id,
+                            "consent": True,
                             "samples": training_samples,
                             "source_title": board_result.title,
                             "quality_score": 1.0,

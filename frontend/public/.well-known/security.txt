@@ -1,0 +1,7 @@
+Contact: mailto:security@hubzy.app
+Expires: 2027-12-31T23:59:59Z
+Preferred-Languages: es, en
+Canonical: https://hubzy.app/.well-known/security.txt
+Policy: https://hubzy.app/security
+# Política de divulgación responsable: ver SECURITY.md en el repositorio.
+# No publiques detalles del hallazgo hasta que lo hayamos corregido.

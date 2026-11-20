@@ -15,17 +15,17 @@ async def get_job_status(
     current_user: dict | None = Depends(get_optional_user),
 ):
     """
-    Estado de un job de generación. Si el job pertenece a un usuario
-    autenticado solo su dueño puede leerlo; los jobs de invitados se leen
-    con el job_id (aleatorio e inadivinable).
+    Estado de un job de generación. Un job con dueño exige la sesión de ese
+    dueño — incluido el caso anónimo, que también recibe 403. Los jobs de
+    invitados (sin user_id) se leen con el job_id aleatorio e inadivinable.
     """
     job = await get_job(job_id)
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job no encontrado.")
 
     owner = job.get("user_id")
-    if owner and current_user:
-        uid = str(current_user.get("id") or current_user.get("_id"))
+    if owner:
+        uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
         if uid != str(owner):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

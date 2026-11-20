@@ -13,7 +13,7 @@ from app.main import app
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Requested-With": "XMLHttpRequest"}) as c:
         yield c
 
 
@@ -53,7 +53,7 @@ def test_register_duplicate_email(client, registered_user):
         "/api/v1/auth/register",
         json={
             "email": registered_user["email"],
-            "password": "otro123",
+            "password": "otro1234",
             "username": "Otro",
             "gender": "masculino",
             "age": 30,

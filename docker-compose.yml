@@ -1,11 +1,16 @@
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.19.2
     container_name: hubzy-qdrant
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      # Bind a localhost: sin auth, publicar a 0.0.0.0 exponía la BD a la LAN.
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
@@ -15,8 +20,14 @@ services:
     image: mongo:7.0
     container_name: hubzy-mongodb
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
-      - "27017:27017"
+      # Bind a localhost: Mongo arranca sin auth en dev — publicarlo a
+      # 0.0.0.0 exponía lectura/escritura total de la BD a la LAN.
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_storage:/data/db
 
@@ -26,6 +37,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: hubzy-backend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "8000:8000"
     volumes:
@@ -51,6 +64,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: hubzy-frontend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "5173:5173"
     volumes:

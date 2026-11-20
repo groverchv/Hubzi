@@ -26,7 +26,28 @@ from app.routers import (
     zen,
 )
 
+# Sin basicConfig los logger.info/warning de seguridad del código quedaban
+# mudos (root logger en WARNING). Formato con nivel y nombre del logger.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger("hubzy.main")
+
+
+async def _retention_sweep_loop():
+    """Pasada diaria de retención (aviso + purga de cuentas inactivas).
+    Errores aislados — nunca tumba el loop ni la app."""
+    import asyncio as _aio
+
+    from app.services.retention import sweep_inactive_accounts
+
+    while True:
+        await _aio.sleep(60 * 60 * 24)
+        try:
+            await sweep_inactive_accounts()
+        except Exception as e:
+            logger.error(f"Sweep de retención falló: {e}")
 
 
 @asynccontextmanager
@@ -36,7 +57,14 @@ async def lifespan(app: FastAPI):
     from app.services.job_service import recover_interrupted_jobs
 
     await recover_interrupted_jobs()
+    sweep_task = None
+    if settings.RETENTION_SWEEP_ENABLED and db_manager.db is not None:
+        import asyncio as _aio
+
+        sweep_task = _aio.create_task(_retention_sweep_loop())
     yield
+    if sweep_task:
+        sweep_task.cancel()
     await db_manager.close()
 
 
@@ -55,11 +83,18 @@ if settings.SENTRY_DSN:
         logger.warning(f"No se pudo inicializar Sentry: {e}")
 
 
+_is_prod = settings.ENVIRONMENT == "production"
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Backend API para Hubzi (SynapseHub) - Gamificación EdTech anti-estrés con Gemini, MongoDB, Qdrant y WebSockets.",
     version=settings.VERSION,
     lifespan=lifespan,
+    # En producción el schema OpenAPI no es un recurso público: revela
+    # endpoints internos (webhooks, admin) a quien enumere la API.
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
 )
 
 # Rate limiting
@@ -78,6 +113,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+_MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.middleware("http")
+async def csrf_guard(request: Request, call_next):
+    """Capa anti-CSRF para la auth por cookie: un request mutador autenticado
+    solo con la cookie HttpOnly (sin Bearer) debe llevar el header custom
+    X-Requested-With — un <form> cross-site no puede ponerlo y el preflight
+    CORS bloquea cualquier otro origen fuera de la allowlist."""
+    from app.core.security import AUTH_COOKIE_NAME
+
+    if (
+        request.method in _MUTATING_METHODS
+        and AUTH_COOKIE_NAME in request.cookies
+        and "authorization" not in request.headers
+        and request.headers.get("x-requested-with") != "XMLHttpRequest"
+    ):
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "CSRF check failed."},
+        )
+    return await call_next(request)
 
 
 # Request-id + timing: correlación de logs por petición (observabilidad base)
@@ -128,7 +189,7 @@ async def health_check():
         "version": settings.VERSION,
         "databases": {
             "mongodb": mongo_status,
-            "mongodb_db": settings.MONGODB_DB_NAME,
+            # El nombre de la BD era reconocimiento gratis para un atacante.
             "qdrant": qdrant_status,
         },
     }

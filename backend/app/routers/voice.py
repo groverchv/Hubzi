@@ -15,7 +15,10 @@ router = APIRouter(prefix="/api/v1/voice", tags=["Voice"])
 
 class SpeechRequest(BaseModel):
     text: str = Field(..., max_length=4000)  # TTS cobra por carácter
-    voice_id: str | None = None
+    # voice_id viaja en el path de la URL de ElevenLabs: pattern evita
+    # path-injection ('../', query) que golpearía otros endpoints con la
+    # API key del servidor.
+    voice_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9]{1,64}$")
     profile: str | None = (
         "loving_psychologist"  # "loving_psychologist" | "crisis_soothing" | "anxiety_relief" | "zen" | "cute"
     )

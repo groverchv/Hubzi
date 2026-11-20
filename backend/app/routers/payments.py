@@ -1,12 +1,17 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 from app.core.config import settings
 from app.core.database import db_manager
 from app.core.rate_limit import limiter
-from app.core.security import get_current_user, utcnow_iso
+from app.core.security import (
+    get_current_user,
+    get_current_verified_user,
+    safe_redirect_url,
+    utcnow_iso,
+)
 from app.routers.institutions import (
     _activate_school_subscription,
     _can_manage,
@@ -66,10 +71,10 @@ async def _downgrade_user(customer_id: str):
 
 class CreateCheckoutSessionRequest(BaseModel):
     user_id: str | None = None  # ignorado: el user real viene del JWT
-    email: str | None = None
-    plan_id: str = "pro_monthly"
-    success_url: str | None = None
-    cancel_url: str | None = None
+    email: EmailStr | None = None
+    plan_id: str = Field(default="pro_monthly", max_length=40)
+    success_url: str | None = Field(default=None, max_length=500)
+    cancel_url: str | None = Field(default=None, max_length=500)
 
 
 @router.post("/create-checkout-session")
@@ -77,7 +82,7 @@ class CreateCheckoutSessionRequest(BaseModel):
 async def create_checkout_session(
     request: Request,
     payload: CreateCheckoutSessionRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_verified_user),
 ):
     """
     Crea una sesión de Stripe Checkout para la SUSCRIPCIÓN Hubzy Pro.
@@ -90,8 +95,8 @@ async def create_checkout_session(
         payload.email if payload.email and "@" in payload.email else None
     )
     frontend = settings.FRONTEND_URL.rstrip("/")
-    success_url = payload.success_url or f"{frontend}/?payment=success"
-    cancel_url = payload.cancel_url or f"{frontend}/?payment=cancelled"
+    success_url = safe_redirect_url(payload.success_url, f"{frontend}/?payment=success")
+    cancel_url = safe_redirect_url(payload.cancel_url, f"{frontend}/?payment=cancelled")
 
     try:
         if settings.STRIPE_PRICE_ID:
@@ -195,8 +200,10 @@ async def verify_payment_session(
             "mode": session.mode,
         }
 
-    # El pago solo puede acreditar al dueño de la sesión de checkout
-    if is_paid and session_user and session_user != uid:
+    # Propiedad SIEMPRE, pagada o no: una sesión de checkout personal lleva
+    # client_reference_id — si no coincide (o falta, es decir no la creó
+    # este flujo) no se revela ni su metadata ni su estado.
+    if session_user != uid:
         raise HTTPException(status_code=403, detail="Esta sesión de pago no pertenece a tu cuenta.")
 
     # Fuera del try de Stripe: un fallo de MongoDB debe ser 500 (reintento), no 400.
@@ -241,6 +248,21 @@ async def stripe_webhook(request: Request):
     etype = event["type"]
     data = event["data"]["object"]
 
+    # Dedup por event.id: Stripe reenvía cada evento hasta recibir 2xx — sin
+    # esto un reintento re-activaba suscripciones o re-downgradeaba a destiempo.
+    # El índice único hace el check atómico; solo DuplicateKeyError es "ya lo
+    # vi" — cualquier otro fallo de BD propaga 500 y Stripe reintenta.
+    event_id = event.get("id")
+    if event_id and db_manager.db is not None:
+        from pymongo.errors import DuplicateKeyError
+
+        try:
+            await db_manager.db["stripe_events"].insert_one(
+                {"event_id": event_id, "type": etype, "received_at": utcnow_iso()}
+            )
+        except DuplicateKeyError:
+            return {"received": True, "deduplicated": True}
+
     if etype in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         meta = data.get("metadata") or {}
         # En métodos asíncronos 'completed' llega con payment_status 'unpaid':
@@ -271,6 +293,15 @@ async def stripe_webhook(request: Request):
         if customer_id:
             await _downgrade_user(customer_id)
             # También puede ser la licencia de una institución
+            await _cancel_school_subscription(customer_id)
+    elif etype == "customer.subscription.updated":
+        # Stripe deja de cobrar tras reintentos fallidos → la suscripción pasa
+        # a unpaid/canceled aquí, no en deleted. Sin este handler el plan Pro
+        # quedaba activo gratis tras impagos reiterados (invoice.payment_failed).
+        sub_status = data.get("status")
+        customer_id = data.get("customer")
+        if customer_id and sub_status in ("canceled", "unpaid", "incomplete_expired"):
+            await _downgrade_user(customer_id)
             await _cancel_school_subscription(customer_id)
     elif etype == "invoice.payment_failed":
         logger.warning(f"Pago de suscripción fallido para customer {data.get('customer')}")

@@ -68,8 +68,12 @@ class GameBoardResponse(BaseModel):
 
 
 class GenerateBoardRequest(BaseModel):
+    # max_length=250k: acota hashing/prompt del LLM (la extracción ya corta a 200k).
     text: str = Field(
-        ..., min_length=15, description="Texto denso de estudio o fragmento de PDF a procesar"
+        ...,
+        min_length=15,
+        max_length=250_000,
+        description="Texto denso de estudio o fragmento de PDF a procesar",
     )
     level: int = Field(default=1, ge=1, le=20, description="Nivel de dificultad (1 a 20)")
     question_count: int = Field(

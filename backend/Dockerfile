@@ -24,4 +24,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Un solo worker A PROPÓSITO: jobs en proceso, cachés en memoria y el runner
 # asyncio viven en este proceso — múltiples workers dividirían el estado.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --forwarded-allow-ips "*": el rate limiter y los logs necesitan la IP real
+# del cliente (X-Forwarded-For que inyecta nginx). Es seguro porque en
+# producción el backend solo es alcanzable desde la red interna de compose
+# (nginx es la única puerta — ver docker-compose.prod.yml, no hay ports:).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]

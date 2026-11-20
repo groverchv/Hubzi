@@ -1,62 +1,69 @@
 /**
- * Store global de autenticación (Zustand + persistencia en localStorage).
- * Mantiene compatibilidad con las claves legadas 'hubzy_current_user' / 'hubzy_auth_token'.
+ * Store global de autenticación (Zustand).
+ * El JWT vive en una cookie HttpOnly — JS nunca lo lee ni lo persiste.
+ * Solo se guarda el perfil del usuario (no-sensible) para arranque rápido;
+ * /auth/me con la cookie es la fuente de verdad al montar la app.
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { fetchWithAuth } from "../lib/api";
+import { apiFetch, fetchWithAuth } from "../lib/api";
 
-const LEGACY_USER_KEY = "hubzy_current_user";
-const LEGACY_TOKEN_KEY = "hubzy_auth_token";
-
-function loadLegacySession() {
-  try {
-    const user = JSON.parse(localStorage.getItem(LEGACY_USER_KEY) || "null");
-    // Las sesiones de invitado ya no existen: limpiarlas al cargar.
-    if (user?.is_guest) {
-      localStorage.removeItem(LEGACY_USER_KEY);
-      return { user: null, token: null };
+function clearUserLocalData() {
+  // Datos del usuario fuera de la cuenta: carpetas cacheadas, progreso de
+  // campaña, colas y TODAS las claves legadas de sesión (incluido el viejo
+  // 'hubzy_auth_token' en localStorage — queda inservible pero se purga).
+  // Las claves de preferencia (volúmenes, muted) se conservan.
+  const USER_DATA_PREFIXES = [
+    "hubzy_current_user",
+    "hubzy_auth_token",
+    "hubzy_user_study_folders",
+    "hubzy_campaign_progress_",
+    "hubzy_arena_session",
+    "hubzy_hint_",
+  ];
+  for (const k of Object.keys(localStorage)) {
+    if (USER_DATA_PREFIXES.some((p) => k === p || k.startsWith(p))) {
+      localStorage.removeItem(k);
     }
-    const token = localStorage.getItem(LEGACY_TOKEN_KEY);
-    return { user, token };
-  } catch {
-    return { user: null, token: null };
   }
+}
+
+// Purga de migración: versiones anteriores guardaban el JWT legible en
+// localStorage bajo 'hubzy_auth_token'. Se elimina siempre al cargar.
+try {
+  localStorage.removeItem("hubzy_auth_token");
+} catch {
+  /* modo privado estricto */
 }
 
 export const useAuthStore = create(
   persist(
     (set, get) => ({
-      user: loadLegacySession().user,
-      token: loadLegacySession().token,
+      user: null,
 
-      setSession: ({ user, token }) => {
-        if (user) localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user));
-        if (token) localStorage.setItem(LEGACY_TOKEN_KEY, token);
-        set({ user, token });
+      setSession: ({ user }) => {
+        set({ user });
       },
 
       setUser: (user) => {
-        if (user) localStorage.setItem(LEGACY_USER_KEY, JSON.stringify(user));
         set({ user });
       },
 
       logout: () => {
-        localStorage.removeItem(LEGACY_USER_KEY);
-        localStorage.removeItem(LEGACY_TOKEN_KEY);
-        set({ user: null, token: null });
+        clearUserLocalData();
+        set({ user: null });
+        // Revocación server-side (token_version++ + cookie borrada). Si el
+        // backend está caído la sesión local ya está cerrada igualmente.
+        apiFetch("/api/v1/auth/logout", { method: "POST" }).catch(() => {});
       },
 
-      // Revalida el usuario persistido contra /auth/me: el objeto en
-      // localStorage puede ser viejo (p. ej. creado en modo degradado sin
-      // Mongo, con created_at fresco que reinicia el trial). Si el backend
-      // responde 401 la sesión se cierra; si está caído, se conserva.
+      // La cookie HttpOnly es la fuente de verdad: siempre se sondea
+      // /auth/me al arrancar (además renueva el token si le queda <50%).
       refreshUser: async () => {
-        if (!get().token) return;
         try {
           const res = await fetchWithAuth("/api/v1/auth/me");
           if (res.status === 401) {
-            get().logout();
+            if (get().user) get().logout();
             return;
           }
           if (res.ok) {
@@ -64,7 +71,7 @@ export const useAuthStore = create(
             if (user?.id) get().setUser(user);
           }
         } catch {
-          // sin conexión: conservar la sesión local
+          // sin conexión: conservar la sesión local persistida
         }
       },
 
@@ -77,7 +84,7 @@ export const useAuthStore = create(
     }),
     {
       name: "hubzy-auth",
-      partialize: (s) => ({ user: s.user, token: s.token }),
+      partialize: (s) => ({ user: s.user }),
     }
   )
 );

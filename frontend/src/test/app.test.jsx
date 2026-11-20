@@ -31,22 +31,23 @@ describe("CrisisModal", () => {
 });
 
 describe("authStore", () => {
-  it("setSession guarda usuario y token", async () => {
+  it("setSession guarda solo el perfil — el JWT vive en cookie HttpOnly", async () => {
     const { useAuthStore } = await import("../store/authStore");
     useAuthStore.getState().setSession({
       user: { id: "u1", username: "Test", plan: "free" },
       token: "tok123",
     });
     expect(useAuthStore.getState().user.username).toBe("Test");
-    expect(useAuthStore.getState().token).toBe("tok123");
-    expect(localStorage.getItem("hubzy_auth_token")).toBe("tok123");
+    expect(useAuthStore.getState().token).toBeUndefined();
+    // Ningún token legible por JS puede quedar en localStorage
+    expect(localStorage.getItem("hubzy_auth_token")).toBeNull();
+    expect(localStorage.getItem("hubzy-auth") || "").not.toContain("tok123");
   });
 
   it("logout limpia la sesión", async () => {
     const { useAuthStore } = await import("../store/authStore");
     useAuthStore.getState().logout();
     expect(useAuthStore.getState().user).toBeNull();
-    expect(useAuthStore.getState().token).toBeNull();
     expect(localStorage.getItem("hubzy_auth_token")).toBeNull();
   });
 });

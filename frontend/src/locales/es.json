@@ -96,7 +96,7 @@
     "welcome_back": "¡Bienvenido de vuelta!",
     "created": "¡Cuenta creada con éxito!",
     "err_generic": "Ocurrió un error al procesar tu solicitud.",
-    "local_ok": "Acceso local concedido.",
+    "err_network": "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.",
     "band_1": "Semillita (5-7) — aprende escuchando y jugando",
     "band_2": "Explorador (8-10) — aventura guiada",
     "band_3": "Aventurero (11-14) — retos por niveles",

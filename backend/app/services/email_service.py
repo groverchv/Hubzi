@@ -53,10 +53,18 @@ async def send_email(to: str, subject: str, html: str, text: str | None = None) 
     plain = text or ""
 
     if not _smtp_configured():
-        # Modo desarrollo: el enlace queda en el log para pruebas manuales
-        logger.info(f"[dev-email] Para: {to} | Asunto: {subject}")
-        logger.info(f"[dev-email] Cuerpo: {plain[:500]}")
-        return True
+        if settings.ENVIRONMENT == "development":
+            # Modo desarrollo: el enlace queda en el log para pruebas manuales
+            logger.info(f"[dev-email] Para: {to} | Asunto: {subject}")
+            logger.info(f"[dev-email] Cuerpo: {plain[:500]}")
+            return True
+        # En producción JAMÁS se loguea el cuerpo: contiene el token JWT
+        # canjeable de reset/verificación — sería robo de cuenta vía logs.
+        logger.error(
+            f"Email '{subject}' para {to} NO enviado: SMTP sin configurar "
+            f"en ENVIRONMENT={settings.ENVIRONMENT}."
+        )
+        return False
 
     try:
         await asyncio.to_thread(_send_smtp, to, subject, html, plain)
@@ -98,6 +106,47 @@ async def send_verification_email(to: str, username: str, token: str) -> bool:
   <p>Hola <strong>{username}</strong>,</p>
   <p>Confirma tu correo para activar todas las funciones de Hubzy.</p>
   <p style="text-align:center;margin:28px 0">{_cta_button(url, "Confirmar mi cuenta")}</p>""",
+    )
+    return await send_email(to, subject, html, text)
+
+
+async def send_password_changed_email(to: str, username: str) -> bool:
+    """Aviso de 'tu contraseña cambió' — detección pasiva: si la víctima no
+    fue ella quien la cambió, el mail le permite reaccionar rápido."""
+    subject = "Tu contraseña de Hubzy ha cambiado"
+    text = (
+        f"Hola {username}, tu contraseña de Hubzy se cambió hace un momento. "
+        "Si no fuiste tú, restablece tu contraseña y contacta con soporte de inmediato."
+    )
+    html = _BASE_HTML.format(
+        ttl="",
+        body=f"""
+  <p>Hola <strong>{username}</strong>,</p>
+  <p>Tu contraseña de Hubzy se cambió hace un momento.</p>
+  <p><strong>¿No fuiste tú?</strong> Restablece tu contraseña y contacta con
+  soporte de inmediato — puede que alguien más tenga acceso a tu cuenta.</p>""",
+    )
+    return await send_email(to, subject, html, text)
+
+
+async def send_inactive_account_warning_email(
+    to: str, username: str, days_left: int
+) -> bool:
+    """Aviso de purga por inactividad — GDPR exige avisar antes de borrar."""
+    subject = "Tu cuenta de Hubzy se eliminará pronto por inactividad"
+    text = (
+        f"Hola {username}, llevas mucho tiempo sin entrar a Hubzy. "
+        f"Tu cuenta y sus datos se eliminarán en {days_left} días si no "
+        "inicias sesión. Entra a la app para conservarla."
+    )
+    html = _BASE_HTML.format(
+        ttl=f"{days_left} días",
+        body=f"""
+  <p>Hola <strong>{username}</strong>,</p>
+  <p>Llevas mucho tiempo sin usar Hubzy. Por nuestra política de retención
+  de datos, tu cuenta y todos sus datos se eliminarán en
+  <strong>{days_left} días</strong>.</p>
+  <p>Si quieres conservarla, solo inicia sesión — no hace falta nada más.</p>""",
     )
     return await send_email(to, subject, html, text)
 

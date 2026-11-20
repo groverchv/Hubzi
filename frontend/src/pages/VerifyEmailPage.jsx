@@ -12,6 +12,9 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     const token = params.get('token');
+    // Scrub inmediato: el token es canjeable — fuera de URL, historial y
+    // pageviews que PostHog/Sentry capturan con $current_url.
+    if (token) window.history.replaceState({}, '', '/verify-email');
     if (!token) {
       setState('error');
       setMessage('El enlace no contiene un token de verificación.');
@@ -19,7 +22,10 @@ export default function VerifyEmailPage() {
     }
     fetch('/api/v1/auth/verify-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
       body: JSON.stringify({ token }),
     })
       .then(async (res) => {

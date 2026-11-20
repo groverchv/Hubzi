@@ -349,10 +349,10 @@ export default function InstitutionModal({ isOpen, onClose }) {
       <td>${(s.islands || [])
         .map(
           (i) =>
-            `${esc(i.island_name)}: Nivel ${i.current_level}/${i.total_levels} · ★${i.stars}${i.completed ? " ✓" : ""}`,
+            `${esc(i.island_name)}: Nivel ${esc(i.current_level)}/${esc(i.total_levels)} · ★${esc(i.stars)}${i.completed ? " ✓" : ""}`,
         )
         .join("<br>") || "—"}</td>
-      <td>${s.folder_progress ? `Nivel ${s.folder_progress.current_level || 1} · ${s.folder_progress.total_xp || 0} XP` : "Sin actividad"}</td></tr>`,
+      <td>${s.folder_progress ? `Nivel ${esc(s.folder_progress.current_level || 1)} · ${esc(s.folder_progress.total_xp || 0)} XP` : "Sin actividad"}</td></tr>`,
       )
       .join("");
     win.document.write(`<!doctype html><html><head><meta charset="utf-8">

@@ -88,19 +88,11 @@ export default function UserAuthModal({ isOpen, currentUser, onUserSaved, onLogo
         setErrorMsg(err.detail || t('profile.err_save'));
       }
     } catch (err) {
-      // Fallback local seguro si no hay backend en ese instante
-      const localUser = {
-        id: `user_local_${Date.now()}`,
-        username: username.trim(),
-        gender: gender,
-        age: numAge,
-        avatar: 'capy_fan',
-        voice_preference: 'auto',
-        assigned_voice_gender: isMaleUser ? 'female' : 'male'
-      };
-      localStorage.setItem('hubzy_current_user', JSON.stringify(localUser));
-      capyVoice.currentUser = localUser;
-      onUserSaved(localUser);
+      // Sin fallback local: fabricar un perfil "guardado" cuando falla la
+      // red producía un usuario fantasma que el frontend trataba como
+      // registrado en el backend (datos que luego no existen).
+      console.warn("Error guardando perfil:", err);
+      setErrorMsg(t('auth.err_network'));
     } finally {
       setIsLoading(false);
     }

@@ -30,6 +30,10 @@ export default function KaTeXText({ tex, className = "", displayMode = false }) 
             throwOnError: true,
             displayMode,
             output: "html",
+            // Hardening: los macros \href/\html* pueden producir markup
+            // hostil si llegan vía contenido LLM — strict los neutraliza.
+            strict: "warn",
+            trust: false,
           });
         } catch (e) {
           setErr(true);

@@ -16,6 +16,7 @@ from fastapi import (
 from pydantic import BaseModel, Field
 
 from app.core.age_bands import band_for_age
+from app.core.injection_guard import detect_injection_signals, flag_suspicious_document
 from app.core.plans import enforce_docs_limit, enforce_question_limit
 from app.core.rate_limit import limiter
 from app.core.security import (
@@ -77,6 +78,27 @@ def _validate_upload(file_bytes: bytes, filename: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El archivo Word (.docx) no tiene una estructura de compresión válida.",
         )
+    # Magic bytes de imágenes: sin esto cualquier binario renombrado .png
+    # se enviaba al OCR de Gemini (costo + comportamiento indefinido).
+    _IMAGE_MAGIC = {
+        ".png": (b"\x89PNG\r\n\x1a\n",),
+        ".jpg": (b"\xff\xd8\xff",),
+        ".jpeg": (b"\xff\xd8\xff",),
+        ".webp": (b"RIFF", b"WEBP"),
+        ".bmp": (b"BM",),
+    }
+    for ext, sigs in _IMAGE_MAGIC.items():
+        if lower_f.endswith(ext):
+            ok = (
+                file_bytes.startswith(sigs[0]) and file_bytes[8:12] == sigs[1]
+                if ext == ".webp"
+                else file_bytes.startswith(sigs[0])
+            )
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El archivo '{filename}' no es una imagen {ext[1:].upper()} válida.",
+                )
 
 
 @router.post("/generate", response_model=GameBoardResponse, status_code=status.HTTP_200_OK)
@@ -92,6 +114,9 @@ async def generate_arena_board(
     Recibe un texto denso de estudio, invoca a Gemini para extraer conceptos clave
     calibrados al nivel y cantidad requerida, y ensambla el GameBoardResponse.
     """
+    # force_refresh bypasea el caché → llamada LLM por request: no de invitados.
+    if force_refresh and not current_user:
+        force_refresh = False
     plan = get_user_plan(current_user)
     payload.question_count = (
         enforce_question_limit(plan, payload.question_count) or payload.question_count
@@ -117,8 +142,8 @@ async def upload_and_generate_arena_board(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile | None = File(None),
-    raw_text: str | None = Form(None),
-    folder_id: str | None = Form(None),
+    raw_text: str | None = Form(None, max_length=250_000),
+    folder_id: str | None = Form(None, max_length=200),
     current_user: dict | None = Depends(get_optional_user),
 ):
     """
@@ -139,12 +164,29 @@ async def upload_and_generate_arena_board(
         _validate_upload(file_bytes, filename)
         try:
             # Extracción/OCR son síncronos → thread para no congelar el loop.
-            extracted_text = await asyncio.to_thread(
-                ai_service.extract_document_text, file_bytes, filename
+            # wait_for acota la espera: un PDF patológico no puede dejar el
+            # request colgado (el hilo muere al terminar; los caps internos
+            # de páginas/descompresión limitan el trabajo real).
+            extracted_text = await asyncio.wait_for(
+                asyncio.to_thread(
+                    ai_service.extract_document_text, file_bytes, filename
+                ),
+                timeout=120,
             )
             logger.info(
                 f"Texto extraído del archivo '{filename}': {len(extracted_text)} caracteres"
             )
+            injection_hits = detect_injection_signals(extracted_text)
+            if injection_hits:
+                await flag_suspicious_document(
+                    folder_id,
+                    filename,
+                    resolve_effective_user_id(current_user, None),
+                    request,
+                )
+                logger.warning(
+                    f"Posible prompt-injection en '{filename}': {injection_hits[:3]}"
+                )
         except Exception as e:
             logger.warning(f"Error extrayendo texto u OCR de '{filename}': {e}")
             raise HTTPException(
@@ -173,6 +215,7 @@ async def upload_and_generate_arena_board(
                 "char_count": len(extracted_text),
                 "is_analyzed": False,
                 "analysis_result": None,
+                "suspicious": bool(detect_injection_signals(extracted_text)),
                 "uploaded_at": utcnow_iso(),
             }
             await persist_document_to_folder(folder_id, doc_record, current_user)
@@ -245,10 +288,10 @@ async def summarize_and_store(folder_id: str, doc_id: str, text: str) -> None:
 
 
 class CapySpeechRequest(BaseModel):
-    situation: str = "correct"
-    level: int = 1
-    theme: str = ""
-    history: list[str] = Field(default_factory=list)
+    situation: str = Field(default="correct", max_length=30)
+    level: int = Field(default=1, ge=1, le=20)
+    theme: str = Field(default="", max_length=120)
+    history: list[str] = Field(default_factory=list, max_length=20)
 
 
 @router.post("/capy-speech", tags=["Arena"])
@@ -265,24 +308,61 @@ async def get_capy_speech(request: Request, payload: CapySpeechRequest):
 
 
 class CapyAskRequest(BaseModel):
-    message: str
-    nodes: list | None = []
-    hand: list | None = []
-    theme: str | None = ""
+    message: str = Field(..., max_length=2000)
+    nodes: list | None = Field(default_factory=list, max_length=50)
+    hand: list | None = Field(default_factory=list, max_length=50)
+    theme: str | None = Field(default="", max_length=120)
+    # Solo para invitados (sin sesión): valores sanitizados más abajo.
+    # Con sesión se IGNORA — el perfil sale del token, nunca del body:
+    # un dict libre del cliente inyectaba nombre/género/edad arbitrarios
+    # al system prompt de Hubzi.
     user_profile: dict | None = None
     # Historial reciente de conversación: [{role: "user"|"capi", text: "..."}]
-    history: list | None = []
+    history: list | None = Field(default_factory=list, max_length=20)
+
+
+_GUEST_GENDERS = {"masculino", "femenino", "otro"}
+
+
+def _safe_guest_profile(raw: dict | None) -> dict:
+    """Perfil de invitado acotado: solo los 3 campos que usa el prompt y
+    con tipos/límites estrictos — nada de dicts arbitrarios al LLM."""
+    raw = raw or {}
+    username = str(raw.get("username") or "amiguito")[:40]
+    gender = str(raw.get("gender") or "otro").strip().lower()
+    try:
+        age = int(raw.get("age") or 20)
+    except (TypeError, ValueError):
+        age = 20
+    return {
+        "username": username,
+        "gender": gender if gender in _GUEST_GENDERS else "otro",
+        "age": min(max(age, 4), 100),
+    }
 
 
 @router.post("/capy-ask", tags=["Arena"])
 @limiter.limit("30/minute")
-async def ask_capybara(request: Request, payload: CapyAskRequest):
+async def ask_capybara(
+    request: Request,
+    payload: CapyAskRequest,
+    current_user: dict | None = Depends(get_optional_user),
+):
     """
     Recibe la transcripción del micrófono del usuario y genera una pista pedagógica
     o intervención empática anti-estrés evaluada con NLP clínico y Gemini.
     La respuesta puede incluir is_crisis=true → el frontend debe mostrar el
     protocolo de crisis (ver /api/v1/psychology/crisis-resources).
     """
+    user_profile = (
+        {
+            "username": current_user.get("username") or "amiguito",
+            "gender": current_user.get("gender") or "otro",
+            "age": current_user.get("age") or 20,
+        }
+        if current_user
+        else _safe_guest_profile(payload.user_profile)
+    )
     # Gemini es síncrono: offload al thread para no congelar el event loop
     return await asyncio.to_thread(
         ai_service.generate_capy_response_with_psychology,
@@ -290,6 +370,6 @@ async def ask_capybara(request: Request, payload: CapyAskRequest):
         nodes_context=payload.nodes or [],
         hand_context=payload.hand or [],
         theme=payload.theme or "",
-        user_profile=payload.user_profile or {},
+        user_profile=user_profile,
         history=payload.history or [],
     )

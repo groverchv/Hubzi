@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 import urllib.error
 import urllib.request
@@ -204,8 +205,15 @@ class VoiceService:
             logger.error(f"Error en Edge-TTS: {e}")
             return None
 
+    # Defensa en profundidad sobre el request model: un v_id con '/' o '?'
+    # inyectaría path/query en la URL de ElevenLabs con nuestra API key.
+    _VOICE_ID_RE = re.compile(r"^[A-Za-z0-9]{1,64}$")
+
     def _call_elevenlabs(self, v_id: str, payload: dict) -> bytes | None:
         if not self.api_key or self.elevenlabs_quota_exceeded:
+            return None
+        if not self._VOICE_ID_RE.match(v_id or ""):
+            logger.warning(f"voice_id inválido rechazado: {str(v_id)[:40]!r}")
             return None
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{v_id}"
         headers = {
@@ -214,7 +222,7 @@ class VoiceService:
             "xi-api-key": self.api_key.strip(),
         }
         try:
-            req = urllib.request.Request(
+            req = urllib.request.Request(  # noqa: S310 -- URL fija https de ElevenLabs; voice_id ya validado por regex
                 url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
             )
             with urllib.request.urlopen(req, timeout=3.5) as response:  # noqa: S310 -- request construido arriba con URL fija https

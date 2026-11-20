@@ -13,19 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <title>Hubzy - Arena de Aprendizaje Zen</title>
-    <script>
-      // Captura inmediata de beforeinstallprompt para evitar perder el evento antes de React
-      window.deferredInstallPrompt = null;
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        window.deferredInstallPrompt = e;
-        window.dispatchEvent(new CustomEvent('pwa-install-ready'));
-      });
-      window.addEventListener('appinstalled', () => {
-        window.deferredInstallPrompt = null;
-        window.dispatchEvent(new CustomEvent('pwa-installed'));
-      });
-    </script>
+    <script src="/install-prompt.js"></script>
   </head>
   <body>
     <div id="root"></div>

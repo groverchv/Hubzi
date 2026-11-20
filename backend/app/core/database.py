@@ -34,7 +34,10 @@ class DatabaseManager:
                 )
                 self.db = None
             else:
-                logger.info(f"Conectando a MongoDB en: {settings.MONGODB_URI}...")
+                # Nunca loguear la URI completa: lleva usuario+password embebidos
+                # y quedarían en los logs (CI, servidores, Sentry breadcrumbs).
+                _safe_uri = settings.MONGODB_URI.split("@")[-1]
+                logger.info(f"Conectando a MongoDB en: ***@{_safe_uri}...")
                 self.mongo_client = AsyncIOMotorClient(
                     settings.MONGODB_URI, serverSelectionTimeoutMS=5000
                 )
@@ -84,6 +87,45 @@ class DatabaseManager:
                     # permite copiar vectores sin re-embeddear texto idéntico.
                     await self.db["embedding_cache"].create_index(
                         "chunk_hash", unique=True
+                    )
+                    # Webhooks de Stripe procesados: el event_id único hace
+                    # atómico el "ya lo vi" ante los reintentos de Stripe.
+                    await self.db["stripe_events"].create_index(
+                        "event_id", unique=True
+                    )
+                    await self.db["stripe_events"].create_index(
+                        "received_at", expireAfterSeconds=60 * 60 * 24 * 30
+                    )
+                    # Retención: carpetas de invitado expiran solas (el campo
+                    # expires_at solo existe en docs de invitados — las carpetas
+                    # de cuentas migradas/verificadas no tienen el campo y el
+                    # índice sparse no las toca).
+                    await self.db["study_folders"].create_index(
+                        "expires_at", expireAfterSeconds=0, sparse=True
+                    )
+                    # Sesiones activas por jti: la revocación individual y la
+                    # lista "mis dispositivos" consultan por usuario y por jti.
+                    # TTL 35 días cubre la vida máxima de un token deslizante.
+                    await self.db["sessions"].create_index(
+                        "jti", unique=True, sparse=True
+                    )
+                    await self.db["sessions"].create_index([("user_id", 1), ("last_seen", -1)])
+                    await self.db["sessions"].create_index(
+                        "last_seen", expireAfterSeconds=60 * 60 * 24 * 35
+                    )
+                    # Audit trail append-only (nunca update ni delete):
+                    # búsqueda por actor/tipo + TTL 1 año como retención
+                    # razonable por defecto — ajustable por política legal.
+                    await self.db["security_events"].create_index(
+                        [("actor_id", 1), ("at", -1)]
+                    )
+                    await self.db["security_events"].create_index("type")
+                    await self.db["security_events"].create_index(
+                        "at", expireAfterSeconds=60 * 60 * 24 * 365
+                    )
+                    # Jobs asíncronos: auto-limpieza a los 30 días.
+                    await self.db["jobs"].create_index(
+                        "created_at", expireAfterSeconds=60 * 60 * 24 * 30
                     )
                     logger.info("Índices de MongoDB optimizados y verificados.")
                 except Exception as ie:

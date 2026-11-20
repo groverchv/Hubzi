@@ -80,7 +80,7 @@
     "welcome_back": "Bem-vindo de volta!",
     "created": "Conta criada com sucesso!",
     "err_generic": "Ocorreu um erro ao processar sua solicitação.",
-    "local_ok": "Acesso local concedido.",
+    "err_network": "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.",
     "band_1": "Sementinha (5-7) — aprende ouvindo e jogando",
     "band_2": "Explorador (8-10) — aventura guiada",
     "band_3": "Aventureiro (11-14) — desafios por níveis",

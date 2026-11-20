@@ -6,12 +6,14 @@ import AnimatedCloudsBackground from './components/AnimatedCloudsBackground';
 import RotatePhoneOverlay from './components/RotatePhoneOverlay';
 import { CrisisProvider } from './lib/crisis.jsx';
 import { useAuthStore } from './store/authStore';
+import { ensureGuestSession } from './lib/api';
 import { fetchWithAuth } from './lib/api';
 import { X, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useLowPower } from './utils/lowPower';
 import ErrorBoundary from './components/ErrorBoundary';
+import ForcePasswordChange from './components/ForcePasswordChange';
 
 // Code-splitting: las páginas pesadas se cargan bajo demanda por ruta
 const ArcadeArena = lazy(() => import('./pages/ArcadeArena'));
@@ -50,14 +52,25 @@ function RequireUser({ children }) {
   return children;
 }
 
+// Cuentas escolares con contraseña temporal: el backend bloquea la API
+// (403 password_change_required) hasta que el alumno la cambie — el modal
+// no es descartable, es el único camino.
+function ForcePasswordGate() {
+  const user = useAuthStore((s) => s.user);
+  if (!user?.must_change_password) return null;
+  return <ForcePasswordChange />;
+}
+
 function App() {
   const lowPower = useLowPower();
   const { t } = useTranslation();
   const [paymentNotice, setPaymentNotice] = useState(null);
   // Revalidar el usuario persistido contra el backend (created_at real →
-  // el trial no se reinicia por un objeto local stale).
+  // el trial no se reinicia por un objeto local stale) y emitir la
+  // identidad de invitado opaca si no hay cookie aún.
   useEffect(() => {
     useAuthStore.getState().refreshUser();
+    ensureGuestSession();
   }, []);
 
   // Retorno global de Stripe Checkout: success_url apunta a "/" (landing),
@@ -137,6 +150,7 @@ function App() {
       <BrowserRouter>
         <RotatePhoneOverlay />
         {paymentBanner}
+        <ForcePasswordGate />
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />

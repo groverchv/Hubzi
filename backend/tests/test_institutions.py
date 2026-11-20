@@ -15,7 +15,7 @@ from app.main import app
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-Requested-With": "XMLHttpRequest"}) as c:
         yield c
 
 
@@ -347,10 +347,26 @@ def test_bulk_enroll_creates_working_credentials(client):
     assert cred["email"].endswith("@hubzy.school")
     assert cred["password"]
 
-    # La cuenta generada puede iniciar sesión y ve la materia del grado
+    # La cuenta generada puede iniciar sesión — pero llega con contraseña
+    # temporal (must_change_password): la API la bloquea hasta cambiarla.
     res = client.post(
         "/api/v1/auth/login",
         json={"email": cred["email"], "password": cred["password"]},
+    )
+    assert res.status_code == 200, res.text
+    token = res.json()["token"]
+    h_new = {"Authorization": f"Bearer {token}"}
+    assert res.json()["user"]["must_change_password"] is True
+
+    res = client.get("/api/v1/folders", headers=h_new)
+    assert res.status_code == 403
+    assert res.json()["detail"] == "password_change_required"
+
+    # Tras el cambio obligatorio ya opera normal y ve la materia del grado
+    res = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": cred["password"], "new_password": "clave_nueva_9"},
+        headers=h_new,
     )
     assert res.status_code == 200, res.text
     token = res.json()["token"]
