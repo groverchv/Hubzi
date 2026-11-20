@@ -135,7 +135,7 @@ jobs:
           output-file: sbom-backend.spdx.json
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-backend
           path: sbom-backend.spdx.json
