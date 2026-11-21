@@ -13,24 +13,26 @@ import {
   RotateCcw,
   Flame,
   X,
-  Trophy,
-  Target,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
   Sparkles,
-  Zap,
+  Waves,
+  Trees,
+  Mountain,
+  Castle,
   CheckCircle2,
-  Medal,
-  ChevronUp,
+  Trophy,
 } from "lucide-react";
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 import { useTranslation } from "react-i18next";
 import { levelName, levelDesc } from "../utils/gameConfig";
 
 /**
- * AdventureMap - OPCIÓN 2: Pantalla Dividida con Panel de Campaña (Estilo Duolingo Web)
- * - Columna Izquierda / Centro: Camino de niveles vertical clásico, táctil y fluido con scroll
- * - Columna Derecha: Panel de Misión del Estudiante, Avatar de Hubzi con diálogo,
- *   Estadísticas de la campaña, botón de acción rápida "JUGAR AHORA" y medallas desbloqueables
- * - En móvil: El panel derecho se contrae elegantemente debajo del mapa o en un drawer
+ * AdventureMap - OPCIÓN 3: El Archipiélago de 5 Islas (Estilo Monster Legends / Mario World / RPG)
+ * - Agrupa los 20 niveles en 5 Islas Temáticas de 4 niveles cada una.
+ * - Elimina por completo los vacíos de la pantalla: cada isla es un escenario completo con su propio bioma.
+ * - Navegación fluida entre islas con pestañas interactivas y flechas de navegación.
  */
 export default function AdventureMap({
   folderName = null,
@@ -46,9 +48,8 @@ export default function AdventureMap({
 }) {
   const { t } = useTranslation();
   const [selectedLevelModal, setSelectedLevelModal] = useState(null);
-  const scrollContainerRef = useRef(null);
 
-  // Generar los 20 niveles si no vienen provistos
+  // Generar los 20 niveles
   const mapLevels = useMemo(() => {
     if (levels && levels.length > 0) return levels;
     return Array.from({ length: 20 }, (_, i) => {
@@ -68,60 +69,119 @@ export default function AdventureMap({
     });
   }, [levels]);
 
-  // Nivel activo actual (el más alto desbloqueado hasta el 20)
-  const currentTargetLevel = Math.min(unlockedLevel, mapLevels.length);
-  const currentLevelData = mapLevels.find((l) => l.level === currentTargetLevel) || mapLevels[0];
+  // Las 5 Islas del Archipiélago (4 niveles cada una)
+  const ISLANDS = useMemo(() => [
+    {
+      id: 0,
+      name: "Costa Zen",
+      tag: "Bioma 1: Aguas Cálidas",
+      desc: "Playas tranquilas para asimilar los conceptos fundamentales del tema.",
+      levelsRange: [1, 2, 3, 4],
+      accent: "#06b6d4",
+      bgGradient: "from-[#082a3e] via-[#051c2a] to-[#020d14]",
+      glowColor: "rgba(6, 182, 212, 0.25)",
+      borderColor: "border-cyan-500/30",
+      icon: Waves,
+      iconColor: "text-cyan-400",
+      badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-400/40",
+    },
+    {
+      id: 1,
+      name: "Valle de Trampas",
+      tag: "Bioma 2: Selva Intensa",
+      desc: "Bosque denso con puentes colgantes. ¡Aparecen las primeras cartas trampa!",
+      levelsRange: [5, 6, 7, 8],
+      accent: "#10b981",
+      bgGradient: "from-[#063321] via-[#042216] to-[#02100a]",
+      glowColor: "rgba(16, 185, 129, 0.25)",
+      borderColor: "border-emerald-500/30",
+      icon: Trees,
+      iconColor: "text-emerald-400",
+      badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-400/40",
+    },
+    {
+      id: 2,
+      name: "Desfiladero de Retos",
+      tag: "Bioma 3: Rocas de Altura",
+      desc: "Cañones rocosos donde se consolida tu memoria y agilidad mental.",
+      levelsRange: [9, 10, 11, 12],
+      accent: "#f59e0b",
+      bgGradient: "from-[#382006] via-[#241403] to-[#120a01]",
+      glowColor: "rgba(245, 158, 11, 0.25)",
+      borderColor: "border-amber-500/30",
+      icon: Mountain,
+      iconColor: "text-amber-400",
+      badgeColor: "bg-amber-500/20 text-amber-300 border-amber-400/40",
+    },
+    {
+      id: 3,
+      name: "Cumbre Mística",
+      tag: "Bioma 4: Meseta Astral",
+      desc: "Templo sobre las nubes para afinar maestría antes del gran duelo.",
+      levelsRange: [13, 14, 15, 16],
+      accent: "#a855f7",
+      bgGradient: "from-[#29144a] via-[#1a0c30] to-[#0c0517]",
+      glowColor: "rgba(168, 85, 247, 0.25)",
+      borderColor: "border-purple-500/30",
+      icon: Sparkles,
+      iconColor: "text-purple-400",
+      badgeColor: "bg-purple-500/20 text-purple-300 border-purple-400/40",
+    },
+    {
+      id: 4,
+      name: "Volcán de Hubzi Boss",
+      tag: "Bioma 5: Fortaleza Final",
+      desc: "La fortaleza volcánica del Jefe. ¡Supera los 20 reactivos para coronarte!",
+      levelsRange: [17, 18, 19, 20],
+      accent: "#ef4444",
+      bgGradient: "from-[#450a0a] via-[#2b0606] to-[#140202]",
+      glowColor: "rgba(239, 68, 68, 0.3)",
+      borderColor: "border-red-500/40",
+      icon: Castle,
+      iconColor: "text-red-400",
+      badgeColor: "bg-red-500/20 text-red-300 border-red-400/40",
+    },
+  ], []);
 
-  // Cálculo de estadísticas
+  // Calcular la isla actual según el nivel más alto desbloqueado
+  const currentIslandIndex = Math.min(
+    4,
+    Math.floor((Math.max(1, unlockedLevel) - 1) / 4)
+  );
+  const [selectedIslandIdx, setSelectedIslandIdx] = useState(currentIslandIndex);
+
+  // Sincronizar isla seleccionada con el nivel desbloqueado
+  useEffect(() => {
+    setSelectedIslandIdx(currentIslandIndex);
+  }, [currentIslandIndex]);
+
+  const activeIsland = ISLANDS[selectedIslandIdx];
+
+  // Niveles de la isla activa
+  const islandLevels = useMemo(() => {
+    return activeIsland.levelsRange.map((lvlNum) => {
+      return (
+        mapLevels.find((l) => l.level === lvlNum) || {
+          level: lvlNum,
+          questions: lvlNum,
+          hasTraps: lvlNum >= 3,
+          trapCount: lvlNum < 8 ? 1 : lvlNum < 15 ? 2 : 3,
+          isBoss: lvlNum === 20,
+        }
+      );
+    });
+  }, [activeIsland, mapLevels]);
+
+  // Estadísticas globales
   const totalStars = useMemo(() => {
     return Object.values(levelStars || {}).reduce((acc, s) => acc + (s || 0), 0);
   }, [levelStars]);
   const maxStars = mapLevels.length * 3;
-  const completedLevelsCount = Object.keys(levelStars || {}).filter(
-    (k) => (levelStars[k] || 0) >= 2
-  ).length;
-  const progressPct = Math.round((completedLevelsCount / mapLevels.length) * 100);
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // 1. COORDENADAS DEL CAMINO VERTICAL (Columna Principal)
-  // ──────────────────────────────────────────────────────────────────────────
-  const LEVEL_GAP = 135;
-  const TOTAL_HEIGHT = 320 + LEVEL_GAP * Math.max(1, mapLevels.length - 1);
-
-  const levelCoords = useMemo(() => {
-    return mapLevels.map((lvl, idx) => {
-      const t = idx / Math.max(1, mapLevels.length - 1);
-      // Nivel 1 en el fondo (abajo), Nivel 20 en la cumbre (arriba)
-      const y = TOTAL_HEIGHT - 160 - t * (TOTAL_HEIGHT - 320);
-      const xPct = 50 + Math.sin(idx * 0.95) * 32;
-      return { level: lvl.level, xPct, y };
-    });
-  }, [mapLevels, TOTAL_HEIGHT]);
-
-  // Sendero SVG curvo
-  const pathD = useMemo(() => {
-    if (!levelCoords.length) return "";
-    return levelCoords.reduce((acc, coord, i) => {
-      const x = (coord.xPct * 8).toFixed(1);
-      const y = coord.y.toFixed(1);
-      if (i === 0) return `M ${x} ${y}`;
-      const prev = levelCoords[i - 1];
-      const prevX = (prev.xPct * 8).toFixed(1);
-      const prevY = prev.y.toFixed(1);
-      const midY = ((parseFloat(prevY) + parseFloat(y)) / 2).toFixed(1);
-      return `${acc} C ${prevX} ${midY}, ${x} ${midY}, ${x} ${y}`;
-    }, "");
-  }, [levelCoords]);
-
-  // Centrado automático en el nivel actual del jugador
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      const activeCoord = levelCoords.find((c) => c.level === currentTargetLevel);
-      if (activeCoord) {
-        scrollContainerRef.current.scrollTop = Math.max(0, activeCoord.y - 360);
-      }
-    }
-  }, [currentTargetLevel, levelCoords]);
+  // Estrellas de la isla activa
+  const islandStars = useMemo(() => {
+    return activeIsland.levelsRange.reduce((acc, lvlNum) => acc + (levelStars[lvlNum] || 0), 0);
+  }, [activeIsland, levelStars]);
 
   const handleNodeClick = (lvl) => {
     const isUnlocked = lvl.level <= unlockedLevel;
@@ -130,73 +190,41 @@ export default function AdventureMap({
   };
 
   const handleStartGame = (lvl = null) => {
-    const target = lvl || selectedLevelModal || currentLevelData;
+    const target = lvl || selectedLevelModal;
     if (target) {
       onSelectLevel(target.level);
       setSelectedLevelModal(null);
     }
   };
 
-  // Frase dinámica de Hubzi según la etapa del estudiante
-  const hubziAdvice = useMemo(() => {
-    if (currentTargetLevel >= 20) {
-      return "¡Llegaste a la Cumbre! Derrota a Hubzi Boss para completar esta materia con honores.";
-    }
-    if (currentTargetLevel >= 15) {
-      return "¡Estás en la recta final! Los circuitos son más exigentes, tómate tu tiempo para memorizar.";
-    }
-    if (currentTargetLevel >= 8) {
-      return "¡Atento a las cartas trampa! Si dudas, respira hondo antes de seleccionar una respuesta.";
-    }
-    if (currentTargetLevel >= 4) {
-      return "¡Buen ritmo de estudio! Completar 2 estrellas en cada nivel te desbloquea el siguiente paso.";
-    }
-    return "¡Bienvenido a la expedición! Comienza por el Nivel 1 para dominar las preguntas iniciales.";
-  }, [currentTargetLevel]);
+  const prevIsland = () => {
+    if (selectedIslandIdx > 0) setSelectedIslandIdx((i) => i - 1);
+  };
 
-  // 4 Medallas de logro de la campaña
-  const ACHIEVEMENTS = [
-    {
-      id: "first_step",
-      name: "Primer Paso",
-      desc: "Supera el Nivel 1",
-      unlocked: unlockedLevel > 1,
-      icon: CheckCircle2,
-      color: "text-emerald-400",
-    },
-    {
-      id: "trap_hunter",
-      name: "Cazador de Trampas",
-      desc: "Llega al Nivel 6",
-      unlocked: unlockedLevel >= 6,
-      icon: Skull,
-      color: "text-rose-400",
-    },
-    {
-      id: "star_collector",
-      name: "Coleccionista",
-      desc: "Consigue 15+ estrellas",
-      unlocked: totalStars >= 15,
-      icon: Star,
-      color: "text-amber-400",
-    },
-    {
-      id: "boss_slayer",
-      name: "Campeón de Isla",
-      desc: "Derrota a Hubzi Boss",
-      unlocked: (levelStars[20] || 0) >= 2,
-      icon: Crown,
-      color: "text-yellow-300",
-    },
+  const nextIsland = () => {
+    if (selectedIslandIdx < ISLANDS.length - 1) setSelectedIslandIdx((i) => i + 1);
+  };
+
+  // Coordenadas fijas armónicas para los 4 niveles de la isla (Diseño de camino espacioso en 2D)
+  // [Nivel 1 abajo-izq] -> [Nivel 2 centro-bajo] -> [Nivel 3 centro-alto] -> [Nivel 4 cumbre derecha]
+  const nodePositions = [
+    { xPct: 18, yPct: 70 },
+    { xPct: 40, yPct: 40 },
+    { xPct: 62, yPct: 65 },
+    { xPct: 84, yPct: 35 },
   ];
 
   return (
-    <div className="relative w-full h-full overflow-hidden select-none font-sans bg-radial from-[#13284a] via-[#091830] to-[#040b17] flex flex-col">
-      {/* ── MALLA DECORATIVA DE FONDO ── */}
+    <div
+      className={`relative w-full h-full overflow-hidden select-none font-sans bg-radial ${activeIsland.bgGradient} flex flex-col transition-colors duration-700`}
+    >
+      {/* ── RESPLANDORES Y MALLA AMBIENTAL DE LA ISLA ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute top-1/4 left-1/3 w-[600px] h-[600px] rounded-full blur-[160px] transition-all duration-700"
+          style={{ backgroundColor: activeIsland.glowColor }}
+        />
         <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:32px_32px]" />
-        <div className="absolute top-10 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px]" />
-        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[140px]" />
       </div>
 
       {/* ── BARRA SUPERIOR FIJA ── */}
@@ -217,27 +245,32 @@ export default function AdventureMap({
         {/* Título de la Materia */}
         <div className="flex flex-col items-center text-center max-w-sm sm:max-w-md">
           <div className="flex items-center gap-1.5">
-            <Folder className="w-3.5 h-3.5 text-amber-400" />
+            <Compass className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-[10px] font-mono font-black uppercase text-amber-400 tracking-wider truncate">
               {folderName || t("map.world")}
             </span>
           </div>
           <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wide truncate">
-            {documentTitle || t("map.topic")} · {t("map.campaign")}
+            {documentTitle || t("map.topic")} · Archipiélago de 5 Islas
           </h1>
         </div>
 
-        {/* Botones de control */}
-        <div className="flex items-center gap-2">
+        {/* Total de Estrellas y Racha */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {studyStreak >= 2 && (
             <div
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-400/50 text-[10px] font-black text-orange-300 shadow-sm"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500/15 border border-orange-400/50 text-[10px] font-black text-orange-300 shadow-sm"
               title={t("map.streak_t", { count: studyStreak })}
             >
               <Flame className="w-3.5 h-3.5 text-orange-400" />
               <span>{studyStreak}d</span>
             </div>
           )}
+
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-xs font-black text-amber-300 shadow-sm">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span>{totalStars}/{maxStars}</span>
+          </div>
 
           {onResetCampaign && unlockedLevel > 1 && (
             <button
@@ -261,362 +294,280 @@ export default function AdventureMap({
         </div>
       </header>
 
-      {/* ── CONTENIDO PRINCIPAL: PANTALLA DIVIDIDA (MAPA + PANEL DE CAMPAÑA) ── */}
-      <div className="relative z-10 flex-1 w-full max-w-[1500px] mx-auto flex flex-col lg:flex-row overflow-hidden">
-        {/* ==========================================================
-           COLUMNA IZQUIERDA / CENTRO: EL MAPA VERTICAL ASCENDENTE (62%)
-           ========================================================== */}
-        <div
-          ref={scrollContainerRef}
-          className="relative flex-1 h-full overflow-y-auto overflow-x-hidden pt-12 pb-24 scroll-smooth border-b lg:border-b-0 lg:border-r border-slate-800/80"
-        >
-          <div
-            className="relative w-full max-w-lg mx-auto"
-            style={{ height: `${TOTAL_HEIGHT}px` }}
-          >
-            {/* SVG del Camino Vertical */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox={`0 0 800 ${TOTAL_HEIGHT}`}
-              preserveAspectRatio="none"
+      {/* ── PESTAÑAS SELECTORAS DE LAS 5 ISLAS (TIPO MUNDOS) ── */}
+      <nav aria-label="Navegación de islas" className="relative z-30 px-3 sm:px-6 py-2.5 flex items-center justify-center gap-1.5 sm:gap-3 bg-slate-950/60 backdrop-blur-md border-b border-slate-800/80 overflow-x-auto">
+        {ISLANDS.map((isl) => {
+          const isSelected = isl.id === selectedIslandIdx;
+          const isIslandUnlocked = isl.levelsRange[0] <= unlockedLevel;
+          const starsInIsl = isl.levelsRange.reduce((acc, l) => acc + (levelStars[l] || 0), 0);
+          const isCompleted = starsInIsl >= 8;
+
+          return (
+            <button
+              key={isl.id}
+              onClick={() => setSelectedIslandIdx(isl.id)}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-arcade transition-all cursor-pointer border-2 shrink-0 ${
+                isSelected
+                  ? `bg-slate-900 ${isl.borderColor} shadow-lg scale-105 ring-2 ring-[var(--color-arcade-yellow)]/50`
+                  : "bg-slate-950/60 border-slate-800 hover:border-slate-700 opacity-75 hover:opacity-100"
+              }`}
             >
-              <defs>
-                <filter id="roadShadowOpt2" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#020917" floodOpacity="0.85" />
-                </filter>
-              </defs>
+              <isl.icon className={`w-4 h-4 ${isl.iconColor}`} />
+              <div className="flex flex-col items-start text-left">
+                <span className="text-[10px] sm:text-xs font-black uppercase text-white tracking-wide">
+                  {isl.name}
+                </span>
+                <span className="text-[8px] font-bold text-slate-400">
+                  Niveles {isl.levelsRange[0]}-{isl.levelsRange[isl.levelsRange.length - 1]}
+                </span>
+              </div>
 
-              {/* Sombra de la carretera */}
-              <path
-                d={pathD}
-                fill="none"
-                stroke="#020917"
-                strokeWidth="18"
-                strokeLinecap="round"
-                filter="url(#roadShadowOpt2)"
-              />
-
-              {/* Calzada base */}
-              <path
-                d={pathD}
-                fill="none"
-                stroke="#172554"
-                strokeWidth="13"
-                strokeLinecap="round"
-              />
-
-              {/* Línea punteada blanca brillante */}
-              <path
-                d={pathD}
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth="6"
-                strokeDasharray="16 12"
-                strokeLinecap="round"
-                className="drop-shadow-[0_2px_4px_rgba(255,255,255,0.4)]"
-              />
-            </svg>
-
-            {/* Islas de Soporte Decorativas */}
-            {[
-              { y: TOTAL_HEIGHT - 260, label: t("map.zone1") },
-              { y: TOTAL_HEIGHT - 880, label: t("map.zone2") },
-              { y: TOTAL_HEIGHT - 1520, label: t("map.zone3") },
-              { y: TOTAL_HEIGHT - 2160, label: t("map.zone4") },
-              { y: 160, label: t("map.zone5") },
-            ]
-              .filter((island) => island.y > 0 && island.y < TOTAL_HEIGHT - 60)
-              .map((island, idx) => (
-                <div
-                  key={idx}
-                  style={{ top: `${island.y}px` }}
-                  className="absolute left-1/2 -translate-x-1/2 w-[85%] max-w-md h-24 rounded-full bg-emerald-900/25 border-2 border-emerald-500/20 blur-xs pointer-events-none flex items-center justify-center"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200/40">
-                    {island.label}
-                  </span>
+              {!isIslandUnlocked ? (
+                <Lock className="w-3.5 h-3.5 text-slate-500 ml-1" />
+              ) : isCompleted ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 ml-1" />
+              ) : (
+                <div className="flex items-center gap-0.5 text-[9px] font-black text-amber-300 ml-1">
+                  <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                  <span>{starsInIsl}/12</span>
                 </div>
-              ))}
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
-            {/* Nodos de Nivel del Camino */}
-            {mapLevels.map((lvl) => {
-              const coord = levelCoords.find((c) => c.level === lvl.level);
-              if (!coord) return null;
+      {/* ── ESCENARIO PRINCIPAL DE LA ISLA (PANTALLA COMPLETA 2D) ── */}
+      <main className="relative z-10 flex-1 w-full h-full flex flex-col items-center justify-between p-4 sm:p-8 overflow-hidden">
+        {/* Cabecera Informativa de la Isla Activa */}
+        <div className="w-full max-w-4xl flex items-center justify-between px-4 py-3 rounded-2xl bg-slate-950/50 border border-white/10 backdrop-blur-md shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-arcade bg-slate-900 border ${activeIsland.borderColor}`}>
+              <activeIsland.icon className={`w-6 h-6 ${activeIsland.iconColor}`} />
+            </div>
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${activeIsland.badgeColor}`}>
+                  {activeIsland.tag}
+                </span>
+                <span className="text-[10px] font-black text-amber-300 flex items-center gap-1">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  {islandStars} de 12 estrellas
+                </span>
+              </div>
+              <h2 className="text-base sm:text-lg font-black text-white mt-0.5">
+                {activeIsland.name}
+              </h2>
+              <p className="text-xs text-slate-300 font-medium hidden sm:block">
+                {activeIsland.desc}
+              </p>
+            </div>
+          </div>
 
-              const isUnlocked = lvl.level <= unlockedLevel;
-              const isCurrent = lvl.level === unlockedLevel;
-              const isBoss = lvl.isBoss || lvl.level === 20;
-              const hasTraps = lvl.hasTraps;
-              const stars = levelStars[lvl.level] || 0;
-
-              return (
-                <div
-                  key={lvl.level}
-                  style={{
-                    left: `${coord.xPct}%`,
-                    top: `${coord.y}px`,
-                  }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center cursor-pointer group"
-                  onClick={() => handleNodeClick(lvl)}
-                >
-                  {/* Avatar animado de Hubzi en el nivel actual */}
-                  {isCurrent && (
-                    <motion.div
-                      initial={{ y: 0 }}
-                      animate={{ y: [-8, 0, -8] }}
-                      transition={{
-                        repeat: Infinity,
-                        duration: 1.2,
-                        ease: "easeInOut",
-                      }}
-                      className="absolute -top-16 z-30 flex flex-col items-center pointer-events-none"
-                    >
-                      <div className="relative w-12 h-12 rounded-full overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-btn-arcade bg-[var(--color-arcade-navy-dark)]">
-                        <img
-                          src={capyEscolar}
-                          alt="Hubzi Aquí"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white font-black text-[8px] uppercase tracking-wider border border-[var(--color-arcade-navy-dark)] shadow-md -mt-1">
-                        {t("map.here")}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Corona y aura para Hubzi Boss (Nivel 20) */}
-                  {isBoss && (
-                    <div className="absolute -top-10 flex flex-col items-center text-[var(--color-arcade-yellow)] animate-bounce z-10 pointer-events-none">
-                      <Crown className="w-8 h-8 fill-[var(--color-arcade-yellow)] drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                      <span className="text-[9px] font-black uppercase text-amber-300 bg-black/80 px-2 py-0.5 rounded-full border border-amber-400 -mt-1 shadow-md whitespace-nowrap">
-                        {t("map.boss")}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Distintivo de Cartas Trampa */}
-                  {hasTraps && !isBoss && isUnlocked && (
-                    <div
-                      className="absolute -top-3 -right-2 z-10 p-1 rounded-full bg-rose-950 border border-rose-500 shadow-md"
-                      title={t("map.traps_t", { count: lvl.trapCount })}
-                    >
-                      <Skull className="w-3.5 h-3.5 text-rose-400" />
-                    </div>
-                  )}
-
-                  {/* Estrellas ⭐⭐⭐ */}
-                  <div className="flex items-center gap-0.5 mb-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-xs border border-white/20 shadow-sm">
-                    {[1, 2, 3].map((s) => (
-                      <Star
-                        key={s}
-                        className={`w-3 h-3 ${
-                          s <= stars
-                            ? "text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)] drop-shadow"
-                            : "text-slate-600 fill-slate-800"
-                        }`}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Botón Circular 3D */}
-                  <motion.button
-                    whileHover={isUnlocked ? { scale: 1.15 } : {}}
-                    whileTap={isUnlocked ? { scale: 0.95 } : {}}
-                    disabled={!isUnlocked}
-                    className={`relative ${
-                      isBoss ? "w-18 h-18 sm:w-20 sm:h-20" : "w-13 h-13 sm:w-15 sm:h-15"
-                    } rounded-full flex items-center justify-center border-4 text-white shadow-2xl transition-all cursor-pointer ${
-                      !isUnlocked
-                        ? "bg-gradient-to-b from-slate-600 to-slate-800 border-slate-900 shadow-[0_5px_0_#1e293b] opacity-80 cursor-not-allowed"
-                        : isBoss
-                          ? "bg-gradient-to-b from-[var(--color-arcade-orange)] via-[#ea580c] to-[#9a3412] border-[#ffedd5] shadow-[0_8px_0_#7c2d12,0_0_25px_rgba(249,115,22,0.9)] animate-pulse"
-                          : hasTraps
-                            ? "bg-gradient-to-b from-[var(--color-sky-400)] via-[#0284c7] to-[#0369a1] border-[#bae6fd] shadow-[0_6px_0_#075985,0_0_14px_rgba(56,189,248,0.6)]"
-                            : "bg-gradient-to-b from-[#4ade80] via-[#16a34a] to-[#15803d] border-[#dcfce7] shadow-[0_6px_0_#166534,0_0_14px_rgba(74,222,128,0.6)]"
-                    }`}
-                  >
-                    <div className="absolute top-1 inset-x-2 h-3.5 bg-gradient-to-b from-white/60 to-transparent rounded-full pointer-events-none" />
-
-                    {isUnlocked ? (
-                      <span
-                        className={`${
-                          isBoss ? "text-2xl sm:text-3xl font-extrabold" : "text-lg sm:text-xl font-black"
-                        } font-sans drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]`}
-                      >
-                        {lvl.level}
-                      </span>
-                    ) : (
-                      <Lock className="w-5 h-5 text-slate-300 drop-shadow" />
-                    )}
-                  </motion.button>
-
-                  {/* Etiqueta inferior con el número de preguntas */}
-                  <div
-                    className={`mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-md whitespace-nowrap ${
-                      isUnlocked
-                        ? isBoss
-                          ? "bg-amber-950 border-amber-500 text-amber-200"
-                          : "bg-[var(--color-arcade-navy)] border-[var(--color-arcade-navy-light)] text-white"
-                        : "bg-slate-900/80 border-slate-700 text-slate-400"
-                    }`}
-                  >
-                    {lvl.questions}{" "}
-                    {lvl.questions === 1 ? t("map.q_one") : t("map.q_many")}
-                  </div>
-                </div>
-              );
-            })}
+          {/* Botones de navegación entre islas */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={prevIsland}
+              disabled={selectedIslandIdx === 0}
+              className="p-2 sm:px-3 sm:py-2 rounded-arcade bg-slate-900 hover:bg-slate-800 disabled:opacity-30 border border-slate-700 text-white text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer shadow-md"
+              title="Isla anterior"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Anterior</span>
+            </button>
+            <button
+              onClick={nextIsland}
+              disabled={selectedIslandIdx === ISLANDS.length - 1}
+              className="p-2 sm:px-3 sm:py-2 rounded-arcade bg-slate-900 hover:bg-slate-800 disabled:opacity-30 border border-slate-700 text-white text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer shadow-md"
+              title="Isla siguiente"
+            >
+              <span className="hidden sm:inline">Siguiente</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* ==========================================================
-           COLUMNA DERECHA: PANEL DE CAMPAÑA Y COMPAÑERO HUBZI (38%)
-           ========================================================== */}
-        <aside className="w-full lg:w-[420px] xl:w-[460px] h-auto lg:h-full overflow-y-auto p-4 sm:p-6 bg-slate-950/60 backdrop-blur-xl flex flex-col gap-4 shrink-0">
-          {/* ── CARD 1: COMPAÑERO HUBZI CON GLOBO DE DIÁLOGO ── */}
-          <div className="relative p-4 rounded-arcade-lg bg-[var(--color-arcade-navy)]/90 border-2 border-[var(--color-arcade-navy-light)] shadow-xl flex items-center gap-4">
-            <div className="relative w-16 h-16 rounded-full overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-md bg-slate-950 shrink-0">
-              <img
-                src={capyEscolar}
-                alt="Hubzi Coach"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute bottom-0 inset-x-0 bg-black/70 text-center text-[7.5px] font-black uppercase text-amber-300 py-0.5">
-                Coach
-              </div>
-            </div>
+        {/* ── LIENZO DEL CAMINO DE LA ISLA CON 4 NIVELES ── */}
+        <div className="relative w-full max-w-4xl flex-1 my-3 rounded-3xl border-2 border-white/10 bg-slate-950/40 backdrop-blur-xl shadow-2xl flex items-center justify-center overflow-hidden">
+          {/* Sendero Curvo SVG que conecta los 4 niveles */}
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            viewBox="0 0 1000 500"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <filter id="islandShadow" x="-10%" y="-10%" width="120%" height="120%">
+                <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#000000" floodOpacity="0.8" />
+              </filter>
+            </defs>
 
-            <div className="flex-1 text-left">
-              <div className="flex items-center gap-1.5 text-amber-400 text-[10px] font-black uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Hubzi dice:</span>
-              </div>
-              <p className="mt-1 text-xs text-slate-200 leading-snug font-medium">
-                "{hubziAdvice}"
-              </p>
-            </div>
-          </div>
+            {/* Sombra ancha del camino */}
+            <path
+              d="M 180 350 C 290 200, 290 200, 400 200 C 510 200, 510 325, 620 325 C 730 325, 730 175, 840 175"
+              fill="none"
+              stroke="#020917"
+              strokeWidth="22"
+              strokeLinecap="round"
+              filter="url(#islandShadow)"
+            />
 
-          {/* ── CARD 2: RETO ACTUAL & ACCIÓN RÁPIDA "JUGAR AHORA" ── */}
-          <div className="p-4 rounded-arcade-lg bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-slate-700 shadow-xl flex flex-col gap-3 text-left">
-            <div className="flex items-center justify-between">
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-[9px] font-black uppercase text-emerald-300">
-                Tu Próximo Desafío
-              </span>
-              <span className="text-[10px] font-bold text-slate-400">
-                Fase {currentTargetLevel} de 20
-              </span>
-            </div>
+            {/* Pista de piedra */}
+            <path
+              d="M 180 350 C 290 200, 290 200, 400 200 C 510 200, 510 325, 620 325 C 730 325, 730 175, 840 175"
+              fill="none"
+              stroke="#1e293b"
+              strokeWidth="15"
+              strokeLinecap="round"
+            />
 
-            <div>
-              <h2 className="text-base font-black text-white">
-                {currentLevelData.name || levelName(currentLevelData, t)}
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-300 line-clamp-2">
-                {currentLevelData.desc || levelDesc(currentLevelData, t)}
-              </p>
-            </div>
+            {/* Línea punteada dorada / blanca */}
+            <path
+              d="M 180 350 C 290 200, 290 200, 400 200 C 510 200, 510 325, 620 325 C 730 325, 730 175, 840 175"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="6"
+              strokeDasharray="16 12"
+              strokeLinecap="round"
+              className="drop-shadow-[0_2px_4px_rgba(255,255,255,0.4)]"
+            />
+          </svg>
 
-            <div className="flex items-center gap-3 text-xs text-slate-300 pt-1 border-t border-slate-800">
-              <div className="flex items-center gap-1 text-[11px] font-bold text-amber-300">
-                <Target className="w-3.5 h-3.5" />
-                <span>{currentLevelData.questions} preguntas</span>
-              </div>
-              {currentLevelData.hasTraps && (
-                <div className="flex items-center gap-1 text-[11px] font-bold text-rose-400">
-                  <Skull className="w-3.5 h-3.5" />
-                  <span>{currentLevelData.trapCount} cartas trampa</span>
+          {/* ── LOS 4 NODOS DE NIVEL DE LA ISLA ── */}
+          {islandLevels.map((lvl, idx) => {
+            const pos = nodePositions[idx];
+            const isUnlocked = lvl.level <= unlockedLevel;
+            const isCurrent = lvl.level === unlockedLevel;
+            const isBoss = lvl.isBoss || lvl.level === 20;
+            const hasTraps = lvl.hasTraps;
+            const stars = levelStars[lvl.level] || 0;
+
+            return (
+              <div
+                key={lvl.level}
+                style={{
+                  left: `${pos.xPct}%`,
+                  top: `${pos.yPct}%`,
+                }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center cursor-pointer group"
+                onClick={() => handleNodeClick(lvl)}
+              >
+                {/* Avatar animado de Hubzi sobre el nivel actual activo */}
+                {isCurrent && (
+                  <motion.div
+                    initial={{ y: 0 }}
+                    animate={{ y: [-8, 0, -8] }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1.2,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute -top-16 z-30 flex flex-col items-center pointer-events-none"
+                  >
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-btn-arcade bg-[var(--color-arcade-navy-dark)]">
+                      <img
+                        src={capyEscolar}
+                        alt="Hubzi Aquí"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white font-black text-[8px] uppercase tracking-wider border border-[var(--color-arcade-navy-dark)] shadow-md -mt-1">
+                      {t("map.here")}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Corona y aura dorada para Hubzi Boss (Nivel 20) */}
+                {isBoss && (
+                  <div className="absolute -top-12 flex flex-col items-center text-[var(--color-arcade-yellow)] animate-bounce z-10 pointer-events-none">
+                    <Crown className="w-10 h-10 fill-[var(--color-arcade-yellow)] drop-shadow-[0_4px_10px_rgba(0,0,0,0.9)]" />
+                    <span className="text-[9px] font-black uppercase text-amber-300 bg-black/85 px-2.5 py-0.5 rounded-full border border-amber-400 -mt-1 shadow-md whitespace-nowrap">
+                      {t("map.boss")}
+                    </span>
+                  </div>
+                )}
+
+                {/* Distintivo de Cartas Trampa */}
+                {hasTraps && !isBoss && isUnlocked && (
+                  <div
+                    className="absolute -top-3 -right-2 z-10 p-1 rounded-full bg-rose-950 border border-rose-500 shadow-md"
+                    title={t("map.traps_t", { count: lvl.trapCount })}
+                  >
+                    <Skull className="w-3.5 h-3.5 text-rose-400" />
+                  </div>
+                )}
+
+                {/* Estrellas ⭐⭐⭐ */}
+                <div className="flex items-center gap-0.5 mb-1.5 bg-black/60 px-2.5 py-0.5 rounded-full backdrop-blur-xs border border-white/20 shadow-sm">
+                  {[1, 2, 3].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-3 h-3 ${
+                        s <= stars
+                          ? "text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)] drop-shadow"
+                          : "text-slate-600 fill-slate-800"
+                      }`}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
 
-            <button
-              onClick={() => handleStartGame(currentLevelData)}
-              className="mt-1 w-full py-3 rounded-arcade bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-arcade border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-btn-arcade transition-all cursor-pointer active:translate-y-0.5"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>Jugar Nivel {currentTargetLevel} Ahora</span>
-            </button>
-          </div>
-
-          {/* ── CARD 3: RESUMEN DE PROGRESO DE CAMPAÑA ── */}
-          <div className="p-4 rounded-arcade-lg bg-[var(--color-arcade-navy)]/80 border-2 border-[var(--color-arcade-navy-light)] shadow-lg flex flex-col gap-2.5 text-left">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase text-white flex items-center gap-1.5">
-                <Trophy className="w-4 h-4 text-amber-400" /> Progreso de Materia
-              </span>
-              <span className="text-xs font-black text-emerald-400">
-                {progressPct}% completado
-              </span>
-            </div>
-
-            {/* Barra de progreso */}
-            <div className="w-full h-2.5 rounded-full bg-slate-900 border border-slate-700 overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-amber-400 rounded-full"
-              />
-            </div>
-
-            {/* Grid 3 Métricas */}
-            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-center">
-              <div className="p-2 rounded-arcade-sm bg-slate-950/60 border border-slate-800 flex flex-col items-center">
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400 mb-0.5" />
-                <span className="text-xs font-black text-white">{totalStars}/{maxStars}</span>
-                <span className="text-[8px] text-slate-400 font-bold uppercase">Estrellas</span>
-              </div>
-
-              <div className="p-2 rounded-arcade-sm bg-slate-950/60 border border-slate-800 flex flex-col items-center">
-                <Target className="w-4 h-4 text-emerald-400 mb-0.5" />
-                <span className="text-xs font-black text-white">{completedLevelsCount}/20</span>
-                <span className="text-[8px] text-slate-400 font-bold uppercase">Dominados</span>
-              </div>
-
-              <div className="p-2 rounded-arcade-sm bg-slate-950/60 border border-slate-800 flex flex-col items-center">
-                <Flame className="w-4 h-4 text-orange-400 mb-0.5" />
-                <span className="text-xs font-black text-white">{studyStreak}d</span>
-                <span className="text-[8px] text-slate-400 font-bold uppercase">Racha</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ── CARD 4: MEDALLAS Y LOGROS DE LA ISLA ── */}
-          <div className="p-4 rounded-arcade-lg bg-[var(--color-arcade-navy)]/80 border-2 border-[var(--color-arcade-navy-light)] shadow-lg flex flex-col gap-2.5 text-left">
-            <span className="text-xs font-black uppercase text-white flex items-center gap-1.5">
-              <Medal className="w-4 h-4 text-amber-400" /> Logros Desbloqueables
-            </span>
-
-            <div className="grid grid-cols-2 gap-2">
-              {ACHIEVEMENTS.map((a) => (
-                <div
-                  key={a.id}
-                  className={`p-2.5 rounded-arcade-sm border flex items-center gap-2 transition-all ${
-                    a.unlocked
-                      ? "bg-slate-900/90 border-slate-700 shadow-sm"
-                      : "bg-slate-950/50 border-slate-850 opacity-60"
+                {/* Botón Circular 3D del Nivel */}
+                <motion.button
+                  whileHover={isUnlocked ? { scale: 1.15 } : {}}
+                  whileTap={isUnlocked ? { scale: 0.95 } : {}}
+                  disabled={!isUnlocked}
+                  className={`relative ${
+                    isBoss ? "w-20 h-20 sm:w-24 sm:h-24" : "w-16 h-16 sm:w-18 sm:h-18"
+                  } rounded-full flex items-center justify-center border-4 text-white shadow-2xl transition-all cursor-pointer ${
+                    !isUnlocked
+                      ? "bg-gradient-to-b from-slate-600 to-slate-800 border-slate-900 shadow-[0_6px_0_#1e293b] opacity-80 cursor-not-allowed"
+                      : isBoss
+                        ? "bg-gradient-to-b from-[var(--color-arcade-orange)] via-[#ea580c] to-[#9a3412] border-[#ffedd5] shadow-[0_8px_0_#7c2d12,0_0_30px_rgba(249,115,22,0.95)] animate-pulse"
+                        : hasTraps
+                          ? "bg-gradient-to-b from-[var(--color-sky-400)] via-[#0284c7] to-[#0369a1] border-[#bae6fd] shadow-[0_6px_0_#075985,0_0_16px_rgba(56,189,248,0.65)]"
+                          : "bg-gradient-to-b from-[#4ade80] via-[#16a34a] to-[#15803d] border-[#dcfce7] shadow-[0_6px_0_#166534,0_0_16px_rgba(74,222,128,0.65)]"
                   }`}
                 >
-                  <div className={`p-1.5 rounded-full bg-slate-800 ${a.color} shrink-0`}>
-                    <a.icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-[10px] font-black uppercase text-white truncate">
-                      {a.name}
-                    </h3>
-                    <p className="text-[8.5px] text-slate-400 truncate">
-                      {a.desc}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
-      </div>
+                  <div className="absolute top-1 inset-x-2 h-4 bg-gradient-to-b from-white/60 to-transparent rounded-full pointer-events-none" />
 
-      {/* ── MODAL DE MISIÓN AL HACER CLIC EN UN NODO DEL MAPA ── */}
+                  {isUnlocked ? (
+                    <span
+                      className={`${
+                        isBoss ? "text-3xl sm:text-4xl font-extrabold" : "text-xl sm:text-2xl font-black"
+                      } font-sans drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]`}
+                    >
+                      {lvl.level}
+                    </span>
+                  ) : (
+                    <Lock className="w-6 h-6 text-slate-300 drop-shadow" />
+                  )}
+                </motion.button>
+
+                {/* Etiqueta inferior con el número de preguntas */}
+                <div
+                  className={`mt-1.5 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-md whitespace-nowrap ${
+                    isUnlocked
+                      ? isBoss
+                        ? "bg-amber-950 border-amber-500 text-amber-200"
+                        : "bg-[var(--color-arcade-navy)] border-[var(--color-arcade-navy-light)] text-white"
+                      : "bg-slate-900/80 border-slate-700 text-slate-400"
+                  }`}
+                >
+                  {lvl.questions}{" "}
+                  {lvl.questions === 1 ? t("map.q_one") : t("map.q_many")}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pie Informativo con Progreso de la Materia */}
+        <div className="w-full max-w-4xl flex items-center justify-between text-[11px] font-bold text-slate-400 px-2">
+          <span>Progreso de Materia: Nivel {unlockedLevel}/20</span>
+          <span>Completa al menos 2 estrellas en cada nivel para avanzar</span>
+        </div>
+      </main>
+
+      {/* ── POP-UP / MODAL DE MISIÓN DE NIVEL ── */}
       <AnimatePresence>
         {selectedLevelModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
