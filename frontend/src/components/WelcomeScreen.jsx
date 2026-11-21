@@ -154,33 +154,59 @@ export default function WelcomeScreen({
   };
 
   return (
-    <div className="welcome-stage fixed inset-0 z-50 flex flex-col justify-between select-none font-sans overflow-y-auto overflow-x-hidden bg-transparent">
+    <div className="welcome-stage fixed inset-0 z-50 flex flex-col justify-between select-none font-sans overflow-y-auto overflow-x-hidden bg-gradient-to-b from-[#D8F0F2] via-[#EAF7F8] to-[#FAF6EE] text-[#1E2F3A]">
+      {/* ── PAISAJE GHIBLI ILUSTRADO DE FONDO (Colinas y nubes suaves) ── */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col justify-between">
+        <div className="relative w-full h-32">
+          <div className="absolute top-4 left-[10%] w-32 h-10 bg-white/70 rounded-full blur-[1px]" />
+          <div className="absolute top-2 left-[12%] w-16 h-16 bg-white/70 rounded-full blur-[1px]" />
+          <div className="absolute top-8 right-[15%] w-48 h-12 bg-white/70 rounded-full blur-[1px]" />
+        </div>
+        <div className="relative w-full h-44 sm:h-56 mt-auto opacity-70">
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-32 sm:h-44 text-[#A3D9A5]/35"
+            viewBox="0 0 1440 220"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,120 C320,50 640,160 1000,90 C1200,50 1360,110 1440,130 L1440,220 L0,220 Z" />
+          </svg>
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-24 sm:h-36 text-[#78B38A]/40"
+            viewBox="0 0 1440 180"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,90 C220,130 480,40 760,100 C1040,160 1280,70 1440,100 L1440,180 L0,180 Z" />
+          </svg>
+        </div>
+      </div>
+
       {/* ── BARRA SUPERIOR: AJUSTES & ACCESO ── */}
       <div className="relative w-full px-4 sm:px-8 pt-4 flex items-center justify-between z-20">
-
         {/* Botón Izquierdo: Volver al inicio + Iniciar Sesión / Cuenta */}
         <div className="relative flex items-center gap-2">
           <button
             onClick={() => navigate('/')}
-            className="p-3 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            className="btn-tactile-cream p-2.5 rounded-2xl text-[#1E2F3A] shadow-sm cursor-pointer"
             title={t('welcome.back_home')}
           >
-            <ArrowLeft className="w-5 h-5 text-[var(--color-sky-400)]" />
+            <ArrowLeft className="w-5 h-5 text-[#526673]" />
           </button>
           <button
             onClick={onOpenLogin}
-            className="group relative flex items-center gap-2.5 px-5 py-2.5 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white transition-all shadow-[0_6px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none cursor-pointer"
+            className="btn-tactile-cream flex items-center gap-2.5 px-4 py-2 rounded-2xl text-[#1E2F3A] shadow-sm cursor-pointer"
           >
-            <div className={`w-7 h-7 rounded-arcade-sm border-2 border-[var(--color-arcade-navy)] flex items-center justify-center text-[var(--color-arcade-navy)] ${
-              isLoggedIn ? 'bg-[var(--color-arcade-green)] shadow-btn-green-press' : 'bg-[var(--color-arcade-yellow)] shadow-[0_2px_0_var(--color-arcade-yellow-shadow)]'
+            <div className={`w-6 h-6 rounded-xl flex items-center justify-center text-white ${
+              isLoggedIn ? 'bg-[var(--cozy-sage)]' : 'bg-[var(--cozy-amber)]'
             }`}>
-              {isLoggedIn ? <User className="w-4 h-4 stroke-[2.8]" /> : <Lock className="w-4 h-4 stroke-[2.8]" />}
+              {isLoggedIn ? <User className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
             </div>
             <div className="flex flex-col text-left leading-tight">
-              <span className="text-[11px] font-black uppercase text-white tracking-wide">
+              <span className="text-[11px] font-['Fredoka'] font-bold text-[#1E2F3A]">
                 {isLoggedIn ? (username || t('welcome.my_account')) : t('welcome.login')}
               </span>
-              <span className={`text-[8.5px] font-bold ${isLoggedIn ? 'text-emerald-300' : 'text-amber-300'}`}>
+              <span className={`text-[9px] font-medium ${isLoggedIn ? 'text-emerald-600' : 'text-amber-600'}`}>
                 {isLoggedIn ? t('welcome.session_on') : t('welcome.login_needed')}
               </span>
             </div>
@@ -191,8 +217,8 @@ export default function WelcomeScreen({
         {isLoggedIn && (
           <div className="absolute left-1/2 -translate-x-1/2 hidden sm:flex items-center">
             {isPremium ? (
-              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/90 border-2 border-emerald-300 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_3px_0_rgba(4,120,87,0.6)]">
-                <Sparkles className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-[10px] font-['Fredoka'] font-bold uppercase tracking-wider text-emerald-800 shadow-sm">
+                <Sparkles className="w-3 h-3 text-emerald-600" />
                 {user?.plan === 'school'
                   ? t('welcome.school_plan')
                   : proRemainingMs !== null
@@ -201,24 +227,24 @@ export default function WelcomeScreen({
               </span>
             ) : trialRemainingMs !== null ? (
               <span
-                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border-2 text-[10px] font-black uppercase tracking-widest text-white ${
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-[10px] font-['Fredoka'] font-bold uppercase tracking-wider ${
                   trialRemainingMs <= 0
-                    ? 'bg-rose-500/90 border-rose-300 shadow-[0_3px_0_rgba(159,18,57,0.6)]'
-                    : 'bg-[var(--color-arcade-navy)]/90 border-[var(--color-arcade-yellow)] text-[var(--color-arcade-yellow)] shadow-hud'
+                    ? 'bg-rose-50 border-rose-300 text-rose-800 shadow-sm'
+                    : 'bg-[#FAF6EE] border-[#E6DEC8] text-[#1E2F3A] shadow-sm'
                 }`}
                 title={t('welcome.trial_t')}
               >
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3 h-3 text-amber-500" />
                 {trialRemainingMs <= 0
                   ? t('welcome.trial_done')
                   : t('welcome.trial_left', { time: formatTrialCountdown(trialRemainingMs) })}
               </span>
             ) : trialDaysLeft !== null ? (
               <span
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border-2 bg-[var(--color-arcade-navy)]/90 border-[var(--color-arcade-yellow)] text-[10px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-hud"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border bg-[#FAF6EE] border-[#E6DEC8] text-[10px] font-['Fredoka'] font-bold uppercase tracking-wider text-[#1E2F3A] shadow-sm"
                 title={t('welcome.trial_t2')}
               >
-                <Sparkles className="w-3 h-3" />
+                <Sparkles className="w-3 h-3 text-amber-500" />
                 {trialDaysLeft === 0
                   ? t('welcome.trial_done')
                   : t('welcome.trial_days', { count: trialDaysLeft })}
@@ -227,195 +253,114 @@ export default function WelcomeScreen({
           </div>
         )}
 
-        {/* Botones Derechos: Instalar App & Ayuda */}
+        {/* Botones Derechos: Instalar App, Ayuda y Accesibilidad */}
         <div className="flex items-center gap-2">
-          {/* Botón Barra Superior: Instalar App */}
           <button
             onClick={handleInstallClick}
-            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white active:translate-y-1 active:shadow-none transition-all cursor-pointer ${
-              isInstalled ? 'shadow-[0_4px_0_#10b981]' : 'shadow-[0_4px_0_var(--color-sky-400)]'
-            }`}
+            className="btn-tactile-cream flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-['Fredoka'] font-bold text-[#1E2F3A] shadow-sm cursor-pointer"
             title={t('welcome.install_t')}
           >
             {isInstalled ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             ) : (
-              <Download className="w-4 h-4 text-[var(--color-sky-400)]" />
+              <Download className="w-4 h-4 text-[#526673]" />
             )}
-            <span className={`text-[11px] font-black uppercase tracking-wider hidden sm:inline ${
-              isInstalled ? 'text-emerald-300' : 'text-[var(--color-sky-400)]'
-            }`}>
+            <span className="hidden sm:inline">
               {isInstalled ? t('welcome.installed') : t('welcome.install')}
             </span>
           </button>
 
           <button
             onClick={onOpenTutorial}
-            className="p-3 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white shadow-btn-arcade active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+            className="btn-tactile-cream p-2.5 rounded-2xl text-[#1E2F3A] shadow-sm cursor-pointer"
             title={t('welcome.help_t')}
           >
-            <HelpCircle className="w-5 h-5 text-[var(--color-arcade-yellow)]" />
+            <HelpCircle className="w-4 h-4 text-[#526673]" />
           </button>
           <A11yControls />
         </div>
       </div>
 
-      {/* ── SECCIÓN CENTRAL: LOGO HUBZY CARD CLASH Y BOTÓN TUTORIAL ── */}
-      <div className="relative flex-1 flex flex-col items-center justify-center px-4 z-10 -mt-6">
-        
-        {/* LOGO GIGANTE 3D "HUBZY CARD CLASH" */}
+      {/* ── SECCIÓN CENTRAL: TARJETA ELEVADA "SANTUARIO CAPIBARA" ── */}
+      <div className="relative flex-1 flex flex-col items-center justify-center px-4 z-10 py-6">
         <motion.div
-          initial={{ scale: 0.85, y: -20, opacity: 0 }}
+          initial={{ scale: 0.92, y: 15, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-          className="flex flex-col items-center text-center relative"
+          transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+          className="w-full max-w-lg bg-[#FAF6EE]/94 backdrop-blur-md rounded-3xl border-2 border-[#E6DEC8] shadow-[0_16px_40px_rgba(30,47,58,0.08)] p-6 sm:p-8 flex flex-col items-center text-center relative"
         >
-          {/* Corona / Halo Superior */}
-          <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] shadow-btn-arcade mb-2">
-            <GraduationCap className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
-            <span className="text-[11px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-widest">
-              {t('welcome.tag_chip')}
-            </span>
+          {/* Badge superior */}
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#EDE9FE] border border-[#DDD6FE] text-[#6D58D6] text-xs font-['Fredoka'] font-bold mb-3 shadow-sm">
+            <GraduationCap className="w-3.5 h-3.5 text-[#6D58D6]" />
+            <span>✨ Estudia jugando, respira aprendiendo</span>
           </div>
 
-          {/* Letras 3D Grandes */}
-          <div className="relative">
-            {/* Texto "HUBZI" */}
-            <h1
-              className="text-6xl sm:text-7xl md:text-8xl font-black uppercase tracking-wider text-[var(--color-arcade-yellow)] leading-none drop-shadow-[0_8px_0_var(--color-arcade-yellow-shadow)]"
-              style={{
-                WebkitTextStroke: '1.8px var(--color-arcade-navy)',
-                textShadow: '0 8px 0 var(--color-arcade-navy), 0 16px 25px rgba(0,0,0,0.5)'
-              }}
-            >
-              HUBZI
-            </h1>
-          </div>
-
-          {/* Subtítulo Cápsula */}
-          <div className="mt-3 px-6 py-2 rounded-arcade bg-[var(--color-arcade-navy)] border-3 border-[var(--color-arcade-navy-dark)] shadow-btn-arcade-xl text-white">
-            <p className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-100 font-mono">
-              {t('welcome.tagline')}
-            </p>
-          </div>
-        </motion.div>
-
-        {/* Tarjeta Flotante Lateral Izquierda: TÉRMINOS & LEGAL */}
-        <motion.div
-          initial={{ opacity: 0, x: -40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          whileHover={{ scale: 1.04, y: -2 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onOpenLegal && onOpenLegal('terms')}
-          className="absolute left-4 sm:left-8 lg:left-12 top-1/2 -translate-y-1/2 hidden sm:flex flex-col items-center cursor-pointer group select-none z-30"
-          title={t('welcome.legal_t')}
-        >
-          <div className="w-22 h-22 sm:w-24 sm:h-24 mb-2 relative flex items-center justify-center">
-            <div className="w-20 h-20 rounded-arcade-lg bg-[var(--color-sky-400)]/20 border-3 border-[var(--color-sky-400)] flex items-center justify-center shadow-lg group-hover:border-cyan-300 group-hover:shadow-[0_0_20px_rgba(56,189,248,0.4)] transition-all">
-              <ShieldCheck className="w-10 h-10 text-[var(--color-sky-400)] group-hover:text-cyan-300 drop-shadow transition-colors" />
+          {/* Avatar de Hubzi */}
+          <div className="relative my-2">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-b from-[#FAF6EE] to-[#E6DEC8] p-1.5 border-2 border-[#E6DEC8] shadow-inner flex items-center justify-center overflow-hidden">
+              <img
+                src={capyMascot}
+                alt="Hubzi Mascota"
+                className="w-full h-full object-contain drop-shadow"
+              />
             </div>
           </div>
-          <button
-            type="button"
-            className="px-5 sm:px-6 py-3 rounded-arcade bg-[var(--color-arcade-navy)] group-hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white font-black text-xs uppercase tracking-wider shadow-[0_5px_0_var(--color-sky-400)] active:translate-y-1 active:shadow-none transition-all cursor-pointer whitespace-nowrap"
-          >
-            {t('welcome.legal_btn')}
-          </button>
-        </motion.div>
 
-        {/* Tarjeta Flotante Lateral Derecha: PLAY TUTORIAL */}
-        <motion.div
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-          whileHover={{ scale: 1.04, y: -2 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={onOpenTutorial}
-          className="absolute right-4 sm:right-8 lg:right-12 top-1/2 -translate-y-1/2 hidden sm:flex flex-col items-center cursor-pointer group select-none z-30"
-          title={t('welcome.tut_t')}
-        >
-          <div className="w-22 h-22 sm:w-24 sm:h-24 mb-2 relative flex items-center justify-center">
-            <div className="w-20 h-20 rounded-arcade-lg bg-[var(--color-arcade-yellow)]/20 border-3 border-[var(--color-arcade-yellow)] flex items-center justify-center shadow-lg group-hover:border-amber-300 group-hover:shadow-[0_0_20px_rgba(255,180,0,0.4)] transition-all">
-              <BookOpen className="w-10 h-10 text-[var(--color-arcade-yellow)] group-hover:text-amber-300 drop-shadow transition-colors" />
-            </div>
-          </div>
-          <button
-            type="button"
-            className="px-5 sm:px-6 py-3 rounded-arcade bg-[var(--color-arcade-navy)] group-hover:bg-[var(--color-arcade-navy-hover)] border-3 border-[var(--color-arcade-navy-dark)] border-b-arcade-lg border-b-[var(--color-arcade-ink)] text-white font-black text-xs uppercase tracking-wider shadow-[0_5px_0_var(--color-arcade-orange)] active:translate-y-1 active:shadow-none transition-all cursor-pointer whitespace-nowrap"
-          >
-            {t('welcome.tut_btn')}
-          </button>
-        </motion.div>
-      </div>
+          {/* Título Principal */}
+          <h1 className="text-4xl sm:text-5xl font-['Fredoka'] font-black uppercase tracking-wide text-[#1E2F3A] leading-tight mt-1">
+            HUBZI
+          </h1>
+          <p className="text-xs sm:text-sm font-medium text-[#526673] mt-1 mb-6 max-w-sm">
+            {t('welcome.tagline')}
+          </p>
 
-      {/* ── BANNER INFERIOR: BOTONES CONTINUAR Y DEMO INMEDIATO ── */}
-      <div className="relative w-full z-20 pb-5 px-4 sm:px-8">
-        <div className="max-w-xl mx-auto space-y-2.5">
+          {/* BOTÓN CTA PRINCIPAL ÁMBAR (Sin rayas de advertencia, 3D táctil suave) */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleContinueClick}
-            className={`w-full py-3.5 sm:py-4 px-6 sm:px-8 rounded-arcade-lg flex items-center justify-between text-left cursor-pointer overflow-hidden relative shadow-[0_8px_0_var(--color-arcade-navy)] transition-all ${
-              isLoggedIn 
-                ? 'btn-arcade-banner-orange bg-striped-diagonal' 
-                : 'bg-[#1b2f52] border-3 border-[var(--color-arcade-navy-dark)] hover:bg-[#223b66]'
-            }`}
+            className="w-full py-3.5 sm:py-4 px-6 rounded-2xl btn-tactile-amber flex items-center justify-between text-left shadow-[0_8px_20px_rgba(245,138,41,0.25)] cursor-pointer"
           >
-            <div className="flex items-center gap-3.5 relative z-10">
-              <div className={`w-12 h-12 rounded-arcade border-3 border-[var(--color-arcade-navy)] flex items-center justify-center text-white ${
-                isLoggedIn ? 'bg-[var(--color-arcade-orange)] shadow-[0_3px_0_var(--color-arcade-orange-shadow)]' : 'bg-[var(--color-arcade-yellow)] text-[var(--color-arcade-navy)] shadow-btn-yellow-press'
-              }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white">
                 {isLoggedIn ? (
-                  <Play className="w-7 h-7 text-white fill-current drop-shadow ml-0.5" />
+                  <Play className="w-5 h-5 fill-current ml-0.5" />
                 ) : (
-                  <Lock className="w-6 h-6 text-[var(--color-arcade-navy)] stroke-[2.8]" />
+                  <Lock className="w-5 h-5" />
                 )}
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-black text-white tracking-wider uppercase drop-shadow flex items-center gap-2">
+                <h3 className="text-lg sm:text-xl font-['Fredoka'] font-black text-white tracking-wide uppercase leading-none">
                   {t('welcome.continue')}
-                  {!isLoggedIn && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white border-2 border-[var(--color-arcade-navy)] font-black uppercase">
-                      {t('welcome.account_req')}
-                    </span>
-                  )}
                 </h3>
-                <p className={`text-xs font-black drop-shadow-sm ${isLoggedIn ? 'text-orange-100' : 'text-amber-300'}`}>
-{isLoggedIn ? t('welcome.cont_in') : t('welcome.cont_out')}
+                <p className="text-[11px] font-medium text-amber-100 mt-0.5">
+                  {isLoggedIn ? t('welcome.cont_in') : t('welcome.cont_out')}
                 </p>
               </div>
             </div>
-
-            <div className={`w-10 h-10 rounded-arcade border-3 border-[var(--color-arcade-navy-dark)] flex items-center justify-center text-white shadow-md relative z-10 ${
-              isLoggedIn ? 'bg-[var(--color-arcade-navy)]' : 'bg-[var(--color-arcade-navy-dark)]'
-            }`}>
-              {isLoggedIn ? (
-                <ArrowRight className="w-6 h-6 stroke-[3]" />
-              ) : (
-                <Lock className="w-4 h-4 text-amber-400 stroke-[2.5]" />
-              )}
-            </div>
+            <ArrowRight className="w-5 h-5 text-white" />
           </motion.button>
 
-          {/* Accesos rápidos en móviles (Tutorial y Legal) */}
-          <div className="flex sm:hidden items-center justify-center gap-4 pt-1">
+          {/* Accesos Rápidos: Tutorial y Términos */}
+          <div className="flex items-center justify-center gap-3 mt-4 w-full pt-1">
             <button
-              onClick={() => onOpenLegal && onOpenLegal('terms')}
-              className="text-xs font-bold text-slate-300 hover:text-cyan-300 flex items-center gap-1.5 py-1 px-3 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)]/80 border border-slate-700/50 cursor-pointer active:scale-95 transition-all"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[var(--color-sky-400)]" />
-              <span>{t('welcome.legal_m')}</span>
-            </button>
-            <button
+              type="button"
               onClick={onOpenTutorial}
-              className="text-xs font-bold text-slate-300 hover:text-amber-300 flex items-center gap-1.5 py-1 px-3 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)]/80 border border-slate-700/50 cursor-pointer active:scale-95 transition-all"
+              className="btn-tactile-cream flex-1 py-2 px-3 rounded-2xl text-xs font-['Fredoka'] font-bold text-[#1E2F3A] flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <BookOpen className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
+              <BookOpen className="w-3.5 h-3.5 text-[var(--cozy-sage)]" />
               <span>Tutorial</span>
             </button>
+            <button
+              type="button"
+              onClick={() => onOpenLegal && onOpenLegal('terms')}
+              className="btn-tactile-cream flex-1 py-2 px-3 rounded-2xl text-xs font-['Fredoka'] font-bold text-[#1E2F3A] flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#526673]" />
+              <span>{t('welcome.legal_m')}</span>
+            </button>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* ── MODAL EXCLUSIVO HUBZY PARA INSTALACIÓN ── */}

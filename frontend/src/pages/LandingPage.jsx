@@ -1,12 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, BookOpen, Swords, Wind, ArrowRight, HeartHandshake, GraduationCap, Crown, Check, School, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  Sparkles,
+  BookOpen,
+  Gamepad2,
+  Wind,
+  ArrowRight,
+  Crown,
+  Check,
+  School,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Info,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AnimatedCloudsBackground from "../components/AnimatedCloudsBackground";
 import A11yControls from "../components/A11yControls";
 import SubscriptionModal from "../components/SubscriptionModal";
 import { useAuthStore } from "../store/authStore";
+import { getMascotA11yDescription } from "../utils/a11yDescriptions";
 
 // Mascotas Oficiales desde src/assets/mascots
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
@@ -17,18 +30,42 @@ import capyAdmin from "../assets/mascots/capy_administradora_f.webp";
 import capyProfesor from "../assets/mascots/capy_profesor_m.webp";
 
 const SHOWCASE_MASCOTS = [
-  { image: capyEscolar, name: "Hubzi Estudiante", role: "Colegio & Bachillerato", color: "from-amber-400 to-orange-500", border: "var(--color-arcade-orange)" },
-  { image: capyMedica, name: "Dra. Hubzi", role: "Medicina & Salud", color: "from-emerald-400 to-teal-500", border: "#10b981" },
-  { image: capyProgramador, name: "Hubzi Dev", role: "Sistemas & Programación", color: "from-cyan-400 to-blue-600", border: "var(--color-sky-400)" },
-  { image: capyAbogada, name: "Dra. Hubzi Jurista", role: "Derecho & Leyes", color: "from-purple-400 to-indigo-600", border: "#a855f7" },
-  { image: capyAdmin, name: "Lic. Hubzi Admin", role: "Administración & Negocios", color: "from-orange-400 to-rose-500", border: "#f43f5e" },
-  { image: capyProfesor, name: "Prof. Hubzi", role: "Docencia & Humanidades", color: "from-amber-400 to-yellow-600", border: "#f59e0b" }
-];
-
-const FEATURES = [
-  { icon: BookOpen, titleKey: "landing.feature_1_title", descKey: "landing.feature_1_desc" },
-  { icon: Swords, titleKey: "landing.feature_2_title", descKey: "landing.feature_2_desc" },
-  { icon: Wind, titleKey: "landing.feature_3_title", descKey: "landing.feature_3_desc" },
+  {
+    image: capyEscolar,
+    name: "Hubzi Estudiante",
+    role: "Colegio & Bachillerato",
+    description: "Hubzi con mochila, cuaderno de apuntes y lápiz en mano, lista para repasar juntos."
+  },
+  {
+    image: capyMedica,
+    name: "Dra. Hubzi",
+    role: "Medicina & Salud",
+    description: "Hubzi con bata médica blanca y estetoscopio, brindando calma y rigor científico."
+  },
+  {
+    image: capyProgramador,
+    name: "Hubzi Dev",
+    role: "Sistemas & Programación",
+    description: "Hubzi programadora con laptop y audífonos, resolviendo lógica y algoritmos."
+  },
+  {
+    image: capyAbogada,
+    name: "Dra. Hubzi Jurista",
+    role: "Derecho & Leyes",
+    description: "Hubzi abogada con toga y código legal, analizando cada artículo con serenidad."
+  },
+  {
+    image: capyAdmin,
+    name: "Lic. Hubzi Admin",
+    role: "Administración & Negocios",
+    description: "Hubzi administradora con portafolios y visión estratégica de negocios."
+  },
+  {
+    image: capyProfesor,
+    name: "Prof. Hubzi",
+    role: "Docencia & Humanidades",
+    description: "Profesor Hubzi con gafas redondas y tiza, explicando conceptos paso a paso."
+  }
 ];
 
 export default function LandingPage() {
@@ -37,7 +74,7 @@ export default function LandingPage() {
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isPlansOpen, setIsPlansOpen] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const isPro = user?.plan === 'pro' || user?.plan === 'school';
+  const isPro = user?.plan === "pro" || user?.plan === "school";
   const activeMascot = SHOWCASE_MASCOTS[selectedMascotIndex];
 
   useEffect(() => {
@@ -46,443 +83,456 @@ export default function LandingPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isPlansOpen]);
+
   const nextMascot = () => setSelectedMascotIndex((i) => (i + 1) % SHOWCASE_MASCOTS.length);
   const prevMascot = () => setSelectedMascotIndex((i) => (i - 1 + SHOWCASE_MASCOTS.length) % SHOWCASE_MASCOTS.length);
 
-  // Última palabra del título en color de acento ("...EN UN JUEGO")
-  const heroWords = t("landing.hero_title").split(" ");
-  const heroHead = heroWords.slice(0, -1).join(" ");
-  const heroTail = heroWords[heroWords.length - 1];
-
-  const planCheck = (cls, iconCls) => (
+  const planCheck = (cls) => (
     <div className={`w-4 h-4 rounded-md ${cls} flex items-center justify-center shrink-0`}>
-      <Check className={`w-3 h-3 stroke-[3] ${iconCls || ""}`} />
+      <Check className="w-3 h-3 stroke-[3]" />
     </div>
   );
-  const freeCheck = planCheck("bg-emerald-100 text-emerald-600", "");
-  const freeDimCheck = (
-    <div className="w-4 h-4 rounded-md bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
-      <Check className="w-3 h-3 stroke-[2]" />
-    </div>
-  );
-  const proCheck = planCheck("bg-[var(--color-arcade-green)] text-white shadow-btn-green-press", "");
-  const schoolCheck = planCheck("bg-emerald-400 text-emerald-950", "");
+  const freeCheck = planCheck("bg-emerald-100 text-emerald-700");
+  const proCheck = planCheck("bg-[var(--cozy-sage)] text-white");
+  const schoolCheck = planCheck("bg-emerald-400 text-emerald-950");
 
   return (
-    <div className="landing-stage h-[100dvh] w-full overflow-hidden flex flex-col bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-100 font-sans">
-      <AnimatedCloudsBackground />
-
-      {/* Nav */}
-      <header className="relative z-30 flex items-center justify-between px-6 sm:px-10 py-3 xl:py-4">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xl xl:text-2xl font-black uppercase tracking-wider text-[var(--color-arcade-navy)]">Hubzi</span>
+    <div className="landing-stage min-h-[100dvh] w-full overflow-x-hidden flex flex-col justify-between relative bg-gradient-to-b from-[#D8F0F2] via-[#EAF7F8] to-[#FAF6EE] font-sans text-[#1E2F3A]">
+      {/* ── PAISAJE GHIBLI ILUSTRADO DE FONDO (Colinas y orilla) ── */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col justify-between">
+        {/* Nubes esponjosas superiores */}
+        <div className="relative w-full h-36">
+          <div className="absolute top-4 left-[10%] w-32 h-10 bg-white/70 rounded-full blur-[1px]" />
+          <div className="absolute top-2 left-[12%] w-16 h-16 bg-white/70 rounded-full blur-[1px]" />
+          <div className="absolute top-8 right-[15%] w-48 h-12 bg-white/70 rounded-full blur-[1px]" />
+          <div className="absolute top-4 right-[18%] w-20 h-20 bg-white/70 rounded-full blur-[1px]" />
+          <div className="absolute top-12 left-[45%] w-40 h-10 bg-white/50 rounded-full blur-[1px]" />
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Colinas y agua en la base */}
+        <div className="relative w-full h-44 sm:h-56 mt-auto">
+          {/* Horizonte de agua tranquila */}
+          <div className="absolute bottom-16 sm:bottom-20 inset-x-0 h-16 bg-gradient-to-t from-[#A8DADC]/60 to-transparent" />
+          
+          {/* Colina verde fondo */}
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-32 sm:h-44 text-[#A3D9A5]/40"
+            viewBox="0 0 1440 220"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,120 C320,50 640,160 1000,90 C1200,50 1360,110 1440,130 L1440,220 L0,220 Z" />
+          </svg>
+
+          {/* Colina verde media con árboles */}
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-24 sm:h-36 text-[#78B38A]/50"
+            viewBox="0 0 1440 180"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,90 C220,130 480,40 760,100 C1040,160 1280,70 1440,100 L1440,180 L0,180 Z" />
+          </svg>
+
+          {/* Colina verde frontal con orilla suave */}
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-16 sm:h-24 text-[#5A9A70]/40"
+            viewBox="0 0 1440 120"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,60 C380,20 720,80 1100,40 C1280,20 1380,50 1440,60 L1440,120 L0,120 Z" />
+          </svg>
+        </div>
+      </div>
+
+      {/* ── NAVBAR SUPERIOR ── */}
+      <header className="relative z-30 flex items-center justify-between px-6 sm:px-12 py-4">
+        {/* Logo Hubzi */}
+        <Link to="/" className="flex items-center gap-2 group">
+          <span className="text-2xl sm:text-3xl font-black tracking-tight text-[#1E2F3A] font-['Fredoka'] group-hover:text-[#F58A29] transition-colors">
+            HUBZI
+          </span>
+        </Link>
+
+        {/* Acciones derecha */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Botón Planes */}
           <button
             type="button"
             onClick={() => setIsPlansOpen(true)}
-            className="rounded-arcade bg-white/80 hover:bg-white px-3.5 py-1.5 text-xs font-black uppercase text-[var(--color-arcade-navy)] border-2 border-slate-300 hover:border-[var(--color-arcade-navy)] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+            className="btn-tactile-cream px-4 py-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm bg-[#FAF6EE] hover:bg-[#F2EBD9] text-[#1E2F3A] border border-[#E6DEC8] border-b-[3px] border-b-[#D8CEB6] rounded-full"
+            aria-label="Ver planes y precios"
           >
-            <Crown className="w-4 h-4 text-amber-500 fill-current" />
-            <span>{t("nav.plans")}</span>
+            <Crown className="w-4 h-4 text-[#F58A29] fill-[#F58A29]" />
+            <span className="font-['Fredoka']">{t("nav.plans", "Planes")}</span>
           </button>
+
+          {/* Accesibilidad A11y */}
           <A11yControls />
+
+          {/* Botón Iniciar Sesión */}
           <Link
             to="/arena"
-            className="rounded-arcade bg-[var(--color-arcade-navy)] px-5 py-1.5 text-xs font-black uppercase text-white border-b-arcade border-[var(--color-arcade-ink)] hover:bg-[var(--color-arcade-navy-hover)] transition-colors shadow-md"
+            className="btn-tactile-ink px-5 sm:px-6 py-2 text-xs sm:text-sm font-bold uppercase tracking-wide bg-[#1E2F3A] text-white rounded-full border-b-4 border-[#0F1B22] shadow-md hover:bg-[#283E4C] transition-all"
           >
-            {t("auth.login")}
+            {t("auth.login", "Iniciar Sesión")}
           </Link>
         </div>
       </header>
 
-      {/* Contenido de una sola pantalla — si el contenido excede el alto
-          disponible, el scroll queda dentro de este contenedor */}
-      <main className="relative z-10 mx-auto w-full max-w-[1600px] flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 pt-1 pb-3 text-center flex flex-col">
-        <div className="my-auto w-full">
-        {/* Hero: información a la izquierda (~70%), mascota a la derecha (~30%) */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex-1 text-center"
-          >
-            <div className="mb-2.5 inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1 text-[11px] xl:text-xs font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
-              <Sparkles className="w-3.5 h-3.5" /> {t("app.tagline")}
-            </div>
+      {/* ── HERO PRINCIPAL (2 Columnas) ── */}
+      <main className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-12 py-4 sm:py-6 flex-1 flex flex-col justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          
+          {/* Columna Izquierda: Títulos y CTAs */}
+          <div className="lg:col-span-7 text-center lg:text-left flex flex-col items-center lg:items-start">
+            {/* Pill Badge */}
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#4A3B32] text-[#F9EDDE] text-xs sm:text-sm font-bold font-['Fredoka'] shadow-sm mb-4"
+            >
+              <span>🌿</span>
+              <span>ESTUDIA JUGANDO, RESPIRA APRENDIENDO</span>
+              <span>🌿</span>
+            </motion.div>
 
-            <h1 className="text-3xl sm:text-5xl xl:text-6xl font-black uppercase leading-tight text-[var(--color-arcade-navy)] drop-shadow-sm">
-              {heroHead}{" "}
-              <span className="text-[var(--color-arcade-orange)] drop-shadow-sm">{heroTail}</span>
-            </h1>
-            <p className="mx-auto mt-2.5 max-w-3xl text-sm sm:text-base xl:text-lg font-semibold text-slate-700">
-              {t("landing.hero_subtitle")}
-            </p>
+            {/* Gran Título Hero con 'JUEGO' en Ámbar Cálido */}
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="text-4xl sm:text-5xl xl:text-6xl font-black text-[#1E2F3A] font-['Fredoka'] uppercase tracking-tight leading-[1.15]"
+            >
+              Tus apuntes se convierten en un{" "}
+              <span className="block sm:inline text-[#F58A29] drop-shadow-[0_4px_0_#C96812] filter">
+                JUEGO
+              </span>
+            </motion.h1>
 
-            <div className="mt-4 xl:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3">
+            {/* Subtítulo legible */}
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="mt-4 text-base sm:text-lg text-[#526673] font-medium max-w-2xl leading-relaxed"
+            >
+              {t(
+                "landing.hero_subtitle",
+                "Hubzi transforma tus documentos en arenas de aprendizaje con Hubzi, tu compañera capibara que también cuida tu calma antes de los exámenes."
+              )}
+            </motion.p>
+
+            {/* Botones de Acción Táctiles */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-4"
+            >
+              {/* Botón Principal: Empezar Gratis */}
               <Link
                 to="/arena"
-                className="group inline-flex items-center gap-2 rounded-arcade-lg bg-[var(--color-arcade-orange)] px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-white border-b-arcade-xl border-[var(--color-arcade-orange-shadow)] shadow-xl hover:scale-[1.03] active:scale-95 transition-transform cursor-pointer"
+                className="btn-tactile-amber px-8 py-3.5 sm:px-10 sm:py-4 text-base sm:text-lg font-black tracking-wide uppercase font-['Fredoka'] rounded-full shadow-lg"
               >
-                {isPro ? t("landing.cta_pro") : t("landing.cta_start")}
-                {isPro ? (
-                  <Crown className="w-5 h-5 text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)]" />
-                ) : (
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                )}
+                <span>{isPro ? "Continuar Aventura →" : "Empezar Gratis →"}</span>
               </Link>
+
+              {/* Botón Secundario: Modo Zen (Lavanda Exclusivo) */}
               <Link
                 to="/zen"
-                className="inline-flex items-center gap-2 rounded-arcade-lg bg-white/80 px-7 py-3 xl:px-9 xl:py-4 text-base xl:text-lg font-black uppercase text-[var(--color-arcade-navy)] border-b-arcade-xl border-slate-300 hover:bg-white transition-colors cursor-pointer shadow-md"
+                className="btn-tactile-zen px-7 py-3.5 sm:px-8 sm:py-4 text-base sm:text-lg font-black tracking-wide font-['Fredoka'] rounded-full"
               >
-                <Wind className="w-5 h-5" /> {t("nav.zen")}
+                <span className="text-xl">🌙</span>
+                <span>Modo Zen</span>
               </Link>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
 
-          {/* Showcase de Mascota (~30% derecha) con anterior/siguiente */}
-          <div className="w-full sm:w-auto flex flex-col items-center shrink-0">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] text-white text-[10px] xl:text-xs font-black uppercase tracking-wider shadow-md mb-2 xl:mb-3">
-              <GraduationCap className="w-3.5 h-3.5 text-[var(--color-arcade-yellow)]" />
+          {/* Columna Derecha: Hubzi en Isla Flotante con Carrusel */}
+          <div className="lg:col-span-5 flex flex-col items-center justify-center relative">
+            {/* Pill Superior: COMPAÑEROS HUBZI */}
+            <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#1E2F3A] text-white text-xs font-bold font-['Fredoka'] tracking-wider uppercase mb-3 shadow-sm">
+              <span>🌿</span>
               <span>Compañeros Hubzi</span>
             </div>
-            <div className="flex items-center gap-2 xl:gap-3">
+
+            {/* Escenario de Isla Flotante con flechas */}
+            <div className="relative w-full max-w-[340px] sm:max-w-[400px] flex items-center justify-center">
+              {/* Flecha Izquierda */}
               <button
                 type="button"
                 onClick={prevMascot}
-                aria-label="Mascota anterior"
-                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-arcade border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="absolute -left-2 sm:-left-4 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#FAF6EE] hover:bg-[#F2EBD9] text-[#1E2F3A] border-2 border-[#E6DEC8] border-b-4 border-b-[#D8CEB6] shadow-md flex items-center justify-center transition-transform active:translate-y-1 cursor-pointer"
+                aria-label="Ver traje anterior de Hubzi"
               >
-                <ChevronLeft className="w-5 h-5 xl:w-6 xl:h-6" />
+                <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
               </button>
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut" }}
-                className="flex flex-col items-center"
-              >
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeMascot.name}
-                    initial={{ opacity: 0, scale: 0.9, x: 20 }}
-                    animate={{ opacity: 1, scale: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, x: -20 }}
-                    transition={{ duration: 0.22 }}
-                    className="relative w-36 h-36 sm:w-44 sm:h-44 xl:w-60 xl:h-60 rounded-arcade-xl bg-gradient-to-br from-white/90 to-slate-100/80 border-4 border-[var(--color-arcade-navy)] shadow-2xl overflow-hidden flex items-center justify-center"
-                  >
-                    <img
+
+              {/* Contenedor Ilustrado de Isla Flotante */}
+              <div className="relative w-72 h-80 sm:w-80 sm:h-92 flex flex-col items-center justify-end">
+                {/* Hubzi parada sobre el pasto */}
+                <motion.div
+                  animate={{ y: [0, -6, 0] }}
+                  transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+                  className="relative z-10 w-52 h-52 sm:w-60 sm:h-60 flex items-center justify-center"
+                >
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={activeMascot.name}
                       src={activeMascot.image}
-                      alt={activeMascot.name}
-                      className="w-full h-full object-contain drop-shadow-md scale-105"
+                      alt={getMascotA11yDescription(activeMascot)}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
+                      className="w-full h-full object-contain filter drop-shadow-[0_8px_16px_rgba(30,47,58,0.18)]"
                     />
-                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-arcade-sm bg-[var(--color-arcade-navy)] shadow-md whitespace-nowrap">
-                      <span className="text-[10px] font-black uppercase tracking-wide text-[var(--color-arcade-yellow)]">
-                        {activeMascot.name}
-                      </span>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-                <p className="mt-1.5 xl:mt-2.5 text-[10px] xl:text-xs font-bold text-slate-600 uppercase tracking-wide">
-                  {activeMascot.role}
-                </p>
-              </motion.div>
+                  </AnimatePresence>
+                </motion.div>
+
+                {/* Isla Flotante 2.5D (Pasto Verde Salvia + Roca Tierra) */}
+                <div className="relative -mt-8 z-0 w-64 sm:w-72 h-24">
+                  {/* Copa verde con flores */}
+                  <div className="w-full h-12 bg-gradient-to-b from-[#48A37E] to-[#2F8F6B] rounded-t-[50px] shadow-sm relative overflow-hidden">
+                    {/* Flores decorativas miniatura */}
+                    <span className="absolute top-2 left-6 text-xs">🌸</span>
+                    <span className="absolute top-1 left-16 text-xs">🌼</span>
+                    <span className="absolute top-2 right-8 text-xs">🌸</span>
+                    <span className="absolute top-1 right-20 text-xs">🌼</span>
+                  </div>
+                  {/* Base de tierra / roca flotante */}
+                  <div
+                    className="w-full h-12 bg-gradient-to-b from-[#8C6D53] to-[#5C4533] shadow-lg"
+                    style={{ clipPath: "polygon(0 0, 100% 0, 85% 100%, 15% 100%)" }}
+                  />
+                  {/* Sombra proyectada en el aire */}
+                  <div className="w-48 h-4 mx-auto bg-[#1E2F3A]/10 rounded-full blur-[4px] mt-1" />
+                </div>
+
+                {/* Badge inferior con el nombre del traje */}
+                <div className="absolute -bottom-2 z-20 px-5 py-1 rounded-full bg-[#1E2F3A] text-white text-xs font-bold font-['Fredoka'] tracking-wider uppercase shadow-md">
+                  {activeMascot.name}
+                </div>
+              </div>
+
+              {/* Flecha Derecha */}
               <button
                 type="button"
                 onClick={nextMascot}
-                aria-label="Siguiente mascota"
-                className="w-9 h-9 xl:w-11 xl:h-11 rounded-full bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-arcade border-[var(--color-arcade-ink)] shadow-md hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                className="absolute -right-2 sm:-right-4 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#FAF6EE] hover:bg-[#F2EBD9] text-[#1E2F3A] border-2 border-[#E6DEC8] border-b-4 border-b-[#D8CEB6] shadow-md flex items-center justify-center transition-transform active:translate-y-1 cursor-pointer"
+                aria-label="Ver siguiente traje de Hubzi"
               >
-                <ChevronRight className="w-5 h-5 xl:w-6 xl:h-6" />
+                <ChevronRight className="w-6 h-6 stroke-[2.5]" />
               </button>
             </div>
           </div>
+
         </div>
 
-        {/* Features */}
-        <section className="mt-5 xl:mt-7 grid gap-4 xl:gap-5 sm:grid-cols-3 text-left">
-          {FEATURES.map((f, i) => (
-            <motion.div
-              key={i}
-              className="rounded-arcade bg-white/85 p-4 xl:p-5 border-b-arcade border-slate-200 shadow-lg flex items-start gap-3 hover:-translate-y-1 hover:shadow-xl transition-transform"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.12 }}
-            >
-              <div className="inline-flex rounded-arcade-sm bg-[var(--color-arcade-yellow)]/20 p-2 xl:p-2.5 shrink-0">
-                <f.icon className="w-5 h-5 xl:w-6 xl:h-6 text-[var(--color-arcade-orange)]" />
-              </div>
-              <div>
-                <h3 className="text-sm xl:text-base font-black text-[var(--color-arcade-navy)] leading-snug">{t(f.titleKey)}</h3>
-                <p className="mt-1 text-[11px] xl:text-xs font-medium text-slate-600 leading-snug">{t(f.descKey)}</p>
-              </div>
-            </motion.div>
-          ))}
+        {/* ── 3 TARJETAS INFERIORES ELEVADAS COLOR CREMA (#FAF6EE) ── */}
+        <section className="mt-8 sm:mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          {/* Tarjeta 1: Sube tus apuntes */}
+          <div className="card-cozy-cream p-5 sm:p-6 flex items-center gap-4 bg-[#FAF6EE] rounded-3xl border border-[#E6DEC8] shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-14 h-14 rounded-2xl bg-[#FEF3E7] border border-[#FAD8B5] flex items-center justify-center text-2xl shrink-0">
+              📖
+            </div>
+            <div className="text-left">
+              <h3 className="text-base sm:text-lg font-bold text-[#1E2F3A] font-['Fredoka']">
+                Sube tus apuntes
+              </h3>
+              <p className="text-xs sm:text-sm text-[#526673] font-medium mt-0.5">
+                Convierte PDFs, resúmenes y fotos de cuadernos en mapas de estudio interactivos.
+              </p>
+            </div>
+          </div>
+
+          {/* Tarjeta 2: Juega para memorizar */}
+          <div className="card-cozy-cream p-5 sm:p-6 flex items-center gap-4 bg-[#FAF6EE] rounded-3xl border border-[#E6DEC8] shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-14 h-14 rounded-2xl bg-[#FEECEC] border border-[#FBCACA] flex items-center justify-center text-2xl shrink-0">
+              🎮
+            </div>
+            <div className="text-left">
+              <h3 className="text-base sm:text-lg font-bold text-[#1E2F3A] font-['Fredoka']">
+                Juega para memorizar
+              </h3>
+              <p className="text-xs sm:text-sm text-[#526673] font-medium mt-0.5">
+                Avanza por 20 niveles progresivos con cartas, retos adaptativos y batallas boss.
+              </p>
+            </div>
+          </div>
+
+          {/* Tarjeta 3: Hubzi cuida tu calma */}
+          <div className="card-cozy-cream p-5 sm:p-6 flex items-center gap-4 bg-[#FAF6EE] rounded-3xl border border-[#E6DEC8] shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-14 h-14 rounded-2xl bg-[#E8F8F5] border border-[#BDEFE5] flex items-center justify-center text-2xl shrink-0">
+              🪷
+            </div>
+            <div className="text-left">
+              <h3 className="text-base sm:text-lg font-bold text-[#1E2F3A] font-['Fredoka']">
+                Hubzi cuida tu calma
+              </h3>
+              <p className="text-xs sm:text-sm text-[#526673] font-medium mt-0.5">
+                Pausas zen guiadas y respiración antes de exámenes para estudiar sin ansiedad.
+              </p>
+            </div>
+          </div>
         </section>
 
-        {/* Mental health note */}
-        <div className="mx-auto mt-3 xl:mt-5 flex max-w-xl items-center gap-2 rounded-arcade-sm bg-white/70 px-3 py-1.5 xl:py-2.5 text-left text-[10px] xl:text-xs text-slate-600">
-          <HeartHandshake className="w-4 h-4 shrink-0 text-rose-500" />
-          <p>{t("landing.disclaimer")}</p>
-        </div>
+        {/* ── AVISO DE SALUD MENTAL (Píldora Limpia) ── */}
+        <div className="mt-6 mx-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FAF6EE]/90 border border-[#E6DEC8] text-xs text-[#526673] font-medium shadow-sm">
+          <Info className="w-4 h-4 text-[#F58A29] shrink-0" />
+          <span>Hubzi no es un servicio de salud mental. Si estás en crisis, busca ayuda profesional.</span>
         </div>
       </main>
 
-      {/* MODAL PLANES Y PRECIOS — se abre desde el botón PLANES */}
+      {/* ── FOOTER DISCRETO ── */}
+      <footer className="relative z-10 py-4 text-center text-xs text-[#526673] font-medium border-t border-[#E6DEC8]/60">
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsPlansOpen(true)}
+            className="hover:text-[#1E2F3A] transition-colors cursor-pointer"
+          >
+            Planes y Precios
+          </button>
+          <span>·</span>
+          <Link to="/legal/terminos" className="hover:text-[#1E2F3A] transition-colors">
+            Términos de Servicio
+          </Link>
+          <span>·</span>
+          <Link to="/legal/privacidad" className="hover:text-[#1E2F3A] transition-colors">
+            Política de Privacidad
+          </Link>
+          <span>·</span>
+          <span>© 2026 SynapseHub</span>
+        </div>
+      </footer>
+
+      {/* ── MODAL PLANES Y PRECIOS COZY ── */}
       {isPlansOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[var(--color-arcade-navy-dark)]/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-[#1E2F3A]/50 backdrop-blur-sm"
           onClick={() => setIsPlansOpen(false)}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.94, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.22 }}
-            className="relative w-full max-w-6xl max-h-[92dvh] overflow-y-auto rounded-arcade-lg bg-gradient-to-b from-sky-200 to-emerald-100 p-3 sm:p-7 shadow-2xl border-4 border-white/70"
+            transition={{ duration: 0.2 }}
+            className="relative w-full max-w-5xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-[#FAF6EE] p-6 sm:p-8 shadow-2xl border-2 border-[#E6DEC8]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-2.5 sm:mb-5">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[var(--color-arcade-navy)] px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--color-arcade-yellow)] shadow-md">
-                <Crown className="w-3.5 h-3.5 fill-current" /> Planes y Precios
+            <div className="flex items-center justify-between mb-6">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#FEF3E7] border border-[#FAD8B5] px-4 py-1.5 text-xs font-bold font-['Fredoka'] text-[#F58A29]">
+                <Crown className="w-4 h-4 fill-current" /> Planes y Precios
               </div>
-              <h2 className="hidden sm:block text-xl sm:text-2xl font-black uppercase text-[var(--color-arcade-navy)] tracking-tight">
-                Planes que Ofrecemos
+              <h2 className="text-xl sm:text-2xl font-black text-[#1E2F3A] font-['Fredoka']">
+                Elige tu Plan de Estudio
               </h2>
               <button
                 type="button"
                 onClick={() => setIsPlansOpen(false)}
-                aria-label="Cerrar"
-                className="w-9 h-9 rounded-arcade-sm bg-[var(--color-arcade-navy)] text-white flex items-center justify-center border-b-arcade border-[var(--color-arcade-ink)] hover:scale-105 active:translate-y-0.5 transition-all cursor-pointer"
+                aria-label="Cerrar modal"
+                className="w-9 h-9 rounded-full bg-[#F2EBD9] hover:bg-[#E6DEC8] text-[#1E2F3A] flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="plans-modal-grid grid grid-cols-3 gap-2 sm:gap-5 w-full mx-auto text-left items-stretch">
-            {/* PLAN GRATUITO */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="relative rounded-arcade-lg bg-white/90 p-4 border-4 border-slate-200 border-b-arcade-2xl shadow-xl flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider border border-slate-300">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+              {/* Plan Básico */}
+              <div className="card-cozy-cream p-6 rounded-3xl bg-white border border-[#E6DEC8] shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="px-3 py-1 rounded-full bg-[#F2EBD9] text-[#1E2F3A] text-xs font-bold font-['Fredoka']">
                     Básico
                   </span>
-                  <Sparkles className="w-4 h-4 text-slate-400" />
-                </div>
-                <h3 className="text-lg font-black uppercase text-[var(--color-arcade-navy)]">Estudiante Zen</h3>
-                <p className="text-[10px] font-bold text-slate-500 mt-0.5">Para comenzar a transformar tus apuntes hoy mismo.</p>
-
-                <div className="mt-2.5 mb-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-[var(--color-arcade-navy)]">$0</span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">/ 7 días de prueba</span>
-                </div>
-
-                <div className="space-y-1.5 text-[10.5px] font-bold text-slate-700 border-t border-slate-200/80 pt-3">
-                  <div className="flex items-center gap-2">
-                    {freeCheck}
-                    <span>Subida de resúmenes y apuntes en PDF</span>
+                  <h3 className="text-lg font-bold text-[#1E2F3A] font-['Fredoka'] mt-3">
+                    Estudiante Zen
+                  </h3>
+                  <div className="mt-2 mb-4">
+                    <span className="text-3xl font-black text-[#1E2F3A] font-['Fredoka']">$0</span>
+                    <span className="text-xs text-[#526673] ml-1">/ 7 días de prueba</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {freeCheck}
-                    <span>Circuitos interactivos de preguntas y cartas</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {freeCheck}
-                    <span>Compañera Hubzi con consejos empáticos</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {freeCheck}
-                    <span>Modos de respiración consciente Zen</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    {freeDimCheck}
-                    <span>Solo 1 Baúl de estudio · hasta 10 MB de material</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    {freeDimCheck}
-                    <span>Voz estándar de Hubzi (la voz IA premium es Pro)</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    {freeDimCheck}
-                    <span>Prueba gratis de 7 días</span>
+                  <div className="space-y-2 text-xs font-medium text-[#526673] border-t border-[#E6DEC8] pt-4">
+                    <div className="flex items-center gap-2">{freeCheck}<span>Subida de resúmenes en PDF</span></div>
+                    <div className="flex items-center gap-2">{freeCheck}<span>Circuitos interactivos de cartas</span></div>
+                    <div className="flex items-center gap-2">{freeCheck}<span>Compañera Hubzi con calma</span></div>
+                    <div className="flex items-center gap-2">{freeCheck}<span>Modos de respiración Zen</span></div>
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-4">
                 <Link
                   to="/arena"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-arcade bg-white hover:bg-slate-50 text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-arcade border-b-[var(--color-arcade-ink)] shadow-md hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                  className="mt-6 w-full btn-tactile-cream py-2.5 rounded-full text-xs font-bold text-center block"
                 >
-                  <span>Empezar Gratis</span>
-                  <ArrowRight className="w-4 h-4" />
+                  Empezar Prueba Gratis
                 </Link>
               </div>
-            </motion.div>
 
-            {/* PLAN PRO */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.15 }}
-              className="relative rounded-arcade-lg bg-[var(--color-arcade-navy)] p-4 border-4 border-[var(--color-arcade-yellow)] border-b-arcade-2xl border-b-[var(--color-arcade-yellow-shadow)] shadow-2xl flex flex-col justify-between text-white overflow-hidden"
-            >
-              {/* Badge Más Popular */}
-              <div className="absolute top-0 right-0 bg-gradient-to-l from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] text-[var(--color-arcade-navy)] text-[9px] font-black uppercase tracking-wider py-1 px-3 rounded-bl-arcade shadow-md flex items-center gap-1">
-                <Crown className="w-3 h-3 fill-current" />
-                <span>MÁS POPULAR</span>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-2.5 py-0.5 rounded-lg bg-[var(--color-arcade-navy-dark)] text-[var(--color-arcade-yellow)] text-[10px] font-black uppercase tracking-wider border border-[var(--color-arcade-yellow)]/40">
+              {/* Plan Pro */}
+              <div className="card-cozy-cream p-6 rounded-3xl bg-[#FAF6EE] border-2 border-[#F58A29] shadow-lg flex flex-col justify-between relative">
+                <div className="absolute -top-3 right-6 bg-[#F58A29] text-white text-[10px] font-black font-['Fredoka'] uppercase tracking-wider py-1 px-3 rounded-full shadow-sm">
+                  MÁS POPULAR
+                </div>
+                <div>
+                  <span className="px-3 py-1 rounded-full bg-[#FEF3E7] text-[#F58A29] text-xs font-bold font-['Fredoka'] border border-[#FAD8B5]">
                     Pro Ilimitado
                   </span>
-                </div>
-                <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
-                  Hubzi Pro
-                  <Crown className="w-5 h-5 text-[var(--color-arcade-yellow)] fill-current" />
-                </h3>
-                <p className="text-[10px] font-bold text-slate-300 mt-0.5">Potencia total para aprobar exámenes exigentes sin estrés.</p>
-
-                <div className="mt-2.5 mb-3 flex items-baseline gap-1.5">
-                  <span className="text-3xl font-black text-[var(--color-arcade-yellow)] drop-shadow">$2.99</span>
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wide">USD / mes</span>
-                </div>
-
-                <div className="space-y-1.5 text-[10.5px] font-bold text-slate-200 border-t border-[var(--color-arcade-navy-light)] pt-3">
-                  <div className="flex items-center gap-2">
-                    {proCheck}
-                    <span><strong>Subida ILIMITADA</strong> de PDFs, diapositivas y libros</span>
+                  <h3 className="text-lg font-bold text-[#1E2F3A] font-['Fredoka'] mt-3 flex items-center gap-1.5">
+                    Hubzi Pro <Crown className="w-4 h-4 text-[#F58A29] fill-current" />
+                  </h3>
+                  <div className="mt-2 mb-4">
+                    <span className="text-3xl font-black text-[#F58A29] font-['Fredoka']">$2.99</span>
+                    <span className="text-xs text-[#526673] ml-1">USD / mes</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {proCheck}
-                    <span><strong>Acceso a los 20 Niveles</strong> de maestría en la Arena</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {proCheck}
-                    <span><strong>Voz IA de Hubzi ultra-rápida y empática</strong> sin límites</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {proCheck}
-                    <span><strong>Simulacros infinitos</strong> sin tiempos de espera</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {proCheck}
-                    <span><strong>Múltiples carpetas</strong> y hasta <strong>50 MB</strong> de material</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {proCheck}
-                    <span className="text-emerald-300">Garantía de reembolso de 7 días · Cancela con 1 clic</span>
+                  <div className="space-y-2 text-xs font-medium text-[#1E2F3A] border-t border-[#E6DEC8] pt-4">
+                    <div className="flex items-center gap-2">{proCheck}<span>Subida ILIMITADA de material</span></div>
+                    <div className="flex items-center gap-2">{proCheck}<span>Los 20 Niveles de campaña completos</span></div>
+                    <div className="flex items-center gap-2">{proCheck}<span>Voz IA empática ultra-rápida</span></div>
+                    <div className="flex items-center gap-2">{proCheck}<span>Simulacros infinitos sin espera</span></div>
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-4">
                 <button
                   type="button"
                   onClick={() => { setIsPlansOpen(false); setIsSubscriptionModalOpen(true); }}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-arcade bg-gradient-to-r from-[var(--color-arcade-orange)] to-[var(--color-arcade-yellow)] hover:from-[var(--color-arcade-orange-bright)] hover:to-[#ffbf1a] text-[var(--color-arcade-navy)] font-black text-[11px] uppercase tracking-wider border-2 border-[var(--color-arcade-navy)] border-b-arcade border-b-[#8c3b00] shadow-[0_4px_0_#8c3b00] hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                  className="mt-6 w-full btn-tactile-amber py-3 rounded-full text-xs font-bold text-center cursor-pointer shadow-md"
                 >
-                  <Crown className="w-4 h-4 fill-current" />
-                  <span>Obtener Plan PRO ($2.99 / mes)</span>
+                  Obtener Plan PRO ($2.99 / mes)
                 </button>
               </div>
-            </motion.div>
 
-            {/* PLAN ESCUELAS (B2B) */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
-              className="relative rounded-arcade-lg bg-gradient-to-b from-emerald-900 to-[#0f2a1d] p-4 border-4 border-emerald-400 border-b-arcade-2xl border-b-emerald-700 shadow-2xl flex flex-col justify-between text-white overflow-hidden"
-            >
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="px-2.5 py-0.5 rounded-lg bg-emerald-950/70 text-emerald-300 text-[10px] font-black uppercase tracking-wider border border-emerald-400/40">
-                    Para instituciones
+              {/* Plan Escuelas */}
+              <div className="card-cozy-cream p-6 rounded-3xl bg-white border border-[#E6DEC8] shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="px-3 py-1 rounded-full bg-[#E8F8F5] text-[#2F8F6B] text-xs font-bold font-['Fredoka'] border border-[#BDEFE5]">
+                    Instituciones
                   </span>
-                </div>
-                <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
-                  Hubzi Escuelas
-                  <School className="w-5 h-5 text-emerald-300" />
-                </h3>
-                <p className="text-[10px] font-bold text-emerald-100/80 mt-0.5">
-                  Toda la gamificación anti-estrés para tu colegio, con panel docente.
-                </p>
-
-                <div className="mt-2.5 mb-3 flex items-baseline gap-1.5">
-                  <span className="text-3xl font-black text-emerald-300 drop-shadow">$1</span>
-                  <span className="text-[10px] font-bold text-emerald-100/80 uppercase tracking-wide">
-                    USD / estudiante / mes <span className="text-emerald-200/70">(mín. 30)</span>
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 text-[10.5px] font-bold text-emerald-50 border-t border-emerald-400/20 pt-3">
-                  <div className="flex items-center gap-2">
-                    {schoolCheck}
-                    <span><strong>Grados y paralelos ilimitados</strong> con código de clase</span>
+                  <h3 className="text-lg font-bold text-[#1E2F3A] font-['Fredoka'] mt-3 flex items-center gap-1.5">
+                    Hubzi Escuelas <School className="w-4 h-4 text-[#2F8F6B]" />
+                  </h3>
+                  <div className="mt-2 mb-4">
+                    <span className="text-3xl font-black text-[#2F8F6B] font-['Fredoka']">$1</span>
+                    <span className="text-xs text-[#526673] ml-1">USD / alumno / mes</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {schoolCheck}
-                    <span><strong>Materias por grado</strong> — el libro se convierte en islas-temas solas</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {schoolCheck}
-                    <span><strong>Panel docente:</strong> progreso por estudiante y temas débiles del curso</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {schoolCheck}
-                    <span>Todo lo del plan Pro para cada estudiante</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {schoolCheck}
-                    <span className="text-emerald-200">Privacidad de menores: métricas pedagógicas, jamás chats</span>
+                  <div className="space-y-2 text-xs font-medium text-[#526673] border-t border-[#E6DEC8] pt-4">
+                    <div className="flex items-center gap-2">{schoolCheck}<span>Grados y paralelos con código</span></div>
+                    <div className="flex items-center gap-2">{schoolCheck}<span>Libros convertidos en islas</span></div>
+                    <div className="flex items-center gap-2">{schoolCheck}<span>Panel docente con métricas pedagógicas</span></div>
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-4">
                 <Link
                   to="/arena"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-5 rounded-arcade bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-black text-[11px] uppercase tracking-wider border-2 border-emerald-600 border-b-arcade border-b-emerald-800 shadow-md hover:scale-[1.01] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                  className="mt-6 w-full btn-tactile-sage py-2.5 rounded-full text-xs font-bold text-center block"
                 >
-                  <School className="w-4 h-4" />
-                  <span>Crear mi colegio gratis</span>
+                  Crear Colegio
                 </Link>
               </div>
-            </motion.div>
-          </div>
+            </div>
           </motion.div>
         </div>
       )}
 
-      {/* Footer legal */}
-      <footer className="relative z-10 border-t border-[var(--color-arcade-navy)]/10 py-2 xl:py-3 text-center text-[10px] xl:text-xs font-semibold text-slate-600">
-        <div className="flex items-center justify-center gap-3">
-          <button type="button" onClick={() => setIsPlansOpen(true)} className="hover:text-[var(--color-arcade-navy)] transition-colors cursor-pointer">
-            Planes y Precios
-          </button>
-          <span>·</span>
-          <Link to="/legal/terminos" className="hover:text-[var(--color-arcade-navy)] transition-colors">
-            Términos de Servicio
-          </Link>
-          <span>·</span>
-          <Link to="/legal/privacidad" className="hover:text-[var(--color-arcade-navy)] transition-colors">
-            Política de Privacidad
-          </Link>
-          <span>·</span>
-          <span>© 2026 Hubzi — SynapseHub</span>
-        </div>
-      </footer>
-
-      {/* Modal de Suscripción Stripe (Hubzy Pro) */}
+      {/* Modal de Suscripción Stripe (Hubzi Pro) */}
       <SubscriptionModal
         isOpen={isSubscriptionModalOpen}
         onClose={() => setIsSubscriptionModalOpen(false)}

@@ -59,7 +59,15 @@ const CARD_THEMES = {
     subTextColor: 'text-slate-500',
     iconColor: 'text-indigo-600',
   },
-  // Fallbacks de compatibilidad
+  // Carta Trampa 💀 (Violeta Oscuro Lúdico #4C2A6A con acento #9B5DE5)
+  trap: {
+    gradient: 'from-[#6D3A9C] via-[#4C2A6A] to-[#32184A]',
+    shadow: '0 6px 0 #230E36, 0 10px 15px rgba(76, 42, 106, 0.5)',
+    border: 'border-[#9B5DE5]',
+    textColor: 'text-purple-100',
+    subTextColor: 'text-purple-300',
+    iconColor: 'text-[#D8B4FE]',
+  },
   red: {
     gradient: 'from-[#fca5a5] via-[#f87171] to-[#ef4444]',
     shadow: '0 6px 0 #b91c1c, 0 10px 15px rgba(239, 68, 68, 0.4)',
@@ -112,7 +120,7 @@ export default function GameCard({
     theme: theme || domain,
     index
   }) || getDomainIcon(domain || name) || DOMAIN_ICONS[sourceType] || Sparkles;
-  const cardTheme = CARD_THEMES[type] || CARD_THEMES.blue;
+  const cardTheme = isTrap ? CARD_THEMES.trap : (CARD_THEMES[type] || CARD_THEMES.blue);
 
   // En móvil horizontal el escenario usa transform: scale(0.55) — el drag
   // nativo de framer-motion no corrige los deltas y la carta se separa del
@@ -197,6 +205,13 @@ export default function GameCard({
       {isSelected && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-30 px-2 py-0.5 rounded-full bg-orange-400 text-white text-[8px] font-black tracking-widest uppercase shadow-lg animate-bounce whitespace-nowrap">
           LISTA PARA COLOCAR
+        </div>
+      )}
+
+      {/* Badge Carta Trampa 💀 */}
+      {isTrap && (
+        <div className="absolute -top-2.5 -right-2 z-30 w-6 h-6 rounded-full bg-[#4C2A6A] border-2 border-[#9B5DE5] flex items-center justify-center text-xs shadow-md">
+          💀
         </div>
       )}
 

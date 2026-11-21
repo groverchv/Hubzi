@@ -52,48 +52,48 @@ export default function HandTray({
       }`}
     >
       <div className="flex flex-col items-center gap-1.5">
-        {/* Controles de página para niveles con muchas cartas (Niveles 4 y 5) */}
-        {totalPages > 1 && (
-          <div className="flex items-center gap-3 px-3 py-1 rounded-full bg-[var(--color-arcade-navy)] border border-[var(--color-arcade-navy-light)] shadow-md z-50">
+        {/* Cápsula del mazo (MAZO: X / Y) */}
+        <div className="flex items-center gap-2.5 px-4 py-1 rounded-full bg-[#1E2F3A] text-white shadow-md z-50 font-['Fredoka'] border border-[#3A4D5C]">
+          {totalPages > 1 && (
             <button
               type="button"
               onClick={() => setHandPage((prev) => Math.max(0, prev - 1))}
               disabled={activePage === 0}
-              className={`touch-target p-1 rounded-lg border transition-all cursor-pointer ${
-                activePage === 0
-                  ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
-                  : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
+              className={`p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
+                activePage === 0 ? "opacity-30 cursor-not-allowed" : "text-[#F4B942]"
               }`}
               title={t('hand.prev')}
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
+          )}
 
-            <span className="text-[10px] font-mono font-black text-slate-200 uppercase tracking-wider">
-              {t('hand.deck', { page: activePage + 1, total: totalPages })}{' '}
-              <span className="text-amber-400">{t('hand.deck_count', { count: hand.length })}</span>
-            </span>
+          <span className="text-[11px] font-bold uppercase tracking-wider">
+            MAZO: {activePage + 1} / {totalPages} ({hand.length} CARTAS)
+          </span>
 
+          {totalPages > 1 && (
             <button
               type="button"
-              onClick={() =>
-                setHandPage((prev) => Math.min(totalPages - 1, prev + 1))
-              }
+              onClick={() => setHandPage((prev) => Math.min(totalPages - 1, prev + 1))}
               disabled={activePage >= totalPages - 1}
-              className={`touch-target p-1 rounded-lg border transition-all cursor-pointer ${
-                activePage >= totalPages - 1
-                  ? "opacity-30 border-transparent text-slate-500 cursor-not-allowed"
-                  : "bg-[var(--color-arcade-navy-hover)] border-[#294c8b] text-[var(--color-arcade-yellow)] hover:scale-110"
+              className={`p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
+                activePage >= totalPages - 1 ? "opacity-30 cursor-not-allowed" : "text-[#F4B942]"
               }`}
               title={t('hand.next')}
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className={`hand-tray relative px-4 ${compact ? "py-1.5" : "py-3"} rounded-arcade bg-[#e2e8f0] border-2 border-[#cbd5e1] shadow-[0_12px_24px_rgba(0,0,0,0.18),0_4px_0_#94a3b8,inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center max-w-full`} role="group" aria-label={t('hand.aria', { count: hand.length })}>
-          <div className={`flex items-center gap-2.5 px-1 py-0.5 ${
+        {/* Bandeja Flotante Crema Translúcida */}
+        <div
+          className={`hand-tray relative px-4 ${compact ? "py-1.5" : "py-3"} rounded-[2rem] bg-[#FAF6EE]/94 backdrop-blur-md border-2 border-[#E6DEC8] shadow-[0_12px_32px_rgba(30,47,58,0.12)] flex items-center justify-center max-w-full`}
+          role="group"
+          aria-label={t('hand.aria', { count: hand.length })}
+        >
+          <div className={`flex items-center gap-3 px-1 py-0.5 ${
             compact
               ? "overflow-x-auto overflow-y-visible w-full max-w-[86vw]"
               : "overflow-visible"
@@ -104,12 +104,12 @@ export default function HandTray({
               return (
                 <div
                   key={`slot-${card.id || idx}`}
-                  className={`hand-slot relative rounded-arcade p-1 transition-all ${
+                  className={`hand-slot relative rounded-2xl p-1 transition-all ${
                     isHandSelected
-                      ? "bg-cyan-400/40 border-2 border-cyan-400 shadow-[0_0_22px_#22d3ee] scale-105"
+                      ? "bg-[#FEF3E7] border-2 border-[#F58A29] shadow-[0_0_18px_rgba(245,138,41,0.5)] scale-105"
                       : isHinted
-                        ? "bg-amber-400/40 border-2 border-amber-400 shadow-[0_0_20px_#f59e0b]"
-                        : "bg-[#cbd5e1]/40 border border-[#94a3b8]/40 shadow-inner"
+                        ? "bg-[#FEF3E7] border-2 border-[#F4B942] shadow-[0_0_16px_rgba(244,185,66,0.5)]"
+                        : "bg-[#F2EBD9]/60 border border-[#E6DEC8]"
                   } ${hintCardId && !isHinted && !isHandSelected ? "opacity-35" : ""} flex items-center justify-center`}
                 >
                   {/* FLECHA ANIMADA DE PISTA (ANTI-DESÁNIMO TRAS 30 SEGUNDOS) */}

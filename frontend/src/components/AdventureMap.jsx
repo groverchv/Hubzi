@@ -1,31 +1,58 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Star,
   Lock,
   Play,
-  ArrowLeft,
   Folder,
-  HelpCircle,
   Crown,
   Skull,
   Swords,
-  RotateCcw,
-  Flame,
   X,
+  Compass,
+  Package,
+  BookOpen,
 } from "lucide-react";
 import capyEscolar from "../assets/mascots/capy_escolar_nino_m.webp";
 import { useTranslation } from "react-i18next";
 import { levelName, levelDesc } from "../utils/gameConfig";
+import { getLevelNodeA11y, BIOME_DESCRIPTIONS } from "../utils/a11yDescriptions";
+import A11yControls from "./A11yControls";
 
 /**
- * AdventureMap - Mapa de Aventura de 20 Niveles
- * - Nivel K = K preguntas progresivas
- * - Niveles 3+ tienen cartas trampa 💀
- * - Nivel 20 es la batalla de Jefe Final contra Hubzi Boss 👑
- * - Requiere mínimo 2 estrellas para avanzar
- * - Scroll vertical fluido que asciende desde el Nivel 1 (costa) hasta el Nivel 20 (cumbre del volcán)
+ * Coordenadas fijas en porcentajes para los 20 niveles sobre la Isla 2.5D
+ * Guiadas exactamente por el mockup Santuario Capibara (media_1795279239558_48935ac0.jpg)
  */
+const ISLAND_COORDS = [
+  // ── BIOMA 1: PLAYA DE LOS APUNTES (Niveles 1 a 5) ──
+  { level: 1, x: 50.0, y: 84.5, biome: 'beach' },
+  { level: 2, x: 37.5, y: 76.5, biome: 'beach' },
+  { level: 3, x: 42.5, y: 70.8, biome: 'beach' },
+  { level: 4, x: 50.0, y: 70.8, biome: 'beach' },
+  { level: 5, x: 59.5, y: 74.2, biome: 'beach' },
+
+  // ── BIOMA 2: BOSQUE DE BAMBÚ (Niveles 6 a 10) ──
+  { level: 6, x: 62.5, y: 65.5, biome: 'bamboo' },
+  { level: 7, x: 57.0, y: 60.5, biome: 'bamboo' },
+  { level: 8, x: 54.0, y: 56.5, biome: 'bamboo' },
+  { level: 9, x: 52.5, y: 53.5, biome: 'bamboo' },
+  { level: 10, x: 48.0, y: 50.0, biome: 'bamboo' },
+
+  // ── BIOMA 3: AGUAS TERMALES ZEN (Niveles 11 a 15) ──
+  { level: 11, x: 44.0, y: 46.5, biome: 'springs' },
+  { level: 12, x: 40.0, y: 42.5, biome: 'springs' },
+  { level: 13, x: 38.5, y: 36.5, biome: 'springs' },
+  { level: 14, x: 41.5, y: 30.8, biome: 'springs' },
+  { level: 15, x: 45.5, y: 26.5, biome: 'springs' },
+
+  // ── BIOMA 4: CUMBRE DEL TEMPLO BOSS (Niveles 16 a 20) ──
+  { level: 16, x: 49.0, y: 24.0, biome: 'temple' },
+  { level: 17, x: 53.0, y: 22.5, biome: 'temple' },
+  { level: 18, x: 55.0, y: 19.5, biome: 'temple' },
+  { level: 19, x: 53.5, y: 16.5, biome: 'temple' },
+  { level: 20, x: 54.0, y: 12.8, biome: 'temple', isBoss: true },
+];
+
 export default function AdventureMap({
   folderName = null,
   documentTitle = null,
@@ -35,14 +62,13 @@ export default function AdventureMap({
   onSelectLevel,
   onBackToFolders,
   onOpenTutorial,
-  onResetCampaign,
+  onOpenLegal,
   studyStreak = 0,
 }) {
   const { t } = useTranslation();
   const [selectedLevelModal, setSelectedLevelModal] = useState(null);
-  const scrollContainerRef = useRef(null);
 
-  // Generar los 20 niveles si no vienen provistos
+  // Generar datos de los 20 niveles
   const mapLevels =
     levels && levels.length > 0
       ? levels
@@ -53,43 +79,14 @@ export default function AdventureMap({
           const trapCount = lvl < 8 ? 1 : lvl < 15 ? 2 : 3;
           return {
             level: lvl,
-            name: null, // texto resuelto al pintar vía levelName()
+            name: null,
             questions: lvl,
             hasTraps,
             trapCount: hasTraps ? trapCount : 0,
             isBoss,
-            desc: null, // texto resuelto al pintar vía levelDesc()
+            desc: null,
           };
         });
-
-  // Posiciones en zigzag vertical (de abajo hacia arriba, Nivel 1 en el fondo,
-  // último nivel arriba). La altura es proporcional a la cantidad de niveles:
-  // antes era 2800px fijo y una isla de 3 niveles quedaba con huecos de ~1200px.
-  const LEVEL_GAP = 135; // separación vertical entre nodos consecutivos
-  const TOTAL_HEIGHT = 320 + LEVEL_GAP * Math.max(1, mapLevels.length - 1);
-  const levelCoords = mapLevels.map((lvl, idx) => {
-    // Alternancia suave en onda senoidal
-    const t = idx / (mapLevels.length - 1);
-    const y = TOTAL_HEIGHT - 160 - t * (TOTAL_HEIGHT - 320);
-    // Curva zigzag dinámica
-    const xPct = 50 + Math.sin(idx * 0.95) * 32;
-    return { level: lvl.level, xPct, y };
-  });
-
-  // Centrar scroll en el nivel actual del jugador al cargar
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      const activeCoord = levelCoords.find(
-        (c) => c.level === Math.min(unlockedLevel, 20),
-      );
-      if (activeCoord) {
-        scrollContainerRef.current.scrollTop = Math.max(0, activeCoord.y - 350);
-      }
-    }
-    // levelCoords es derivado estable de props; incluirlo re-dispararía
-    // el scroll en cada render del mapa.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [unlockedLevel]);
 
   const handleNodeClick = (lvl) => {
     const isUnlocked = lvl.level <= unlockedLevel;
@@ -104,392 +101,491 @@ export default function AdventureMap({
     }
   };
 
-  // Construir el path SVG curvo conectando del Nivel 1 al 20
-  const pathD = levelCoords.reduce((acc, coord, i) => {
-    const x = (coord.xPct * 8).toFixed(1); // Mapeado a un viewBox de 800 width
-    const y = coord.y.toFixed(1);
+  // Construir el sendero continuo en SVG que une los 20 niveles
+  const pathD = ISLAND_COORDS.reduce((acc, coord, i) => {
+    const x = coord.x * 10;
+    const y = coord.y * 10;
     if (i === 0) return `M ${x} ${y}`;
-    const prev = levelCoords[i - 1];
-    const prevX = (prev.xPct * 8).toFixed(1);
-    const prevY = prev.y.toFixed(1);
-    const midY = ((parseFloat(prevY) + parseFloat(y)) / 2).toFixed(1);
-    return `${acc} C ${prevX} ${midY}, ${x} ${midY}, ${x} ${y}`;
+    const prev = ISLAND_COORDS[i - 1];
+    const prevX = prev.x * 10;
+    const prevY = prev.y * 10;
+    const midX = (prevX + x) / 2;
+    const midY = (prevY + y) / 2;
+    return `${acc} Q ${midX} ${prevY}, ${x} ${y}`;
   }, "");
 
+  const activeLevelCoord = ISLAND_COORDS.find((c) => c.level === Math.min(unlockedLevel, 20)) || ISLAND_COORDS[0];
+
   return (
-    <div className="relative w-full h-full overflow-hidden select-none font-sans bg-radial from-[#1e88e5] via-[#1565c0] to-[#0a2756]">
-      {/* ── AMBIENTE DE FONDO CON NUBES FLOTANTES ── */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:28px_28px]" />
+    <div className="relative w-full h-[100dvh] overflow-hidden select-none font-sans bg-gradient-to-b from-[#78C2C4] via-[#85CDCF] to-[#A8DADC]">
+      
+      {/* ── MAR Y OLAS ESTILIZADAS EN MOVIMIENTO SUAVE ── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        {/* Cielo superior con nubes esponjosas */}
+        <div className="absolute top-0 inset-x-0 h-48 bg-gradient-to-b from-[#D8F0F2] via-[#E2F5F6] to-transparent">
+          <div className="absolute top-6 left-[8%] w-36 h-12 bg-white/75 rounded-full blur-[1px]" />
+          <div className="absolute top-4 left-[12%] w-18 h-18 bg-white/75 rounded-full blur-[1px]" />
+          <div className="absolute top-10 right-[10%] w-44 h-14 bg-white/75 rounded-full blur-[1px]" />
+          <div className="absolute top-6 right-[14%] w-22 h-22 bg-white/75 rounded-full blur-[1px]" />
+        </div>
+
+        {/* Olas decorativas en el mar */}
+        <svg
+          className="absolute inset-0 w-full h-full text-white/20"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <pattern id="waves-pattern" width="120" height="40" patternUnits="userSpaceOnUse">
+            <path
+              d="M0 20 Q 30 10, 60 20 T 120 20"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.4)"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </pattern>
+          <rect width="100%" height="100%" fill="url(#waves-pattern)" />
+        </svg>
+
+        {/* Efecto de vapor termal ascendente en CSS */}
+        <style>{`
+          @keyframes steamFlow {
+            0% { transform: translateY(0) scale(0.9); opacity: 0; }
+            50% { opacity: 0.65; }
+            100% { transform: translateY(-35px) scale(1.3); opacity: 0; }
+          }
+          .steam-particle {
+            animation: steamFlow 3.6s ease-out infinite;
+          }
+        `}</style>
       </div>
 
-      {/* ── BARRA SUPERIOR FIJA (ESTILO MONSTER LEGENDS / ARCADE) ── */}
-      <div className="absolute top-0 inset-x-0 z-40 px-4 sm:px-8 py-3.5 flex items-center justify-between bg-slate-950/70 border-b-arcade-xs border-[var(--color-arcade-navy-light)] backdrop-blur-md shadow-lg">
-        {/* Botón Volver a Carpetas */}
-        <div className="flex items-center gap-3">
+      {/* ── HUD SUPERIOR GLASSMÓRFICO CÁLIDO (PÍLDORAS CREMA #FAF6EE) ── */}
+      <header className="absolute top-0 inset-x-0 z-40 px-4 sm:px-8 py-3 flex items-center justify-between pointer-events-none">
+        {/* Izquierda: Logo Hubzi + Campaña + Baúles + Modo Zen */}
+        <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+          {/* Logo HUBZI */}
+          <div className="hud-capsule-cozy px-4 py-2 font-['Fredoka'] text-base sm:text-lg font-black tracking-wide text-[#1E2F3A] bg-[#FAF6EE] border border-[#E6DEC8] shadow-sm rounded-full">
+            HUBZI
+          </div>
+
+          {/* Contador de Campaña: X / 20 Niveles */}
+          <div className="hud-capsule-cozy hidden md:flex items-center gap-2 px-4 py-2 font-['Fredoka'] text-xs sm:text-sm font-bold text-[#1E2F3A] bg-[#FAF6EE] border border-[#E6DEC8] shadow-sm rounded-full">
+            <span>Campaña: {Math.min(unlockedLevel, 20)}/20 Niveles</span>
+          </div>
+
+          {/* Baúles */}
           <button
+            type="button"
             onClick={onBackToFolders}
-            className="group flex items-center gap-2 px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-white shadow-btn-orange-flat active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-            title={t('map.back_title')}
+            className="hud-capsule-cozy flex items-center gap-1.5 px-3.5 py-2 font-['Fredoka'] text-xs sm:text-sm font-bold text-[#1E2F3A] bg-[#FAF6EE] hover:bg-[#F2EBD9] border border-[#E6DEC8] shadow-sm rounded-full cursor-pointer transition-colors"
+            title="Abrir baúles de estudio"
           >
-            <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">
-              {t('map.back_btn')}
-            </span>
+            <Package className="w-4 h-4 text-[#F58A29]" />
+            <span className="hidden sm:inline">Baúles</span>
+          </button>
+
+          {/* Modo Zen (Lavanda Exclusivo) */}
+          <a
+            href="/zen"
+            className="hud-capsule-cozy flex items-center gap-1.5 px-4 py-2 font-['Fredoka'] text-xs sm:text-sm font-bold text-[#6D58D6] bg-[#EDE9FE] hover:bg-[#E2DBFC] border border-[#D8D0F8] shadow-sm rounded-full cursor-pointer transition-colors"
+          >
+            <span>🌙</span>
+            <span className="hidden sm:inline">Modo Zen</span>
+          </a>
+        </div>
+
+        {/* Derecha: Mapa + Ajustes A11y + Carpetas */}
+        <div className="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+          {/* Botón Mapa */}
+          <div className="hud-capsule-cozy hidden sm:flex items-center gap-1.5 px-3.5 py-2 font-['Fredoka'] text-xs sm:text-sm font-bold text-[#1E2F3A] bg-[#FAF6EE] border border-[#E6DEC8] shadow-sm rounded-full">
+            <Compass className="w-4 h-4 text-[#2F8F6B]" />
+            <span>MAPA</span>
+          </div>
+
+          {/* Accesibilidad A11y */}
+          <A11yControls />
+
+          {/* Botón Carpetas */}
+          <button
+            type="button"
+            onClick={onBackToFolders}
+            className="hud-capsule-cozy flex items-center gap-1.5 px-4 py-2 font-['Fredoka'] text-xs sm:text-sm font-bold text-[#1E2F3A] bg-[#FAF6EE] hover:bg-[#F2EBD9] border border-[#E6DEC8] shadow-sm rounded-full cursor-pointer transition-colors"
+          >
+            <Folder className="w-4 h-4 text-[#F58A29]" />
+            <span className="hidden sm:inline">CARPETAS</span>
           </button>
         </div>
+      </header>
 
-        {/* Banner Central: Título del Mundo / Documento */}
-        <div className="flex flex-col items-center px-4 py-1.5 rounded-arcade bg-[var(--color-arcade-navy)]/90 border-2 border-[var(--color-arcade-navy-light)] shadow-sm">
-          <div className="flex items-center gap-1.5">
-            <Folder className="w-3 h-3 text-amber-400" />
-            <span className="text-[9px] font-mono font-black uppercase text-amber-400 tracking-wider">
-              {folderName || t('map.world')}
-            </span>
-          </div>
-          <h1 className="text-xs sm:text-sm font-black text-white uppercase tracking-wide truncate max-w-[200px] sm:max-w-md">
-            {documentTitle || t('map.topic')} ({t('map.campaign')})
-          </h1>
-          {studyStreak >= 2 && (
-            <span
-              className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-400/50 text-[10px] font-black text-orange-300"
-              title={t('map.streak_t', { count: studyStreak })}
-            >
-              <Flame className="w-3 h-3 text-orange-400" /> {t('map.streak', { count: studyStreak })}
-            </span>
-          )}
-        </div>
-
-        {/* Botones: Reiniciar Campaña + Cómo Jugar */}
-        <div className="flex items-center gap-2">
-          {onResetCampaign && unlockedLevel > 1 && (
-            <button
-              onClick={onResetCampaign}
-              className="p-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-rose-900/80 border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-ink)] text-rose-300 shadow-sm active:translate-y-1 transition-all cursor-pointer"
-              title={t('map.reset_title')}
-            >
-              <RotateCcw className="w-4 h-4 stroke-[2.5]" />
-            </button>
-          )}
-          {onOpenTutorial && (
-            <button
-              onClick={onOpenTutorial}
-              className="p-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-ink)] text-amber-400 shadow-sm active:translate-y-1 transition-all cursor-pointer"
-              title={t('map.how_to')}
-            >
-              <HelpCircle className="w-4 h-4 stroke-[2.5]" />
-            </button>
-          )}
-        </div>
+      {/* ── PÍLDORA LATERAL IZQUIERDA: TÉRMINOS & LEGAL ── */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 hidden sm:block">
+        <button
+          type="button"
+          onClick={() => onOpenLegal && onOpenLegal('terms')}
+          className="hud-capsule-cozy flex flex-col items-center gap-1 px-3 py-3 bg-[#FAF6EE] hover:bg-[#F2EBD9] border border-[#E6DEC8] shadow-md rounded-2xl cursor-pointer text-[#1E2F3A] transition-all"
+        >
+          <BookOpen className="w-5 h-5 text-[#F58A29]" />
+          <span className="text-[9px] font-black uppercase font-['Fredoka'] tracking-wider leading-tight text-center">
+            Términos<br />& Legal
+          </span>
+        </button>
       </div>
 
-      {/* ── LIENZO SCROLLABLE DEL MAPA (20 NIVELES EN CAMINO ASCENDENTE) ── */}
-      <div
-        ref={scrollContainerRef}
-        className="relative w-full h-full overflow-y-auto overflow-x-hidden pt-20 pb-24 scroll-smooth"
-      >
-        <div
-          className="relative w-full max-w-3xl mx-auto"
-          style={{ height: `${TOTAL_HEIGHT}px` }}
-        >
-          {/* SVG para el Camino Curvo Punteado */}
+      {/* ── ESCENARIO CENTRAL: ISLA FLOTANTE DE AVENTURA 2.5D (4 BIOMAS) ── */}
+      <main className="relative w-full h-full flex items-center justify-center p-2 sm:p-6 overflow-hidden">
+        {/* Contenedor responsivo con relación de aspecto que escala la isla y nodos */}
+        <div className="relative w-full max-w-4xl h-[86dvh] max-h-[820px] flex items-center justify-center">
+          
+          {/* LIENZO DE LA ISLA ILUSTRADA EN SVG 2.5D */}
           <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox={`0 0 800 ${TOTAL_HEIGHT}`}
-            preserveAspectRatio="none"
+            viewBox="0 0 1000 1000"
+            className="w-full h-full object-contain filter drop-shadow-[0_20px_35px_rgba(20,55,70,0.3)] select-none pointer-events-none"
+            preserveAspectRatio="xMidYMid meet"
           >
             <defs>
-              <filter
-                id="roadShadow"
-                x="-10%"
-                y="-10%"
-                width="120%"
-                height="120%"
-              >
-                <feDropShadow
-                  dx="0"
-                  dy="6"
-                  stdDeviation="6"
-                  floodColor="#05142b"
-                  floodOpacity="0.7"
-                />
-              </filter>
+              {/* Gradiente de arena playa */}
+              <linearGradient id="beachGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#F9E8B8" />
+                <stop offset="100%" stopColor="#E5C784" />
+              </linearGradient>
+
+              {/* Gradiente de pasto salvia / bosque */}
+              <linearGradient id="grassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#8AC696" />
+                <stop offset="60%" stopColor="#55996D" />
+                <stop offset="100%" stopColor="#2F8F6B" />
+              </linearGradient>
+
+              {/* Gradiente de montaña rocosa */}
+              <linearGradient id="rockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#A88B74" />
+                <stop offset="50%" stopColor="#846853" />
+                <stop offset="100%" stopColor="#5E4332" />
+              </linearGradient>
+
+              {/* Gradiente de aguas termales */}
+              <radialGradient id="hotSpringGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#D5F7F6" />
+                <stop offset="65%" stopColor="#8AE4E2" />
+                <stop offset="100%" stopColor="#57BCBA" />
+              </radialGradient>
+
+              {/* Gradiente de techo de templo boss */}
+              <linearGradient id="templeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#FDE68A" />
+                <stop offset="60%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor="#B45309" />
+              </linearGradient>
             </defs>
 
-            {/* Sombra del camino */}
+            {/* Sombra de la isla sobre el agua */}
+            <ellipse cx="500" cy="880" rx="360" ry="60" fill="rgba(24, 76, 92, 0.22)" />
+
+            {/* Capa de orilla de arena cálida (Niveles 1 a 5) */}
             <path
-              d={pathD}
-              fill="none"
-              stroke="#071b38"
-              strokeWidth="12"
-              strokeLinecap="round"
-              filter="url(#roadShadow)"
+              d="M 230,760 C 200,840 320,910 500,910 C 680,910 800,840 760,760 C 720,680 620,680 500,680 C 380,680 260,680 230,760 Z"
+              fill="url(#beachGrad)"
+              stroke="#D3AE69"
+              strokeWidth="4"
             />
 
-            {/* Línea punteada blanca brillante */}
+            {/* Palmeras y conchas en la playa */}
+            <g id="beach-details">
+              {/* Palmera izquierda */}
+              <path d="M 290,780 Q 285,730 310,700" stroke="#7A5638" strokeWidth="6" fill="none" strokeLinecap="round" />
+              <circle cx="310" cy="695" r="16" fill="#4E9966" />
+              <circle cx="295" cy="698" r="14" fill="#3D7E54" />
+              <circle cx="325" cy="698" r="14" fill="#5FAD77" />
+
+              {/* Palmera derecha */}
+              <path d="M 580,870 Q 585,820 605,790" stroke="#7A5638" strokeWidth="5" fill="none" strokeLinecap="round" />
+              <circle cx="605" cy="785" r="14" fill="#4E9966" />
+              <circle cx="590" cy="788" r="12" fill="#3D7E54" />
+              <circle cx="620" cy="788" r="12" fill="#5FAD77" />
+
+              {/* Pequeño cofre del tesoro */}
+              <rect x="450" y="780" width="22" height="16" rx="3" fill="#8C5C38" stroke="#5E381C" strokeWidth="2" />
+              <rect x="458" y="786" width="6" height="5" rx="1" fill="#F4B942" />
+
+              {/* Estrellas de mar */}
+              <text x="445" y="805" fontSize="16">⭐</text>
+              <text x="350" y="810" fontSize="14">🐚</text>
+            </g>
+
+            {/* Capa de roca central y mesetas de la montaña */}
             <path
-              d={pathD}
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="7"
-              strokeDasharray="16 12"
-              strokeLinecap="round"
-              className="drop-shadow-[0_2px_4px_rgba(255,255,255,0.4)]"
+              d="M 280,720 C 260,600 320,400 440,240 C 470,200 530,200 560,240 C 680,400 740,600 710,720 C 650,750 350,750 280,720 Z"
+              fill="url(#rockGrad)"
+              stroke="#4A3425"
+              strokeWidth="4"
             />
+
+            {/* Meseta de pasto y bosque de bambú (Izquierda, Niveles 6 a 10) */}
+            <path
+              d="M 280,700 C 270,580 340,480 430,460 C 470,540 430,650 380,710 Z"
+              fill="url(#grassGrad)"
+              stroke="#216347"
+              strokeWidth="3"
+            />
+            {/* Cañas de bambú verdes estilizadas */}
+            <g id="bamboo-grove" stroke="#2F8F6B" strokeWidth="4" strokeLinecap="round">
+              <line x1="290" y1="620" x2="290" y2="520" />
+              <line x1="305" y1="630" x2="305" y2="500" />
+              <line x1="320" y1="615" x2="320" y2="480" />
+              <line x1="335" y1="635" x2="335" y2="510" />
+              <line x1="350" y1="625" x2="350" y2="495" />
+              <line x1="365" y1="640" x2="365" y2="530" />
+              <line x1="380" y1="630" x2="380" y2="520" />
+              {/* Nudos de bambú */}
+              <circle cx="305" cy="540" r="3" fill="#1F664B" />
+              <circle cx="320" cy="520" r="3" fill="#1F664B" />
+              <circle cx="335" cy="550" r="3" fill="#1F664B" />
+              <circle cx="350" cy="535" r="3" fill="#1F664B" />
+            </g>
+
+            {/* Poza de Aguas Termales Zen (Centro, Niveles 11 a 15) */}
+            <g id="zen-hot-springs">
+              {/* Borde de piedras zen alrededor de la poza */}
+              <ellipse cx="560" cy="390" rx="95" ry="55" fill="#756253" stroke="#4F4035" strokeWidth="4" />
+              {/* Espejo de agua termal turquesa */}
+              <ellipse cx="560" cy="390" rx="82" ry="44" fill="url(#hotSpringGrad)" />
+              {/* Piedras zen redondeadas */}
+              <ellipse cx="490" cy="410" rx="14" ry="9" fill="#526673" />
+              <ellipse cx="580" cy="435" rx="18" ry="11" fill="#475569" />
+              <ellipse cx="640" cy="415" rx="12" ry="8" fill="#64748B" />
+            </g>
+
+            {/* Cumbre del Templo Boss (Nivel 20) */}
+            <g id="boss-temple" transform="translate(480, 105)">
+              {/* Resplandor áurico del templo */}
+              <circle cx="50" cy="40" r="60" fill="rgba(245, 158, 11, 0.25)" filter="blur(8px)" />
+              {/* Base de piedra del templo */}
+              <rect x="25" y="55" width="50" height="20" rx="3" fill="#6B7280" stroke="#374151" strokeWidth="2" />
+              {/* Columnas */}
+              <rect x="32" y="32" width="6" height="24" fill="#B45309" />
+              <rect x="62" y="32" width="6" height="24" fill="#B45309" />
+              {/* Techo curvado de pagoda tradicional dorada */}
+              <path
+                d="M 10,32 Q 50,15 90,32 L 80,24 Q 50,5 20,24 Z"
+                fill="url(#templeGrad)"
+                stroke="#78350F"
+                strokeWidth="2"
+              />
+              {/* Linterna dorada en el centro */}
+              <circle cx="50" cy="44" r="7" fill="#FDE68A" />
+              <text x="44" y="48" fontSize="11">☀️</text>
+            </g>
+
+            {/* SENDERO ORGÁNICO DE PIEDRA SERPENTEANTE */}
+            <g id="stone-path">
+              {/* Sombra base del sendero */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="#6B533E"
+                strokeWidth="36"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Superficie de piedra clara */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="#FAF6EE"
+                strokeWidth="28"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Línea central punteada de adoquines */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="#D5CBB3"
+                strokeWidth="18"
+                strokeDasharray="6 14"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </g>
           </svg>
 
-          {/* Islas de Soporte Decorativas a lo largo del mapa */}
-          {[
-            { y: TOTAL_HEIGHT - 260, label: t('map.zone1') },
-            { y: TOTAL_HEIGHT - 880, label: t('map.zone2') },
-            { y: TOTAL_HEIGHT - 1520, label: t('map.zone3') },
-            { y: TOTAL_HEIGHT - 2160, label: t('map.zone4') },
-            { y: 160, label: t('map.zone5') },
-          ]
-            .filter((island) => island.y > 0 && island.y < TOTAL_HEIGHT - 60)
-            .map((island, idx) => (
-            <div
-              key={idx}
-              style={{ top: `${island.y}px` }}
-              className="absolute left-1/2 -translate-x-1/2 w-[85%] max-w-xl h-28 rounded-full bg-emerald-800/30 border-2 border-emerald-400/20 blur-xs pointer-events-none flex items-center justify-center"
-            >
-              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-200/40">
-                {island.label}
-              </span>
-            </div>
-          ))}
+          {/* PARTÍCULAS CSS DE VAPOR ASCENDENTE EN LAS AGUAS TERMALES */}
+          <div className="absolute top-[34%] left-[50%] pointer-events-none z-10 flex gap-4">
+            <div className="steam-particle w-6 h-6 rounded-full bg-white/70 blur-[3px]" />
+            <div className="steam-particle w-8 h-8 rounded-full bg-white/60 blur-[4px]" style={{ animationDelay: '1.2s' }} />
+            <div className="steam-particle w-5 h-5 rounded-full bg-white/65 blur-[3px]" style={{ animationDelay: '2.4s' }} />
+          </div>
 
-          {/* ── RENDERIZADO DE LOS 20 NODOS DE NIVEL ── */}
+          {/* ── RENDERIZADO DE LOS 20 NODOS DE NIVEL TÁCTILES ── */}
           {mapLevels.map((lvl) => {
-            const coord = levelCoords.find((c) => c.level === lvl.level);
+            const coord = ISLAND_COORDS.find((c) => c.level === lvl.level);
             if (!coord) return null;
 
             const isUnlocked = lvl.level <= unlockedLevel;
             const isCurrent = lvl.level === unlockedLevel;
             const isBoss = lvl.isBoss || lvl.level === 20;
-            const hasTraps = lvl.hasTraps;
             const stars = levelStars[lvl.level] || 0;
 
             return (
               <div
                 key={lvl.level}
                 style={{
-                  left: `${coord.xPct}%`,
-                  top: `${coord.y}px`,
+                  left: `${coord.x}%`,
+                  top: `${coord.y}%`,
                 }}
                 className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center cursor-pointer"
                 onClick={() => handleNodeClick(lvl)}
+                role="button"
+                tabIndex={0}
+                aria-label={getLevelNodeA11y({
+                  number: lvl.level,
+                  status: isCurrent ? 'current' : isUnlocked ? 'completed' : 'locked',
+                  stars,
+                  questionCount: lvl.questions,
+                  isBoss
+                })}
               >
-                {/* Avatar animado de Hubzi sobre el nivel actual activo */}
+                {/* AVATAR DE HUBZI DE PIE SOBRE EL NIVEL ACTUAL */}
                 {isCurrent && (
                   <motion.div
-                    initial={{ y: 0 }}
-                    animate={{ y: [-8, 0, -8] }}
-                    transition={{
-                      repeat: Infinity,
-                      duration: 1.2,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute -top-16 z-30 flex flex-col items-center"
+                    animate={{ y: [0, -6, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                    className="absolute -top-14 sm:-top-16 z-30 flex flex-col items-center pointer-events-none"
                   >
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden border-3 border-[var(--color-arcade-yellow)] shadow-btn-arcade bg-[var(--color-arcade-navy-dark)]">
+                    {/* Capibara con base dorada de juego */}
+                    <div className="relative w-12 h-12 sm:w-14 sm:h-14">
                       <img
                         src={capyEscolar}
-                        alt="Hubzi Aquí"
-                        className="w-full h-full object-cover"
+                        alt="Hubzi aquí"
+                        className="w-full h-full object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]"
                       />
                     </div>
-                    <div className="px-2 py-0.5 rounded-full bg-[var(--color-arcade-orange)] text-white font-black text-[8px] uppercase tracking-wider border border-[var(--color-arcade-navy-dark)] shadow-md -mt-1">
-                      {t('map.here')}
-                    </div>
+                    {/* Anillo de pulso activo */}
+                    <div className="w-10 h-3 -mt-2 bg-[#F58A29] rounded-full border-2 border-white shadow-lg animate-pulse" />
                   </motion.div>
                 )}
 
-                {/* Corona y aura dorada para Hubzi Boss (Nivel 20) */}
+                {/* CORONA DEL JEFE FINAL (NIVEL 20) */}
                 {isBoss && (
-                  <div className="absolute -top-9 flex flex-col items-center text-[var(--color-arcade-yellow)] animate-bounce z-10">
-                    <Crown className="w-8 h-8 fill-[var(--color-arcade-yellow)] drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]" />
-                    <span className="text-[9px] font-black uppercase text-amber-300 bg-black/80 px-2 py-0.5 rounded-full border border-amber-400 -mt-1 shadow-md whitespace-nowrap">
-                      {t('map.boss')}
-                    </span>
+                  <div className="absolute -top-8 z-10 flex items-center justify-center animate-bounce">
+                    <Crown className="w-7 h-7 text-[#F4B942] fill-[#F4B942] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
                   </div>
                 )}
 
-                {/* Distintivo de Cartas Trampa para niveles 3+ */}
-                {hasTraps && !isBoss && isUnlocked && (
-                  <div
-                    className="absolute -top-3 -right-2 z-10 p-1 rounded-full bg-rose-950 border border-rose-500 shadow-md"
-                    title={t('map.traps_t', { count: lvl.trapCount })}
-                  >
-                    <Skull className="w-3.5 h-3.5 text-rose-400" />
+                {/* ESTRELLAS DORADAS ⭐ SOBRE NIVELES COMPLETADOS */}
+                {isUnlocked && !isCurrent && (
+                  <div className="flex items-center gap-0.5 -mb-1 z-10 bg-[#FAF6EE]/90 px-1.5 py-0.2 rounded-full border border-[#E6DEC8] shadow-xs">
+                    {[1, 2, 3].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${
+                          s <= stars
+                            ? "text-[#F4B942] fill-[#F4B942]"
+                            : "text-[#B8B2A6] fill-[#E6DEC8]"
+                        }`}
+                      />
+                    ))}
                   </div>
                 )}
 
-                {/* Estrellas ⭐⭐⭐ ganadas sobre el botón del nivel */}
-                <div className="flex items-center gap-0.5 mb-1 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-xs border border-white/20 shadow-sm">
-                  {[1, 2, 3].map((s) => (
-                    <Star
-                      key={s}
-                      className={`w-3 h-3 ${
-                        s <= stars
-                          ? "text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)] drop-shadow"
-                          : "text-slate-600 fill-slate-800"
-                      }`}
-                    />
-                  ))}
-                </div>
-
-                {/* Botón Circular 3D del Nivel */}
-                <motion.button
+                {/* BOTÓN CIRCULAR TÁCTIL 3D DEL NODO */}
+                <motion.div
                   whileHover={isUnlocked ? { scale: 1.15 } : {}}
                   whileTap={isUnlocked ? { scale: 0.95 } : {}}
-                  disabled={!isUnlocked}
-                  className={`relative ${isBoss ? "w-18 h-18 sm:w-20 sm:h-20" : "w-13 h-13 sm:w-15 sm:h-15"} rounded-full flex items-center justify-center border-4 text-white shadow-2xl transition-all cursor-pointer ${
-                    !isUnlocked
-                      ? "bg-gradient-to-b from-slate-600 to-slate-800 border-slate-900 shadow-[0_5px_0_#1e293b] opacity-80 cursor-not-allowed"
-                      : isBoss
-                        ? "bg-gradient-to-b from-[var(--color-arcade-orange)] via-[#ea580c] to-[#9a3412] border-[#ffedd5] shadow-[0_8px_0_#7c2d12,0_0_25px_rgba(249,115,22,0.9)] animate-pulse"
-                        : hasTraps
-                          ? "bg-gradient-to-b from-[var(--color-sky-400)] via-[#0284c7] to-[#0369a1] border-[#bae6fd] shadow-[0_6px_0_#075985,0_0_14px_rgba(56,189,248,0.6)]"
-                          : "bg-gradient-to-b from-[#4ade80] via-[#16a34a] to-[#15803d] border-[#dcfce7] shadow-[0_6px_0_#166534,0_0_14px_rgba(74,222,128,0.6)]"
+                  className={`relative flex items-center justify-center rounded-full font-['Fredoka'] font-black shadow-md transition-all ${
+                    isBoss
+                      ? "w-14 h-14 sm:w-16 sm:h-16 text-xl sm:text-2xl bg-gradient-to-b from-[#F58A29] to-[#C96812] text-white border-2 border-[#FDE68A] border-b-4 border-b-[#8C3B00] shadow-lg"
+                      : isCurrent
+                        ? "w-12 h-12 sm:w-14 sm:h-14 text-lg sm:text-xl bg-[#F58A29] text-white border-2 border-white border-b-4 border-b-[#C96812] ring-4 ring-[#F58A29]/30"
+                        : isUnlocked
+                          ? "w-11 h-11 sm:w-13 sm:h-13 text-base sm:text-lg bg-[#2F8F6B] text-white border-2 border-[#E8F5F0] border-b-4 border-b-[#1F664B]"
+                          : "w-10 h-10 sm:w-12 sm:h-12 text-sm sm:text-base bg-[#B8B2A6] text-[#716B61] border-2 border-[#FAF6EE] border-b-4 border-b-[#948E82]"
                   }`}
                 >
-                  {/* Brillo especular superior 3D */}
-                  <div className="absolute top-1 inset-x-2 h-3.5 bg-gradient-to-b from-white/60 to-transparent rounded-full pointer-events-none" />
-
                   {isUnlocked ? (
-                    <span
-                      className={`${isBoss ? "text-2xl sm:text-3xl font-extrabold" : "text-lg sm:text-xl font-black"} font-sans drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]`}
-                    >
-                      {lvl.level}
-                    </span>
+                    <span>{lvl.level}</span>
                   ) : (
-                    <Lock className="w-5 h-5 text-slate-300 drop-shadow" />
+                    <Lock className="w-4 h-4 text-[#716B61]" />
                   )}
-                </motion.button>
-
-                {/* Etiqueta inferior con el número de preguntas */}
-                <div
-                  className={`mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shadow-md whitespace-nowrap ${
-                    isUnlocked
-                      ? isBoss
-                        ? "bg-amber-950 border-amber-500 text-amber-200"
-                        : "bg-[var(--color-arcade-navy)] border-[var(--color-arcade-navy-light)] text-white"
-                      : "bg-slate-900/80 border-slate-700 text-slate-400"
-                  }`}
-                >
-                  {lvl.questions}{" "}
-                  {lvl.questions === 1 ? t('map.q_one') : t('map.q_many')}
-                </div>
+                </motion.div>
               </div>
             );
           })}
         </div>
-      </div>
+      </main>
 
-      {/* ── POP-UP / MODAL DE MISIÓN DE NIVEL AL HACER CLIC EN UN BOTÓN ── */}
+      {/* ── MODAL COZY AL TOCAR UN NODO DE NIVEL ── */}
       <AnimatePresence>
         {selectedLevelModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1E2F3A]/60 backdrop-blur-sm"
+            onClick={() => setSelectedLevelModal(null)}
+          >
             <motion.div
-              initial={{ opacity: 0, scale: 0.85, y: 20 }}
+              initial={{ opacity: 0, scale: 0.88, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.85, y: 20 }}
-              className="relative w-full max-w-sm rounded-arcade-lg bg-[var(--color-arcade-navy)] border-4 border-[var(--color-arcade-navy-dark)] p-6 text-white shadow-[0_16px_0_var(--color-arcade-ink),0_25px_40px_rgba(0,0,0,0.8)] flex flex-col items-center text-center overflow-hidden"
+              exit={{ opacity: 0, scale: 0.88, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-sm rounded-3xl bg-[#FAF6EE] border-2 border-[#E6DEC8] p-6 shadow-2xl flex flex-col items-center text-center text-[#1E2F3A]"
             >
-              {/* Glow decorativo */}
-              <div
-                className={`absolute -top-14 -right-14 w-36 h-36 ${selectedLevelModal.isBoss ? "bg-[var(--color-arcade-yellow)]/30" : "bg-[var(--color-arcade-orange)]/20"} rounded-full blur-2xl pointer-events-none`}
-              />
-
-              {/* Botón cerrar X */}
+              {/* Botón Cerrar */}
               <button
+                type="button"
                 onClick={() => setSelectedLevelModal(null)}
-                className="absolute top-3 right-3 p-1.5 rounded-arcade-sm bg-[var(--color-arcade-navy-dark)] hover:bg-[var(--color-arcade-navy-hover)] border border-[var(--color-arcade-navy-light)] text-slate-400 hover:text-white transition-colors cursor-pointer"
-                aria-label={t('map.close_detail')}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#F2EBD9] hover:bg-[#E6DEC8] text-[#1E2F3A] flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Cerrar modal de nivel"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              {/* Icono de Nivel / Jefe */}
+              {/* Icono / Distintivo */}
               <div
-                className={`w-16 h-16 rounded-arcade flex items-center justify-center text-white shadow-btn-arcade-lg mb-3 ${
+                className={`w-16 h-16 rounded-2xl flex items-center justify-center font-['Fredoka'] font-black text-2xl text-white shadow-md mb-3 ${
                   selectedLevelModal.isBoss
-                    ? "bg-gradient-to-b from-[var(--color-arcade-orange)] to-[var(--color-arcade-orange-shadow)] border-3 border-[var(--color-arcade-yellow)]"
-                    : "bg-gradient-to-b from-[var(--color-arcade-green)] to-[var(--color-arcade-green-shadow)] border-3 border-[var(--color-arcade-green-light)]"
+                    ? "bg-[#F58A29] border-b-4 border-[#C96812]"
+                    : "bg-[#2F8F6B] border-b-4 border-[#1F664B]"
                 }`}
               >
                 {selectedLevelModal.isBoss ? (
-                  <Crown className="w-9 h-9 fill-[var(--color-arcade-yellow)] text-white" />
+                  <Crown className="w-9 h-9 fill-[#F4B942]" />
                 ) : (
-                  <span className="text-3xl font-black">
-                    {selectedLevelModal.level}
-                  </span>
+                  <span>{selectedLevelModal.level}</span>
                 )}
               </div>
 
               {/* Título de Nivel */}
-              <div className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-widest mb-0.5">
-                {t('map.level_of', { level: selectedLevelModal.level, max: 20 })}
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#F58A29] font-['Fredoka'] mb-1">
+                Nivel {selectedLevelModal.level} de 20
               </div>
-              <h2 className="text-xl font-black text-white tracking-wide mb-2">
+              <h2 className="text-xl font-bold font-['Fredoka'] text-[#1E2F3A] mb-2">
                 {selectedLevelModal.name || levelName(selectedLevelModal, t)}
               </h2>
 
-              {/* Descripción pedagógica */}
-              <p className="text-xs text-slate-300 leading-relaxed mb-3 px-2">
+              {/* Descripción */}
+              <p className="text-xs text-[#526673] font-medium leading-relaxed mb-4 px-2">
                 {selectedLevelModal.desc || levelDesc(selectedLevelModal, t)}
               </p>
 
-              {/* Alerta de Cartas Trampa si aplica */}
+              {/* Alerta de Carta Trampa si aplica */}
               {selectedLevelModal.hasTraps && (
-                <div className="w-full py-1.5 px-3 rounded-arcade-sm bg-rose-950/80 border border-rose-500/60 text-rose-200 text-[10px] font-bold flex items-center justify-center gap-1.5 mb-3">
-                  <Skull className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-<span>{t('map.trap_alert', { count: selectedLevelModal.trapCount })}</span>
+                <div className="w-full py-1.5 px-3 rounded-full bg-[#EDE9FE] border border-[#D8D0F8] text-[#6D58D6] text-xs font-bold flex items-center justify-center gap-1.5 mb-3 font-['Fredoka']">
+                  <Skull className="w-4 h-4 text-[#8C7AE6]" />
+                  <span>Cuidado con las Cartas Trampa 💀</span>
                 </div>
               )}
 
-              {/* Alerta de Requisito de 2 Estrellas */}
-              <div className="w-full py-1 px-2.5 rounded-arcade-sm bg-amber-950/70 border border-amber-500/50 text-amber-300 text-[9.5px] font-bold flex items-center justify-center gap-1 mb-4">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-                <span>{t('map.need_stars')}</span>
-              </div>
-
-              {/* Estadísticas del Nivel */}
-              <div className="w-full grid grid-cols-2 gap-2 p-2.5 rounded-arcade bg-[var(--color-arcade-navy-dark)] border border-[var(--color-arcade-navy-light)] mb-5">
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-slate-400 font-bold uppercase">
-                    {t('map.questions')}
-                  </span>
-                  <span className="text-sm font-black text-[var(--color-arcade-yellow)]">
-                    {t('map.nodes_n', { count: selectedLevelModal.questions })}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] text-slate-400 font-bold uppercase">
-                    {t('map.max_score')}
-                  </span>
-                  <span className="text-sm font-black text-[var(--color-arcade-green)]">
-                    +{selectedLevelModal.questions * 10} pts
-                  </span>
-                </div>
-              </div>
-
-              {/* Botón Acción: JUGAR AHORA Y ENTRAR AL TABLERO */}
+              {/* Botón de acción: Jugar Nivel */}
               <button
+                type="button"
                 onClick={handleStartGame}
-                className="w-full py-3.5 rounded-arcade bg-[var(--color-arcade-orange)] hover:bg-[var(--color-arcade-orange-bright)] border-2 border-[var(--color-arcade-orange-light)] border-b-arcade-lg border-b-[var(--color-arcade-orange-shadow)] text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-btn-arcade-lg active:translate-y-1 active:shadow-none"
+                className="w-full btn-tactile-amber py-3.5 rounded-full text-base font-bold uppercase font-['Fredoka'] shadow-md mt-2 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {selectedLevelModal.isBoss ? (
-                  <Swords className="w-5 h-5 text-white" />
+                  <Swords className="w-5 h-5" />
                 ) : (
-                  <Play className="w-5 h-5 fill-white" />
+                  <Play className="w-5 h-5 fill-current" />
                 )}
-                <span>
-                  {selectedLevelModal.isBoss
-                    ? t('map.boss_fight')
-                    : t('map.play')}
-                </span>
+                <span>{selectedLevelModal.isBoss ? "Batalla Final" : "Comenzar Nivel"}</span>
               </button>
             </motion.div>
           </div>

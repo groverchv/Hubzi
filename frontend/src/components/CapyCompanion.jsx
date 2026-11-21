@@ -74,35 +74,17 @@ export default function CapyCompanion({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: -10 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className={`absolute -top-26 sm:-top-28 left-0 sm:left-2 w-64 sm:w-72 p-3 rounded-arcade border-2 shadow-2xl backdrop-blur-md z-50 text-left ${
-                capyMood === "encouraging" || isCapySad
-                  ? "bg-rose-950/98 border-rose-400 text-rose-100 shadow-[0_0_25px_rgba(244,63,94,0.45)]"
-                  : capyMood === "happy"
-                    ? "bg-emerald-950/98 border-emerald-400 text-emerald-100 shadow-[0_0_25px_rgba(52,211,153,0.45)]"
-                    : capyMood === "hint"
-                      ? "bg-[#101b2b]/98 border-amber-400 text-amber-100 shadow-[0_0_25px_rgba(251,191,36,0.45)]"
-                      : "bg-slate-900/98 border-cyan-400 text-slate-100 shadow-[0_0_25px_rgba(6,182,212,0.45)]"
-              }`}
+              className={`absolute -top-28 sm:-top-32 left-0 sm:left-2 w-64 sm:w-72 p-3.5 rounded-2xl border-2 shadow-xl z-50 text-left bg-[#FAF6EE] border-[#E6DEC8] text-[#1E2F3A]`}
             >
-              <div className="flex items-center justify-between border-b border-white/15 pb-1 mb-1.5">
+              <div className="flex items-center justify-between border-b border-[#E6DEC8] pb-1 mb-1.5">
                 <div className="flex items-center gap-1.5">
                   <span
-                    className={`text-[8.5px] font-mono font-black uppercase flex items-center gap-1 ${
-                      capySpeech.interim
-                        ? "text-rose-300"
-                        : capyMood === "encouraging" || isCapySad
-                        ? "text-rose-300"
-                        : capyMood === "happy"
-                          ? "text-emerald-300"
-                          : capyMood === "hint"
-                            ? "text-amber-300"
-                            : "text-cyan-300"
-                    }`}
+                    className="text-[9px] font-bold uppercase flex items-center gap-1 text-[#F58A29] font-['Fredoka']"
                   >
                     {capySpeech.interim ? (
-                      <Mic className="w-2.5 h-2.5 text-rose-400 animate-pulse" />
+                      <Mic className="w-2.5 h-2.5 text-rose-500 animate-pulse" />
                     ) : (
-                      <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />
+                      <Sparkles className="w-2.5 h-2.5 text-[#F58A29] animate-pulse" />
                     )}
                     <span>
                       {capySpeech.interim ? (
@@ -117,7 +99,6 @@ export default function CapyCompanion({
                               : capyMood === "encouraging"
                                 ? t('hubzi.says_cheer')
                                 : t('hubzi.says')}
-                          :
                         </>
                       )}
                     </span>
@@ -183,15 +164,7 @@ export default function CapyCompanion({
 
               {/* Flecha cómic del bocadillo */}
               <div
-                className={`absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 border-r-2 border-b-arcade-xs ${
-                  capyMood === "encouraging" || isCapySad
-                    ? "bg-rose-950 border-rose-400"
-                    : capyMood === "happy"
-                      ? "bg-emerald-950 border-emerald-400"
-                      : capyMood === "hint"
-                        ? "bg-[#101b2b] border-amber-400"
-                        : "bg-slate-900 border-cyan-400"
-                }`}
+                className="absolute -bottom-2 left-8 w-3.5 h-3.5 rotate-45 bg-[#FAF6EE] border-r-2 border-b-2 border-[#E6DEC8]"
               />
             </motion.div>
           )}
@@ -238,6 +211,7 @@ export default function CapyCompanion({
           )}
         </AnimatePresence>
 
+        <div className="card-cozy-cream p-3 sm:p-4 rounded-3xl bg-[#FAF6EE] border-2 border-[#E6DEC8] shadow-lg flex flex-col items-center">
         <motion.div
           animate={
             capyMood === "dancing"
@@ -726,40 +700,40 @@ export default function CapyCompanion({
               </span>
             </div>
 
-          {/* CONTROLES 2x2 — micrófono, voz, música y respiración */}
-          <div className="grid grid-cols-2 gap-2.5 place-items-center">
+          {/* CONTROLES 2x2 — micrófono, voz, música y chat */}
+          <div className="grid grid-cols-2 gap-2.5 place-items-center mt-1">
             {/* Botón Micrófono para hablar por voz con Hubzi */}
             <span className="relative inline-flex">
               <CoachMark id="mic" position="top">
                 {t('hubzi.coachmark_mic')}
               </CoachMark>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleMicrophone();
-              }}
-              className={`p-2.5 rounded-full border-2 transition-all duration-300 shadow-md cursor-pointer flex items-center justify-center ${
-                isListening
-                  ? "bg-rose-600 border-rose-400 text-white ring-4 ring-rose-400/60 animate-pulse shadow-[0_0_15px_#f43f5e]"
-                  : isThinkingHint
-                    ? "bg-amber-600 border-amber-400 text-white ring-4 ring-amber-400/60 animate-spin"
-                    : "bg-slate-900/90 border-cyan-400/70 hover:border-cyan-300 text-cyan-300 hover:scale-110 shadow-[0_0_10px_rgba(34,211,238,0.3)]"
-              }`}
-              title={
-                isListening
-                  ? t('hubzi.mic_stop')
-                  : t('hubzi.mic_talk')
-              }
-              aria-label={
-                isListening ? t('hubzi.mic_stop') : t('hubzi.mic_aria')
-              }
-            >
-              {isListening ? (
-                <MicOff className="w-5 h-5 text-white" />
-              ) : (
-                <Mic className="w-5 h-5 text-cyan-300" />
-              )}
-            </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleMicrophone();
+                }}
+                className={`w-10 h-10 rounded-full border-2 border-b-4 transition-all shadow-sm cursor-pointer flex items-center justify-center active:translate-y-1 ${
+                  isListening
+                    ? "bg-rose-500 border-rose-300 border-b-rose-700 text-white animate-pulse"
+                    : isThinkingHint
+                      ? "bg-amber-400 border-amber-200 border-b-amber-600 text-amber-950 animate-spin"
+                      : "bg-[#E0F7F6] border-[#A5F3FC] border-b-[#0891B2] text-[#0891B2] hover:scale-105"
+                }`}
+                title={
+                  isListening
+                    ? t('hubzi.mic_stop')
+                    : t('hubzi.mic_talk')
+                }
+                aria-label={
+                  isListening ? t('hubzi.mic_stop') : t('hubzi.mic_aria')
+                }
+              >
+                {isListening ? (
+                  <MicOff className="w-5 h-5 text-white" />
+                ) : (
+                  <Mic className="w-5 h-5 text-[#0891B2]" />
+                )}
+              </button>
             </span>
 
             {/* Botón Silenciar / Activar TODO el sonido (persistente) */}
@@ -768,7 +742,7 @@ export default function CapyCompanion({
                 e.stopPropagation();
                 onToggleMute(!isCapyMuted);
               }}
-              className="p-2.5 rounded-full bg-slate-900/90 border-2 border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-colors shadow-md cursor-pointer"
+              className="w-10 h-10 rounded-full bg-[#E0F2FE] border-2 border-[#BAE6FD] border-b-4 border-b-[#0369A1] text-[#0284C7] hover:scale-105 transition-all shadow-sm flex items-center justify-center cursor-pointer active:translate-y-1"
               title={
                 isCapyMuted
                   ? t('hubzi.sound_on')
@@ -779,9 +753,9 @@ export default function CapyCompanion({
               }
             >
               {isCapyMuted ? (
-                <VolumeX className="w-5 h-5 text-rose-400" />
+                <VolumeX className="w-5 h-5 text-rose-500" />
               ) : (
-                <Volume2 className="w-5 h-5 text-cyan-300" />
+                <Volume2 className="w-5 h-5 text-[#0284C7]" />
               )}
             </button>
 
@@ -792,10 +766,10 @@ export default function CapyCompanion({
                 e.stopPropagation();
                 hubziAmbient.toggle();
               }}
-              className={`p-2.5 rounded-full border-2 transition-all duration-300 shadow-md cursor-pointer ${
+              className={`w-10 h-10 rounded-full border-2 border-b-4 transition-all shadow-sm cursor-pointer flex items-center justify-center active:translate-y-1 ${
                 isAmbientPlaying
-                  ? "bg-purple-900/90 border-purple-400 text-purple-200 shadow-[0_0_12px_rgba(168,85,247,0.6)] ring-2 ring-purple-400/40"
-                  : "bg-slate-900/90 border-slate-700 hover:border-purple-400 text-slate-400 hover:text-purple-300"
+                  ? "bg-[#EDE9FE] border-[#DDD6FE] border-b-[#5B21B6] text-[#6D58D6] ring-2 ring-[#8C7AE6]/40"
+                  : "bg-[#EDE9FE] border-[#DDD6FE] border-b-[#7C3AED] text-[#6D58D6] hover:scale-105"
               }`}
               title={
                 isAmbientPlaying
@@ -804,27 +778,27 @@ export default function CapyCompanion({
               }
             >
               {isAmbientPlaying ? (
-                <Music2 className="w-5 h-5 text-purple-300 animate-pulse" />
+                <Music2 className="w-5 h-5 text-[#6D58D6] animate-pulse" />
               ) : (
-                <Music className="w-5 h-5" />
+                <Music className="w-5 h-5 text-[#6D58D6]" />
               )}
             </button>
 
-            {/* Botón CHAT — historial visible de la conversación (3.1) */}
+            {/* Botón CHAT — historial visible de la conversación */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleChat?.();
               }}
-              className={`p-2.5 rounded-full border-2 transition-all duration-300 shadow-md cursor-pointer ${
+              className={`w-10 h-10 rounded-full border-2 border-b-4 transition-all shadow-sm cursor-pointer flex items-center justify-center active:translate-y-1 ${
                 chatOpen
-                  ? "bg-cyan-900/90 border-cyan-400 text-cyan-200 ring-2 ring-cyan-400/40"
-                  : "bg-slate-900/90 border-slate-700 hover:border-cyan-400 text-slate-400 hover:text-cyan-300"
+                  ? "bg-[#E2E8F0] border-[#CBD5E1] border-b-[#64748B] text-[#1E293B]"
+                  : "bg-[#F1F5F9] border-[#E2E8F0] border-b-[#94A3B8] text-[#475569] hover:scale-105"
               }`}
               title={t('hubzi.chat_view')}
               aria-label={t('hubzi.chat_open')}
             >
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-5 h-5 text-[#475569]" />
             </button>
 
             {/* BOTÓN RESPIRA — acceso directo a la pausa Zen, junto a Hubzi,
@@ -864,6 +838,7 @@ export default function CapyCompanion({
                   : t('hubzi.st_idle')}
           </span>
         </motion.div>
+        </div>
       </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCcw,
@@ -14,6 +15,8 @@ import {
   EyeOff,
   Star,
   SkipForward,
+  Package,
+  Moon,
 } from "lucide-react";
 
 import QuestionModal from "../components/QuestionModal";
@@ -2343,9 +2346,7 @@ export default function ArcadeArena() {
 
   return (
     <div
-      className={`arena-stage relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none${
-        ""
-      }`}
+      className="arena-stage relative w-screen h-[100dvh] overflow-hidden flex flex-col justify-between select-none bg-gradient-to-b from-[#D8F0F2] via-[#EAF7F8] to-[#FAF6EE] text-[#1E2F3A]"
     >
       {/* 0. MODAL PRINCIPAL DE AUTENTICACIÓN (LOGIN Y REGISTRO CON CORREO Y CONTRASEÑA) */}
       <AuthModal
@@ -2559,9 +2560,36 @@ export default function ArcadeArena() {
         onClose={closeCardDetail}
       />
 
-      {/* ENTORNO 3D & ILUMINACIÓN ATMOSFÉRICA CARD CLASH */}
-      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-[700px] h-48 bg-radial from-white/40 via-sky-300/15 to-transparent blur-3xl pointer-events-none" />
-      <div className="absolute right-0 top-1/3 w-64 h-64 bg-radial from-amber-300/20 via-orange-400/10 to-transparent blur-3xl pointer-events-none" />
+      {/* ── PAISAJE GHIBLI ILUSTRADO DE FONDO (Cielo amanecer, nubes suaves y colinas) ── */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden flex flex-col justify-between">
+        {/* Nubes estilizadas en el cielo */}
+        <div className="relative w-full h-32">
+          <div className="absolute top-4 left-[8%] w-32 h-10 bg-white/60 rounded-full blur-[1px]" />
+          <div className="absolute top-2 left-[10%] w-16 h-16 bg-white/60 rounded-full blur-[1px]" />
+          <div className="absolute top-6 right-[12%] w-44 h-12 bg-white/60 rounded-full blur-[1px]" />
+          <div className="absolute top-3 right-[15%] w-20 h-20 bg-white/60 rounded-full blur-[1px]" />
+        </div>
+
+        {/* Colinas ilustradas suaves en la base */}
+        <div className="relative w-full h-36 sm:h-48 mt-auto opacity-70">
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-28 sm:h-36 text-[#A3D9A5]/35"
+            viewBox="0 0 1440 200"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,110 C320,40 640,150 1000,80 C1200,40 1360,100 1440,120 L1440,200 L0,200 Z" />
+          </svg>
+          <svg
+            className="absolute bottom-0 inset-x-0 w-full h-20 sm:h-28 text-[#78B38A]/40"
+            viewBox="0 0 1440 160"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M0,80 C220,120 480,30 760,90 C1040,150 1280,60 1440,90 L1440,160 L0,160 Z" />
+          </svg>
+        </div>
+      </div>
 
       {/* GUARDIÁN TÁCTICO 3D ZEN INTERACTIVO / SÓLO VISIBLE CUANDO EL TABLERO YA FUE GENERADO */}
       {Object.keys(nodes).length > 0 && (
@@ -2655,172 +2683,152 @@ export default function ArcadeArena() {
         )}
       </AnimatePresence>
 
-      {/* BARRA SUPERIOR CON CONTROLES LIMPIOS ESTILO CARD CLASH */}
-      <div className="absolute top-2.5 right-3 z-40 flex items-center gap-2">
-        {/* BOTÓN VOLVER AL MAPA DE NIVELES — solo con partida en curso */}
-        {Object.keys(nodes).length > 0 && (
-          <button
-            onClick={() => setIsMapVisible(true)}
-            className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-green)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-green active:translate-y-1 active:shadow-none cursor-pointer"
-            title={t('arena.map_title')}
-          >
-            <Compass className="w-4 h-4 text-[var(--color-arcade-green)]" />
-            <span className="hidden sm:inline">{t('arena.map_btn')}</span>
-          </button>
-        )}
-
-        {/* BOTÓN VOLVER AL MENÚ PRINCIPAL */}
-        <button
-          onClick={() => {
-            setIsFolderModalOpen(false);
-            setIsWelcomeScreenVisible(true);
-          }}
-          className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-[var(--color-arcade-yellow)] text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-arcade active:translate-y-1 active:shadow-none cursor-pointer"
-          title={t('arena.menu_title')}
-        >
-          <Home className="w-4 h-4 text-[var(--color-arcade-yellow)]" />
-          <span className="hidden sm:inline">{t('arena.menu_btn')}</span>
-        </button>
-
-        {/* ACCESIBILIDAD: alto contraste y texto grande */}
-        <A11yControls />
-
-        {/* BOTÓN CARPETAS / MATERIALES */}
-        <button
-          onClick={() => setIsFolderModalOpen(true)}
-          className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade border-b-[var(--color-arcade-ink)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-1.5 shadow-btn-arcade active:translate-y-1 active:shadow-none cursor-pointer"
-          title={t('arena.folders_title')}
-        >
-          <FolderIcon className="w-4 h-4 text-[var(--color-arcade-cyan)]" />
-          <span className="hidden lg:inline">{t('arena.folders_btn')}</span>
-        </button>
-
-        {/* BOTÓN REINICIAR — solo cuando hay una partida que reiniciar */}
-        {Object.keys(nodes).length > 0 && (
-          <button
-            onClick={handleRestartWithNewQuestions}
-            className="px-3.5 py-2 rounded-arcade bg-[var(--color-arcade-green)] hover:bg-[#3bb82b] border-2 border-[var(--color-arcade-green-light)] border-b-arcade border-b-[var(--color-arcade-green-shadow)] text-white text-xs font-black uppercase tracking-wide transition-all flex items-center gap-2 shadow-[0_4px_0_var(--color-arcade-navy)] active:translate-y-1 active:shadow-none cursor-pointer"
-            title={t('arena.restart_title')}
-          >
-            <RotateCcw className="w-4 h-4 text-white" />
-            <span className="hidden sm:inline font-black tracking-wide">
-              {t('arena.restart_btn')}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/* Marcadores de Nivel y Progreso — solo con partida en curso */}
-      {Object.keys(nodes).length > 0 && (
-      <div className="absolute left-4 top-3 z-30 flex items-center gap-2 sm:gap-2.5">
-        {/* Indicador de Nivel 1 a 20 */}
-        {(() => {
-          const lvlInfo =
-            GAME_LEVELS.find((l) => l.level === currentLevel) || GAME_LEVELS[0];
-          return (
-            <div
-              className="hud-chip flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-arcade shadow-hud"
-              title={t('arena.level_of', { level: currentLevel, max: 20, name: levelName(lvlInfo, t) })}
-            >
-              <Trophy className="w-4 h-4 text-[var(--color-arcade-yellow)] animate-bounce" />
-              <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider">
-                {t('arena.level_tag', { level: currentLevel, max: 20 })}
-              </span>
-              <span className="text-xs font-black text-white uppercase tracking-wide">
-                ({lvlInfo.questions})
-              </span>
-              {/* Estrellas ganadas en ESTE nivel (HUD de campaña, 3.5) */}
-              <span
-                className="flex items-center gap-0.5 ml-0.5"
-                title={t('arena.stars_here', { count: levelStars[currentLevel] || 0 })}
+      {/* ── BARRA SUPERIOR HUD "SANTUARIO CAPIBARA" (Fiel a la maqueta 3) ── */}
+      <header className="absolute top-0 inset-x-0 z-40 px-3 sm:px-6 pt-3 flex items-center justify-between pointer-events-auto gap-2">
+        {/* IZQUIERDA: Cápsula de Nivel + Estrellas + Progreso del Tablero */}
+        {Object.keys(nodes).length > 0 ? (
+          (() => {
+            const totalN = Object.keys(nodes).length || 3;
+            const doneN = Object.values(nodes).filter((n) =>
+              Boolean(n.placedCard),
+            ).length;
+            const pct = Math.min(100, Math.round((doneN / totalN) * 100));
+            return (
+              <div
+                className="flex items-center gap-2 sm:gap-3 bg-[#FAF6EE]/92 backdrop-blur-md border-2 border-[#E6DEC8] rounded-2xl px-3.5 py-1.5 shadow-[0_4px_12px_rgba(30,47,58,0.06)]"
+                title={t('arena.progress_t', { done: doneN, total: totalN, pct })}
               >
-                {[1, 2, 3].map((s) => (
-                  <Star
-                    key={s}
-                    className={`w-3 h-3 ${
-                      s <= (levelStars[currentLevel] || 0)
-                        ? "text-[var(--color-arcade-yellow)] fill-[var(--color-arcade-yellow)]"
-                        : "text-slate-600"
-                    }`}
-                  />
-                ))}
-              </span>
-            </div>
-          );
-        })()}
+                <div className="flex items-center gap-1.5 font-['Fredoka'] font-bold text-xs text-[#1E2F3A]">
+                  <Star className="w-4 h-4 text-[#F4B942] fill-[#F4B942]" />
+                  <span>Nivel {currentLevel} / 20</span>
+                </div>
 
-        {/* CARPETA ACTIVA + NIVEL — nombre de la carpeta y nivel en curso */}
-        {(activeFolder?.name || boardInfo?.theme) && (
-          <div
-            className="hud-chip flex items-center gap-1.5 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-arcade shadow-hud max-w-[280px]"
-            title={boardInfo?.title}
-          >
-            <FolderIcon className="w-3.5 h-3.5 text-[var(--color-arcade-cyan)] shrink-0" />
-            <span className="text-[10px] font-black uppercase text-white tracking-wider truncate">
-              {activeFolder?.name || boardInfo?.theme}
-            </span>
-            <span className="text-[10px] font-black uppercase text-[var(--color-arcade-yellow)] tracking-wider whitespace-nowrap">
-              · {t('arena.level_tag', { level: currentLevel, max: 20 })}
+                {/* Estrellas del nivel */}
+                <span className="flex items-center gap-0.5" title={t('arena.stars_here', { count: levelStars[currentLevel] || 0 })}>
+                  {[1, 2, 3].map((s) => (
+                    <Star
+                      key={s}
+                      className={`w-3 h-3 ${
+                        s <= (levelStars[currentLevel] || 0)
+                          ? "text-[#F4B942] fill-[#F4B942]"
+                          : "text-[#D8CEB6]"
+                      }`}
+                    />
+                  ))}
+                </span>
+
+                {/* Barra de progreso verde salvia */}
+                <div
+                  role="progressbar"
+                  aria-valuenow={doneN}
+                  aria-valuemin={0}
+                  aria-valuemax={totalN}
+                  aria-label={t('arena.progress_aria', { done: doneN, total: totalN })}
+                  className="w-16 sm:w-20 h-2.5 rounded-full bg-[#E6DEC8] overflow-hidden shadow-inner"
+                >
+                  <motion.div
+                    className="h-full rounded-full bg-[var(--cozy-sage)]"
+                    initial={false}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ type: "spring", stiffness: 160, damping: 22 }}
+                  />
+                </div>
+
+                <span className="font-['Fredoka'] font-bold text-xs text-[#526673] tabular-nums">
+                  {doneN}/{totalN}
+                </span>
+              </div>
+            );
+          })()
+        ) : (
+          <div />
+        )}
+
+        {/* CENTRO: HUBZI + Campaña: 20 Niveles + Respirar (Zen) */}
+        <div className="flex items-center gap-2">
+          <div className="bg-[#FAF6EE]/92 backdrop-blur-md border-2 border-[#E6DEC8] rounded-2xl px-4 py-1.5 shadow-[0_4px_12px_rgba(30,47,58,0.06)]">
+            <span className="font-['Fredoka'] font-black text-sm tracking-wide text-[#1E2F3A]">
+              HUBZI
             </span>
           </div>
-        )}
 
-        {/* SIGUIENTE NIVEL SIEMPRE VISIBLE (3.5): acceso directo al mapa
-            cuando ya está desbloqueado */}
-        {unlockedLevel > currentLevel && currentLevel < maxLevel && (
-          <button
-            onClick={() => setIsMapVisible(true)}
-            className="hud-chip flex items-center gap-1 bg-[var(--color-arcade-navy)] hover:bg-[var(--color-arcade-navy-hover)] border-2 border-[var(--color-arcade-green)]/70 border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3 py-1.5 rounded-arcade shadow-hud cursor-pointer transition-all"
-            title={t('arena.next_level', { level: currentLevel + 1 })}
-          >
-            <SkipForward className="w-3.5 h-3.5 text-[var(--color-arcade-green)]" />
-            <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
-              {t('arena.level_n', { level: currentLevel + 1 })}
+          <div className="hidden md:flex items-center bg-[#FAF6EE]/92 backdrop-blur-md border-2 border-[#E6DEC8] rounded-2xl px-3.5 py-1.5 shadow-[0_4px_12px_rgba(30,47,58,0.06)]">
+            <span className="font-['Fredoka'] font-bold text-xs text-[#526673]">
+              Campaña: 20 Niveles
             </span>
-          </button>
-        )}
+          </div>
 
-        {(() => {
-          const totalN = Object.keys(nodes).length || 3;
-          const doneN = Object.values(nodes).filter((n) =>
-            Boolean(n.placedCard),
-          ).length;
-          const pct = Math.min(100, Math.round((doneN / totalN) * 100));
-          return (
-            <div
-              className="hud-chip flex items-center gap-2 bg-[var(--color-arcade-navy)] border-2 border-[var(--color-arcade-navy-light)] border-b-arcade-sm border-b-[var(--color-arcade-navy-dark)] px-3.5 py-1.5 rounded-arcade shadow-hud"
-              title={t('arena.progress_t', { done: doneN, total: totalN, pct })}
+          {/* Botón Zen (EXCLUSIVO Lavanda) */}
+          <button
+            onClick={() => {
+              setWellbeing((w) => ({ ...w, stage: 2 }));
+              setIsRelaxModalOpen(true);
+            }}
+            className="btn-tactile-zen px-3.5 py-1.5 rounded-2xl text-xs font-['Fredoka'] font-extrabold flex items-center gap-1.5 shadow-[0_4px_12px_rgba(140,122,230,0.18)]"
+            title="Pausa activa de respiración y calma mental"
+          >
+            <Moon className="w-3.5 h-3.5" />
+            <span>Respirar (Zen)</span>
+          </button>
+        </div>
+
+        {/* DERECHA: MAPA, BAÚLES, CARPETAS, ACCESIBILIDAD, REINICIAR */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {Object.keys(nodes).length > 0 && (
+            <button
+              onClick={() => setIsMapVisible(true)}
+              className="btn-tactile-cream px-3 py-1.5 rounded-2xl text-xs font-['Fredoka'] font-bold text-[#1E2F3A] flex items-center gap-1.5 shadow-sm"
+              title={t('arena.map_title')}
             >
-              <span className="text-[10px] font-black uppercase text-[var(--color-arcade-green)] tracking-wider">
-                {t('arena.progress')}
-              </span>
-              {/* BARRA DE PROGRESO DEL NIVEL — fill animado + ARIA */}
-              <div
-                role="progressbar"
-                aria-valuenow={doneN}
-                aria-valuemin={0}
-                aria-valuemax={totalN}
-                aria-label={t('arena.progress_aria', { done: doneN, total: totalN })}
-                className="relative w-20 sm:w-24 h-3 rounded-full bg-[var(--color-arcade-ink)] border border-[var(--color-arcade-navy-light)] overflow-hidden shadow-inner"
-              >
-                <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-[var(--color-arcade-green)] to-emerald-300"
-                  initial={false}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ type: "spring", stiffness: 160, damping: 22 }}
-                />
-                {pct >= 100 && (
-                  <span className="absolute inset-0 rounded-full bg-emerald-300/40 animate-pulse" />
-                )}
-              </div>
-              <span className="text-sm font-black text-white tabular-nums">
-                {doneN}/{totalN}
-              </span>
-            </div>
-          );
-        })()}
-      </div>
-      )}
+              <Compass className="w-3.5 h-3.5 text-[var(--cozy-sage)]" />
+              <span className="hidden sm:inline">{t('arena.map_btn')}</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setIsFolderModalOpen(true)}
+            className="btn-tactile-cream px-3 py-1.5 rounded-2xl text-xs font-['Fredoka'] font-bold text-[#1E2F3A] flex items-center gap-1.5 shadow-sm"
+            title={t('arena.folders_title')}
+          >
+            <Package className="w-3.5 h-3.5 text-[var(--cozy-amber)]" />
+            <span className="hidden sm:inline">BAÚLES</span>
+          </button>
+
+          <button
+            onClick={() => setIsFolderModalOpen(true)}
+            className="hidden lg:flex items-center gap-1.5 btn-tactile-cream px-3 py-1.5 rounded-2xl text-xs font-['Fredoka'] font-bold text-[#1E2F3A] shadow-sm"
+            title={t('arena.folders_title')}
+          >
+            <FolderIcon className="w-3.5 h-3.5 text-[#526673]" />
+            <span>{t('arena.folders_btn')}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setIsFolderModalOpen(false);
+              setIsWelcomeScreenVisible(true);
+            }}
+            className="btn-tactile-cream p-2 rounded-2xl text-[#1E2F3A] shadow-sm"
+            title={t('arena.menu_title')}
+          >
+            <Home className="w-3.5 h-3.5 text-[#526673]" />
+          </button>
+
+          {/* Accesibilidad para personas con baja visión / alto contraste */}
+          <A11yControls />
+
+          {Object.keys(nodes).length > 0 && (
+            <button
+              onClick={handleRestartWithNewQuestions}
+              className="btn-tactile-sage px-3 py-1.5 rounded-2xl text-xs font-['Fredoka'] font-bold text-white flex items-center gap-1.5 shadow-sm"
+              title={t('arena.restart_title')}
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-white" />
+              <span className="hidden sm:inline">{t('arena.restart_btn')}</span>
+            </button>
+          )}
+        </div>
+      </header>
 
       {/* CARTA VOLADORA EN VIVO (MOVIMIENTO EN TIEMPO REAL AL JUGAR LA MÁQUINA O EL RIVAL) */}
       <AnimatePresence>
