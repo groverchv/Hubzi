@@ -76,7 +76,7 @@ export default function DashboardPage() {
       <header className="relative z-30 flex items-center justify-between px-6 sm:px-10 py-5">
         <Link to="/" className="flex items-center gap-2">
           <img src={capyEscolar} alt="Hubzi" className="w-9 h-9 rounded-arcade-sm border-2 border-[var(--color-arcade-navy)] object-cover" />
-          <span className="text-xl font-black uppercase text-[var(--color-arcade-navy)]">Hubzy</span>
+          <span className="text-xl font-black uppercase text-[var(--color-arcade-navy)]">Hubzi</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link to="/zen" className="rounded-arcade bg-white/70 px-4 py-2 text-xs font-black uppercase text-[var(--color-arcade-navy)] hover:bg-white">
@@ -223,7 +223,7 @@ export default function DashboardPage() {
           <p className="mt-1 text-xs font-semibold text-slate-500">
             {t(
               "dashboard.export_desc",
-              "Descarga toda la información que Hubzy guarda de ti: perfil, carpetas, documentos y progreso de habilidades.",
+              "Descarga toda la información que Hubzi guarda de ti: perfil, carpetas, documentos y progreso de habilidades.",
             )}
           </p>
           {/* Step-up: la exportación exige la contraseña — quien robe una

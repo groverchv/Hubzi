@@ -1,4 +1,4 @@
-// Catálogo oficial de avatares y mascotas profesionales de Hubzy
+// Catálogo oficial de avatares y mascotas profesionales de Hubzi
 import capyMedicaF from '../assets/mascots/capy_medica_f.webp';
 import capyMedicoM from '../assets/mascots/capy_medico_m.webp';
 import capyEnfermeraF from '../assets/mascots/capy_enfermera_f.webp';

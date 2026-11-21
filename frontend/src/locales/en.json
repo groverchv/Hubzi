@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Hubzy",
+    "name": "Hubzi",
     "tagline": "Study by playing, breathe while learning"
   },
   "nav": {
@@ -14,7 +14,7 @@
   },
   "landing": {
     "hero_title": "Your notes become a game",
-    "hero_subtitle": "Hubzy turns your documents into learning arenas with Hubzi, your capybara companion who also keeps you calm before exams.",
+    "hero_subtitle": "Hubzi turns your documents into learning arenas with Hubzi, your capybara companion who also keeps you calm before exams.",
     "cta_start": "Start for free",
     "cta_demo": "See how it works",
     "feature_1_title": "Upload your notes",
@@ -23,7 +23,7 @@
     "feature_2_desc": "20-level circuits, trap cards and battles that turn studying into a challenge.",
     "feature_3_title": "Hubzi keeps you calm",
     "feature_3_desc": "Breathing techniques and CBT-based emotional support when anxiety kicks in.",
-    "disclaimer": "Hubzy is not a mental health service. If you're in crisis, please seek professional help.",
+    "disclaimer": "Hubzi is not a mental health service. If you're in crisis, please seek professional help.",
     "cta_pro": "Pro Account"
   },
   "dashboard": {
@@ -78,9 +78,9 @@
     "age_min": "5 years",
     "age_mid": "17 years",
     "age_max": "30 years",
-    "consent": "I am the parent or legal guardian of this minor and I consent to them using Hubzy under supervision.",
+    "consent": "I am the parent or legal guardian of this minor and I consent to them using Hubzi under supervision.",
     "processing": "Processing...",
-    "btn_login": "Log in to Hubzy",
+    "btn_login": "Log in to Hubzi",
     "btn_recover": "Send Recovery Link",
     "btn_register": "Create Account and Start",
     "privacy_note": "Your documents and folders are 100% private and independent",
@@ -123,7 +123,7 @@
     "close": "Close"
   },
   "school": {
-    "title": "Hubzy for Schools",
+    "title": "Hubzi for Schools",
     "panel_title": "Dashboard — {{grade}}",
     "role_admin": "Role: Administrator",
     "role_teacher": "Role: Teacher",
@@ -195,7 +195,7 @@
     "close_dialog": "Close school panel"
   },
   "arena": {
-    "pay_success": "Payment confirmed on Stripe! Welcome to Hubzy Pro",
+    "pay_success": "Payment confirmed on Stripe! Welcome to Hubzi Pro",
     "pay_cancel": "Payment cancelled on Stripe.",
     "school_pay_ok": "School license activated! Your school can now enroll students.",
     "school_pay_pending": "Payment registered — the license will activate automatically once confirmed.",
@@ -234,7 +234,7 @@
     "level_cached": "Level {{level}} ready instantly (previous analysis in memory).",
     "level_ready": "Level {{level}}: {{name}} ({{count}} questions) ready.",
     "gen_invalid": "The analysis did not return valid items.",
-    "gen_offline": "No connection to the Hubzy server. Check your internet — meanwhile you can practice with the local demo.",
+    "gen_offline": "No connection to the Hubzi server. Check your internet — meanwhile you can practice with the local demo.",
     "gen_error": "Error connecting to the analysis server.",
     "board_reset": "Board restarted: try this same exam again.",
     "select_trunk": "Select a folder in the trunk to start the game.",
@@ -293,7 +293,7 @@
     "trap_reveal_t": "It was a trap card!",
     "trap_reveal_b": "It didn't match \"{{node}}\" — this statement contradicts the topic content. It fades from the deck.",
     "hint_prefix": "Here's a hint: {{hint}}",
-    "pro_active": "Your account now has Hubzy Pro access!",
+    "pro_active": "Your account now has Hubzi Pro access!",
     "folder_default": "Folder",
     "world_default": "Learning World",
     "theme_default": "Study Topic",
@@ -319,10 +319,10 @@
     "says_cheer": "CHEERS YOU ON",
     "local_voice": "Hubzi Local Voice",
     "give_hint": "Give me a hint",
-    "zen_banner": "Hubzy • Study Break",
+    "zen_banner": "Hubzi • Study Break",
     "zen_distort": "Don't worry about that detail! Reviewing mistakes is the best way to lock in the concept.",
     "zen_default": "Great study pace! Shall we take a 30-second break to clear the mind and come back stronger?",
-    "zen_cta": "Pause and Breathe with Hubzy",
+    "zen_cta": "Pause and Breathe with Hubzi",
     "close": "Close",
     "boss_hp": "BOSS HUBZI HP",
     "click_hint": "Click on Hubzi! She'll give you a super useful hint 💙",
@@ -347,7 +347,7 @@
     "chat_view": "View conversation with Hubzi",
     "chat_open": "Open chat with Hubzi",
     "breathe": "Breathe",
-    "breathe_t": "Breathe with Hubzy — 30-second anti-stress pause",
+    "breathe_t": "Breathe with Hubzi — 30-second anti-stress pause",
     "st_listening": "Hubzi is listening...",
     "st_think_warm": "Hubzi thinking...",
     "st_alert": "Hubzi is with you 💙",
@@ -441,7 +441,7 @@
     "trial_days_other": "Free trial · {{count}} days",
     "trial_t": "Time left on your free trial",
     "trial_t2": "Days left on your free trial",
-    "install_t": "Install Hubzy on your device (PWA)",
+    "install_t": "Install Hubzi on your device (PWA)",
     "installed": "Installed",
     "install": "Install",
     "help_t": "Help / Rules",
@@ -449,7 +449,7 @@
     "tagline": "Turn any PDF or note into a study battle",
     "legal_t": "View Terms & Conditions, Policies and Legal",
     "legal_btn": "TERMS & LEGAL",
-    "tut_t": "Watch Hubzy Tutorial",
+    "tut_t": "Watch Hubzi Tutorial",
     "tut_btn": "PLAY TUTORIAL",
     "continue": "CONTINUE",
     "account_req": "Account Required",
@@ -468,8 +468,8 @@
     "confirming": "CONFIRMING...",
     "install_app": "INSTALL APP",
     "close": "Close",
-    "already_inst": "Hubzy is already installed on your device!",
-    "inst_ok": "Hubzy installed successfully on your device!",
+    "already_inst": "Hubzi is already installed on your device!",
+    "inst_ok": "Hubzi installed successfully on your device!",
     "inst_check": "Check your browser's address bar to confirm",
     "pro_days": "Pro Plan · {{time}}",
     "school_plan": "School Plan"
@@ -496,7 +496,7 @@
     "retry": "Retry",
     "close": "Close",
     "cancel": "Cancel",
-    "offline": "No connection to the Hubzy server. Check your internet and try again in a few minutes."
+    "offline": "No connection to the Hubzi server. Check your internet and try again in a few minutes."
   },
   "modals": {
     "close": "Close",
@@ -630,7 +630,7 @@
       "f2": "Full access to the 5 difficulty Levels in the Arena",
       "f3": "Interactive voice and empathic psychology with Hubzi AI, no pauses",
       "f4": "No question limits per mock exam and no waiting queues",
-      "already": "Your account is already Hubzy Pro!",
+      "already": "Your account is already Hubzi Pro!",
       "connecting": "Connecting to Stripe...",
       "pay_btn": "Activate Pro Plan with Stripe ($2.99 USD)",
       "secure_note": "Processed 100% safely and encrypted by Stripe Checkout. Cancel anytime.",
@@ -659,21 +659,21 @@
     "voice_vol_d": "Mascot voice volume"
   },
   "cookies": {
-    "title": "Your Privacy on Hubzy",
+    "title": "Your Privacy on Hubzi",
     "body": "We use essential storage and technical cookies to remember your games, sound and avatar. We never sell your data to third parties.",
     "accept": "Accept and Continue",
     "policies": "View Policies"
   },
   "rotate": {
     "title": "Rotate your phone",
-    "better": "Hubzy plays better in landscape.",
+    "better": "Hubzi plays better in landscape.",
     "ios_hint": "Share → «Add to Home Screen» and it will open in landscape automatically",
     "activating": "Activating…",
     "activate": "Switch to landscape"
   },
   "legal": {
     "title": "Legal & Transparency Center",
-    "subtitle": "Hubzy (SynapseHub) · Regulatory Compliance and Protection",
+    "subtitle": "Hubzi (SynapseHub) · Regulatory Compliance and Protection",
     "close": "Close",
     "tab_terms": "Terms",
     "tab_privacy": "Privacy",
@@ -681,11 +681,11 @@
     "tab_cookies": "Cookies",
     "tab_business": "Business Data",
     "t_title": "Terms and Conditions of Use",
-    "t_sub": "Last updated: October 2026. By using Hubzy, you accept the following terms:",
+    "t_sub": "Last updated: October 2026. By using Hubzi, you accept the following terms:",
     "t1_h": "1. Purpose of the Service",
-    "t1_p": "Hubzy is a gamification and micro-learning web environment for students. It turns notes and documents into interactive circuits of questions and concept cards to reinforce knowledge in a friendly, stress-free way.",
+    "t1_p": "Hubzi is a gamification and micro-learning web environment for students. It turns notes and documents into interactive circuits of questions and concept cards to reinforce knowledge in a friendly, stress-free way.",
     "t2_h": "2. Intellectual Property of your Documents",
-    "t2_p": "Your notes, slides and texts remain 100% yours. Hubzy does not sell, commercialize or claim copyright over the academic material you upload to your personal account.",
+    "t2_p": "Your notes, slides and texts remain 100% yours. Hubzi does not sell, commercialize or claim copyright over the academic material you upload to your personal account.",
     "t3_h": "3. Responsible Use",
     "t3_p": "The user agrees not to upload illegal content, malicious software or protected material they are not authorized to use for personal study purposes.",
     "p_title": "Privacy Policy and Data Protection",
@@ -720,7 +720,7 @@
     "b_gateway": "Payment Gateway:",
     "b_jurisdiction": "Jurisdiction:",
     "b_jurisdiction_p": "E-commerce and consumer protection standards.",
-    "footer": "Hubzy © {{year}} · All rights reserved.",
+    "footer": "Hubzi © {{year}} · All rights reserved.",
     "ok": "Got it"
   },
   "folders": {
@@ -841,7 +841,7 @@
   },
   "profile": {
     "edit": "Edit my Study Profile",
-    "welcome": "Welcome to Hubzy!",
+    "welcome": "Welcome to Hubzi!",
     "name_ph": "e.g. Carlos, Valeria, Alex...",
     "male": "Male",
     "female": "Female",

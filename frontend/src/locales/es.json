@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Hubzy",
+    "name": "Hubzi",
     "tagline": "Estudia jugando, respira aprendiendo"
   },
   "nav": {
@@ -14,7 +14,7 @@
   },
   "landing": {
     "hero_title": "Tus apuntes se convierten en un juego",
-    "hero_subtitle": "Hubzy transforma tus documentos en arenas de aprendizaje con Hubzi, tu compañera capibara que también cuida tu calma antes de los exámenes.",
+    "hero_subtitle": "Hubzi transforma tus documentos en arenas de aprendizaje con Hubzi, tu compañera capibara que también cuida tu calma antes de los exámenes.",
     "cta_start": "Empezar gratis",
     "cta_demo": "Ver cómo funciona",
     "feature_1_title": "Sube tus apuntes",
@@ -23,7 +23,7 @@
     "feature_2_desc": "Circuitos de 20 niveles, cartas trampa y batallas que convierten estudiar en un reto.",
     "feature_3_title": "Hubzi cuida tu calma",
     "feature_3_desc": "Técnicas de respiración y apoyo emocional con base en TCC cuando la ansiedad aprieta.",
-    "disclaimer": "Hubzy no es un servicio de salud mental. Si estás en crisis, busca ayuda profesional.",
+    "disclaimer": "Hubzi no es un servicio de salud mental. Si estás en crisis, busca ayuda profesional.",
     "cta_pro": "Cuenta Pro"
   },
   "dashboard": {
@@ -78,7 +78,7 @@
     "age_min": "5 años",
     "age_mid": "17 años",
     "age_max": "30 años",
-    "consent": "Soy el padre, madre o tutor legal de este menor y doy mi consentimiento para que use Hubzy de forma supervisada.",
+    "consent": "Soy el padre, madre o tutor legal de este menor y doy mi consentimiento para que use Hubzi de forma supervisada.",
     "processing": "Procesando...",
     "btn_login": "Iniciar Sesión en Hubzi",
     "btn_recover": "Enviar Enlace de Recuperación",
@@ -123,7 +123,7 @@
     "close": "Cerrar"
   },
   "school": {
-    "title": "Hubzy para Colegios",
+    "title": "Hubzi para Colegios",
     "panel_title": "Panel — {{grade}}",
     "role_admin": "Rol: Administrador",
     "role_teacher": "Rol: Docente",
@@ -195,7 +195,7 @@
     "close_dialog": "Cerrar panel de colegio"
   },
   "arena": {
-    "pay_success": "¡Pago confirmado en Stripe! Bienvenido a Hubzy Pro",
+    "pay_success": "¡Pago confirmado en Stripe! Bienvenido a Hubzi Pro",
     "pay_cancel": "Pago cancelado en Stripe.",
     "school_pay_ok": "¡Licencia escolar activada! Tu colegio ya puede matricular estudiantes.",
     "school_pay_pending": "Pago registrado — la licencia se activará automáticamente al confirmarse.",
@@ -234,7 +234,7 @@
     "level_cached": "Nivel {{level}} listo al instante (análisis previo en memoria).",
     "level_ready": "Nivel {{level}}: {{name}} ({{count}} preguntas) listo.",
     "gen_invalid": "El análisis no devolvió reactivos válidos.",
-    "gen_offline": "Sin conexión con el servidor de Hubzy. Revisa tu internet — mientras tanto puedes practicar con la demo local.",
+    "gen_offline": "Sin conexión con el servidor de Hubzi. Revisa tu internet — mientras tanto puedes practicar con la demo local.",
     "gen_error": "Error al conectarse con el servidor de análisis.",
     "board_reset": "Tablero reiniciado: Vuelve a intentar este mismo examen.",
     "select_trunk": "Selecciona una carpeta en el baúl para iniciar el juego.",
@@ -293,7 +293,7 @@
     "trap_reveal_t": "¡Era una carta trampa!",
     "trap_reveal_b": "No correspondía a \"{{node}}\" — esta afirmación contradice el contenido del tema. Se desvanece del mazo.",
     "hint_prefix": "Te doy una pista: {{hint}}",
-    "pro_active": "¡Tu cuenta ahora tiene acceso a Hubzy Pro!",
+    "pro_active": "¡Tu cuenta ahora tiene acceso a Hubzi Pro!",
     "folder_default": "Carpeta",
     "world_default": "Mundo de Aprendizaje",
     "theme_default": "Tema de Estudio",
@@ -311,7 +311,7 @@
     "says_cheer": "TE ANIMA",
     "local_voice": "Voz Hubzi Local",
     "give_hint": "Dame una pista",
-    "zen_banner": "Hubzy • Pausa de Estudio",
+    "zen_banner": "Hubzi • Pausa de Estudio",
     "zen_distort": "¡No te preocupes por ese detalle! Repasar los errores es la mejor forma de fijar el concepto.",
     "zen_default": "¡Buen ritmo de estudio! ¿Hacemos 30 segundos de pausa para despejar la mente y volver con todo?",
     "zen_cta": "Pausar y Respirar con Hubzi",
@@ -433,7 +433,7 @@
     "trial_days_other": "Prueba gratis · {{count}} días",
     "trial_t": "Tiempo restante de tu prueba gratis",
     "trial_t2": "Días restantes de tu prueba gratis",
-    "install_t": "Instalar Hubzy en tu dispositivo (PWA)",
+    "install_t": "Instalar Hubzi en tu dispositivo (PWA)",
     "installed": "Instalada",
     "install": "Instalar",
     "help_t": "Ayuda / Reglas",
@@ -441,7 +441,7 @@
     "tagline": "Convierte cualquier PDF o apunte en una batalla de estudio",
     "legal_t": "Ver Términos y Condiciones, Políticas y Legal",
     "legal_btn": "TÉRMINOS & LEGAL",
-    "tut_t": "Ver Tutorial de Hubzy",
+    "tut_t": "Ver Tutorial de Hubzi",
     "tut_btn": "PLAY TUTORIAL",
     "continue": "CONTINUAR",
     "account_req": "Cuenta Requerida",
@@ -460,8 +460,8 @@
     "confirming": "CONFIRMANDO...",
     "install_app": "INSTALAR APLICACIÓN",
     "close": "Cerrar",
-    "already_inst": "¡Hubzy ya está instalada en tu dispositivo!",
-    "inst_ok": "¡Hubzy instalada con éxito en tu equipo!",
+    "already_inst": "¡Hubzi ya está instalada en tu dispositivo!",
+    "inst_ok": "¡Hubzi instalada con éxito en tu equipo!",
     "inst_check": "Revisa la barra de direcciones de tu navegador para confirmar",
     "pro_days": "Plan Pro · {{time}}",
     "school_plan": "Plan Escuela"
@@ -488,7 +488,7 @@
     "retry": "Reintentar",
     "close": "Cerrar",
     "cancel": "Cancelar",
-    "offline": "Sin conexión con el servidor de Hubzy. Revisa tu internet e inténtalo de nuevo en unos minutos."
+    "offline": "Sin conexión con el servidor de Hubzi. Revisa tu internet e inténtalo de nuevo en unos minutos."
   },
   "modals": {
     "close": "Cerrar",
@@ -622,7 +622,7 @@
       "f2": "Acceso completo a los 5 Niveles de dificultad en la Arena",
       "f3": "Voz interactiva y psicología empática sin pausas con Hubzi IA",
       "f4": "Sin límites de preguntas por simulacro ni colas de espera",
-      "already": "¡Tu cuenta ya es Hubzy Pro!",
+      "already": "¡Tu cuenta ya es Hubzi Pro!",
       "connecting": "Conectando con Stripe...",
       "pay_btn": "Activar Plan Pro con Stripe ($2.99 USD)",
       "secure_note": "Procesado de forma 100% segura y encriptada por Stripe Checkout. Cancela en cualquier momento.",
@@ -651,21 +651,21 @@
     "voice_vol_d": "Volumen de la mascota"
   },
   "cookies": {
-    "title": "Tu Privacidad en Hubzy",
+    "title": "Tu Privacidad en Hubzi",
     "body": "Usamos almacenamiento esencial y cookies técnicas para recordar tus partidas, sonido y avatar. No vendemos tus datos a terceros.",
     "accept": "Aceptar y Continuar",
     "policies": "Ver Políticas"
   },
   "rotate": {
     "title": "Gira tu teléfono",
-    "better": "Hubzy se juega mejor en horizontal.",
+    "better": "Hubzi se juega mejor en horizontal.",
     "ios_hint": "Compartir → «Añadir a pantalla de inicio» y se abrirá en horizontal automáticamente",
     "activating": "Activando…",
     "activate": "Poner en horizontal"
   },
   "legal": {
     "title": "Centro Legal y Transparencia",
-    "subtitle": "Hubzy (SynapseHub) · Cumplimiento Normativo y Protección",
+    "subtitle": "Hubzi (SynapseHub) · Cumplimiento Normativo y Protección",
     "close": "Cerrar",
     "tab_terms": "Términos",
     "tab_privacy": "Privacidad",
@@ -673,11 +673,11 @@
     "tab_cookies": "Cookies",
     "tab_business": "Datos Empresa",
     "t_title": "Términos y Condiciones de Uso",
-    "t_sub": "Última actualización: Octubre 2026. Al usar Hubzy, aceptas los siguientes términos:",
+    "t_sub": "Última actualización: Octubre 2026. Al usar Hubzi, aceptas los siguientes términos:",
     "t1_h": "1. Objeto del Servicio",
-    "t1_p": "Hubzy es un entorno web de gamificación y microaprendizaje para estudiantes. Transforma apuntes y documentos en circuitos interactivos de preguntas y cartas conceptuales para afianzar el conocimiento de forma amigable y sin estrés.",
+    "t1_p": "Hubzi es un entorno web de gamificación y microaprendizaje para estudiantes. Transforma apuntes y documentos en circuitos interactivos de preguntas y cartas conceptuales para afianzar el conocimiento de forma amigable y sin estrés.",
     "t2_h": "2. Propiedad Intelectual de tus Documentos",
-    "t2_p": "Tus apuntes, diapositivas y textos siguen siendo 100% de tu propiedad. Hubzy no vende, no comercializa ni reclama derechos de autor sobre el material académico que subes a tu cuenta personal.",
+    "t2_p": "Tus apuntes, diapositivas y textos siguen siendo 100% de tu propiedad. Hubzi no vende, no comercializa ni reclama derechos de autor sobre el material académico que subes a tu cuenta personal.",
     "t3_h": "3. Uso Responsable",
     "t3_p": "El usuario se compromete a no subir contenido ilícito, programas maliciosos ni material protegido que no tenga autorización de utilizar con fines de estudio personal.",
     "p_title": "Política de Privacidad y Protección de Datos",
@@ -712,7 +712,7 @@
     "b_gateway": "Pasarela de Pagos:",
     "b_jurisdiction": "Jurisdicción:",
     "b_jurisdiction_p": "Estándares de comercio electrónico y protección al consumidor.",
-    "footer": "Hubzy © {{year}} · Todos los derechos reservados.",
+    "footer": "Hubzi © {{year}} · Todos los derechos reservados.",
     "ok": "Entendido"
   },
   "folders": {
@@ -833,7 +833,7 @@
   },
   "profile": {
     "edit": "Editar mi Perfil de Estudio",
-    "welcome": "¡Bienvenido a Hubzy!",
+    "welcome": "¡Bienvenido a Hubzi!",
     "name_ph": "Ej. Carlos, Valeria, Alex...",
     "male": "Hombre",
     "female": "Mujer",

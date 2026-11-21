@@ -715,12 +715,12 @@ export default function CapyCompanion({
                 ) : isCapySpeaking ? (
                   <>
                     <MessageCircle className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />{" "}
-                    HUBZY
+                    HUBZI
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-2.5 h-2.5 text-amber-400 animate-pulse" />{" "}
-                    HUBZY
+                    HUBZI
                   </>
                 )}
               </span>

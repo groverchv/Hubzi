@@ -202,7 +202,7 @@ export default function SecuritySettings({ user }) {
           <span className="text-xs font-semibold text-slate-600 leading-snug">
             {t(
               "dashboard.ai_consent",
-              "Permitir que mis materiales mejoren la IA de Hubzy (opcional — si lo desactivas, tus aportes previos se eliminan del dataset).",
+              "Permitir que mis materiales mejoren la IA de Hubzi (opcional — si lo desactivas, tus aportes previos se eliminan del dataset).",
             )}
           </span>
         </label>

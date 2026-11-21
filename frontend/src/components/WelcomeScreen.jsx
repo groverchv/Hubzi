@@ -280,7 +280,7 @@ export default function WelcomeScreen({
 
           {/* Letras 3D Grandes */}
           <div className="relative">
-            {/* Texto "HUBZY" */}
+            {/* Texto "HUBZI" */}
             <h1
               className="text-6xl sm:text-7xl md:text-8xl font-black uppercase tracking-wider text-[var(--color-arcade-yellow)] leading-none drop-shadow-[0_8px_0_var(--color-arcade-yellow-shadow)]"
               style={{
@@ -288,7 +288,7 @@ export default function WelcomeScreen({
                 textShadow: '0 8px 0 var(--color-arcade-navy), 0 16px 25px rgba(0,0,0,0.5)'
               }}
             >
-              HUBZY
+              HUBZI
             </h1>
           </div>
 

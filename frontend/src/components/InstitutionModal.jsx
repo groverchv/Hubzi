@@ -365,7 +365,7 @@ export default function InstitutionModal({ isOpen, onClose }) {
       <h1>${esc(r.institution.name)} — Reporte de aprendizaje</h1>
       <h2>Estudiante: <b>${esc(r.student.username)}</b> · Grado: ${esc(r.grade.name)} · Generado: ${new Date(r.generated_at).toLocaleDateString("es-ES")}</h2>
       <table><tr style="background:#f1f5f9"><td>Materia</td><td>Islas / temas</td><td>Progreso general</td></tr>${rows}</table>
-      <p class="foot">Hubzy Escuelas — métricas pedagógicas de juego (niveles, estrellas, XP). Sin contenido emocional ni conversaciones.</p>
+      <p class="foot">Hubzi Escuelas — métricas pedagógicas de juego (niveles, estrellas, XP). Sin contenido emocional ni conversaciones.</p>
       </body></html>`);
     win.document.close();
     win.focus();

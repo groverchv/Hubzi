@@ -345,7 +345,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
-                  Hubzy Pro
+                  Hubzi Pro
                   <Crown className="w-5 h-5 text-[var(--color-arcade-yellow)] fill-current" />
                 </h3>
                 <p className="text-[10px] font-bold text-slate-300 mt-0.5">Potencia total para aprobar exámenes exigentes sin estrés.</p>
@@ -410,7 +410,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
-                  Hubzy Escuelas
+                  Hubzi Escuelas
                   <School className="w-5 h-5 text-emerald-300" />
                 </h3>
                 <p className="text-[10px] font-bold text-emerald-100/80 mt-0.5">
@@ -478,7 +478,7 @@ export default function LandingPage() {
             Política de Privacidad
           </Link>
           <span>·</span>
-          <span>© 2026 Hubzy — SynapseHub</span>
+          <span>© 2026 Hubzi — SynapseHub</span>
         </div>
       </footer>
 

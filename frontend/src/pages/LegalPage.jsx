@@ -14,7 +14,7 @@ const CONTENT = {
     sections: [
       {
         h: '1. El servicio',
-        p: 'Hubzy es una plataforma educativa que convierte materiales de estudio (documentos, apuntes, textos) en experiencias de aprendizaje interactivas. El servicio está dirigido a estudiantes de 5 a 30 años y se ofrece "tal cual", en evolución continua.',
+        p: 'Hubzi es una plataforma educativa que convierte materiales de estudio (documentos, apuntes, textos) en experiencias de aprendizaje interactivas. El servicio está dirigido a estudiantes de 5 a 30 años y se ofrece "tal cual", en evolución continua.',
       },
       {
         h: '2. Cuentas de menores',
@@ -34,7 +34,7 @@ const CONTENT = {
       },
       {
         h: '6. Limitación de responsabilidad',
-        p: 'Hubzy es una herramienta de apoyo al estudio, no un sustituto de la enseñanza formal ni de atención psicológica profesional. Los contenidos generados por IA pueden contener errores; verifica siempre con tus fuentes oficiales.',
+        p: 'Hubzi es una herramienta de apoyo al estudio, no un sustituto de la enseñanza formal ni de atención psicológica profesional. Los contenidos generados por IA pueden contener errores; verifica siempre con tus fuentes oficiales.',
       },
     ],
   },

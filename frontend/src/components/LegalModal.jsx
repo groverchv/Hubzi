@@ -184,7 +184,7 @@ export default function LegalModal({ isOpen, onClose, initialTab = 'terms' }) {
               </div>
               
               <div className="p-3.5 rounded-arcade-sm bg-[var(--color-arcade-navy-deep)] border border-slate-800/90 space-y-1.5 text-[11.5px]">
-                <p><strong className="text-white">{t('legal.b_platform')}</strong> Hubzy (Proyecto SynapseHub)</p>
+                <p><strong className="text-white">{t('legal.b_platform')}</strong> Hubzi (Proyecto SynapseHub)</p>
                 <p><strong className="text-white">{t('legal.b_operator')}</strong> Grover Choquevillca & Equipo SynapseHub</p>
                 <p><strong className="text-white">{t('legal.b_support')}</strong> contacto@hubzy.app</p>
                 <p><strong className="text-white">{t('legal.b_gateway')}</strong> Stripe Payments Inc. (Certificación PCI-DSS Nivel 1)</p>
