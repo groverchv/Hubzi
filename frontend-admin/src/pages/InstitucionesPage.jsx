@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Eye, Ban, PlayCircle, Trash2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { Button, Input, Modal, Table, Badge, ErrorBox } from "../components/ui";
 
@@ -49,6 +49,26 @@ export default function InstitucionesPage() {
     finally { setLoading(false); }
   };
 
+  const setInstStatus = async (r, newStatus) => {
+    if (!confirm(`¿${newStatus === "suspended" ? "Suspender" : "Reactivar"} "${r.name}"?`)) return;
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/admin/institutions/${r.id}`, { method: "PATCH", body: { status: newStatus } });
+      load();
+    } catch (e) { setError(e.message); }
+  };
+
+  const deleteInst = async (r) => {
+    if (!confirm(`¿ELIMINAR "${r.name}"? Borra grados, materias y matrículas (las cuentas quedan desvinculadas). Escribe el nombre para confirmar:`)) return;
+    const confirmText = prompt(`Escribe "${r.name}" para confirmar:`);
+    if (confirmText !== r.name) { setError("Nombre incorrecto — no se eliminó."); return; }
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/admin/institutions/${r.id}`, { method: "DELETE" });
+      load();
+    } catch (e) { setError(e.message); }
+  };
+
   const page = Math.floor(skip / PAGE_SIZE) + 1;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const subStatus = (r) => r.subscription?.status || "sin licencia";
@@ -84,6 +104,15 @@ export default function InstitucionesPage() {
           { key: "subjects_count", label: "Materias" },
           { key: "seats", label: "Seats", render: (r) => r.subscription?.seats ?? "—" },
           { key: "teacher_code", label: "PROF", render: (r) => <code className="text-xs">{r.teacher_code}</code> },
+          { key: "x", label: "Acciones", render: (r) => (
+            <div className="flex gap-1 justify-end">
+              <Button size="sm" variant="ghost" title="Ver detalle" onClick={() => navigate(`/instituciones/${r.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
+              {subStatus(r) === "suspended"
+                ? <Button size="sm" variant="ghost" title="Reactivar" onClick={() => setInstStatus(r, "active")}><PlayCircle className="w-3.5 h-3.5 text-emerald-600" /></Button>
+                : <Button size="sm" variant="ghost" title="Suspender" onClick={() => setInstStatus(r, "suspended")}><Ban className="w-3.5 h-3.5 text-amber-600" /></Button>}
+              <Button size="sm" variant="ghost" title="Eliminar" onClick={() => deleteInst(r)}><Trash2 className="w-3.5 h-3.5 text-rose-500" /></Button>
+            </div>
+          )},
         ]}
         rows={rows}
       />

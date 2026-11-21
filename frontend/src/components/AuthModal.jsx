@@ -22,12 +22,16 @@ import { useTranslation } from 'react-i18next';
 
 export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   const { t } = useTranslation();
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot' | 'mfa'
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot' | 'mfa' | 'school'
   
   // Estados de formulario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  // Login escolar: colegio + credencial HUB- (alumnos sin correo)
+  const [insts, setInsts] = useState([]);
+  const [instId, setInstId] = useState('');
+  const [credential, setCredential] = useState('');
   const [gender, setGender] = useState('masculino');
   const [age, setAge] = useState('14');
   const [parentalConsent, setParentalConsent] = useState(false);
@@ -79,12 +83,60 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     setMode(newMode);
     setErrorMsg(null);
     setSuccessMsg(null);
+    if (newMode === 'school' && insts.length === 0) {
+      fetchWithAuth('/api/v1/institutions/directory')
+        .then((r) => r.json())
+        .then((d) => setInsts(d.institutions || []))
+        .catch(() => setErrorMsg(t('auth.err_network')));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    // Login escolar: institución + credencial HUB- (identifica y autentica).
+    if (mode === 'school') {
+      if (!instId || credential.trim().length < 4) {
+        setErrorMsg(t('auth.err_school_cred', 'Elige tu colegio y escribe tu credencial.'));
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const res = await fetchWithAuth('/api/v1/auth/school-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ institution_id: instId, credential: credential.trim(), captcha_token: captchaToken || undefined })
+        });
+        const data = await res.json();
+        if (res.status === 403 && data.detail === 'captcha_required') {
+          setCaptchaNeeded(true);
+          setErrorMsg(t('auth.err_captcha', 'Demasiados intentos. Completa la verificación.'));
+          setIsLoading(false);
+          return;
+        }
+        if (res.ok && data.mfa_required) {
+          setMfaToken(data.mfa_token);
+          setMode('mfa');
+          setIsLoading(false);
+          return;
+        }
+        if (res.ok && data.user) {
+          setSuccessMsg(t('auth.welcome_back'));
+          useAuthStore.getState().setSession({ user: data.user });
+          setTimeout(() => onAuthSuccess(data.user), 500);
+        } else {
+          setErrorMsg(data.detail || t('auth.err_generic'));
+        }
+      } catch (err) {
+        console.warn("Error en login escolar:", err);
+        setErrorMsg(t('auth.err_network'));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     // Challenge MFA: canjea el código TOTP (o backup code) por la sesión.
     if (mode === 'mfa') {
@@ -277,18 +329,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide mt-0.5 drop-shadow">
-              {t(mode === 'login' ? 'auth.login' : mode === 'register' ? 'auth.register' : 'auth.recover')}
+              {t(mode === 'login' ? 'auth.login' : mode === 'register' ? 'auth.register' : mode === 'school' ? 'auth.school_title' : 'auth.recover', mode === 'school' ? 'Mi colegio' : undefined)}
             </h2>
           </div>
         </div>
 
         {/* Selector de Pestañas (Login / Registro estilo Card Clash) */}
         {mode !== 'forgot' && mode !== 'mfa' && (
-        <div className="grid grid-cols-2 p-1.5 rounded-arcade bg-[var(--color-arcade-navy-dark)] border-3 border-[var(--color-arcade-navy-light)] mb-5">
+        <div className="grid grid-cols-3 p-1.5 rounded-arcade bg-[var(--color-arcade-navy-dark)] border-3 border-[var(--color-arcade-navy-light)] mb-5">
           <button
             type="button"
             onClick={() => handleToggleMode('login')}
-            className={`py-2.5 rounded-arcade-sm text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`py-2.5 rounded-arcade-sm text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               mode === 'login'
                 ? 'bg-[var(--color-arcade-orange)] text-white border-b-arcade-sm border-[var(--color-arcade-orange-shadow)] shadow-btn-arcade-sm'
                 : 'text-slate-400 hover:text-white'
@@ -300,7 +352,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <button
             type="button"
             onClick={() => handleToggleMode('register')}
-            className={`py-2.5 rounded-arcade-sm text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`py-2.5 rounded-arcade-sm text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               mode === 'register'
                 ? 'bg-[var(--color-arcade-green)] text-white border-b-arcade-sm border-[var(--color-arcade-green-shadow)] shadow-btn-arcade-sm'
                 : 'text-slate-400 hover:text-white'
@@ -308,6 +360,18 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           >
             <UserPlus className="w-4 h-4" />
             <span>{t('auth.tab_register')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleToggleMode('school')}
+            className={`py-2.5 rounded-arcade-sm text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              mode === 'school'
+                ? 'bg-[var(--color-arcade-yellow)] text-[var(--color-arcade-navy-dark)] border-b-arcade-sm border-[var(--color-arcade-orange-shadow)] shadow-btn-arcade-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>{t('auth.tab_school', 'Colegio')}</span>
           </button>
         </div>
         )}
@@ -374,8 +438,47 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             </div>
           )}
 
+          {/* Campos login escolar: colegio + credencial HUB- */}
+          {mode === 'school' && (
+            <>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-yellow-400" />
+                  <span>{t('auth.school_label', 'Mi colegio')}</span>
+                </label>
+                <select
+                  required
+                  value={instId}
+                  onChange={(e) => setInstId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-arcade-sm bg-slate-900/90 border border-slate-700 focus:border-yellow-400 focus:outline-none text-white text-xs font-medium transition-colors"
+                >
+                  <option value="">{t('auth.school_ph', '— elige tu colegio —')}</option>
+                  {insts.map((i) => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{t('auth.credential_label', 'Credencial')}</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoComplete="off"
+                  value={credential}
+                  onChange={(e) => setCredential(e.target.value)}
+                  placeholder="HUB-XXXXXXXX"
+                  className="w-full px-3.5 py-2.5 rounded-arcade-sm bg-slate-900/90 border border-slate-700 focus:border-amber-400 focus:outline-none text-white text-xs font-mono font-bold tracking-widest placeholder:text-slate-500 transition-colors"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">{t('auth.credential_hint', 'Es el código HUB- que te dio tu colegio.')}</p>
+              </div>
+            </>
+          )}
+
           {/* Campo Correo Electrónico */}
-          {mode !== 'mfa' && (
+          {mode !== 'mfa' && mode !== 'school' && (
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-cyan-400" />
@@ -392,8 +495,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           </div>
           )}
 
-          {/* Campo Contraseña con Toggle de Ojo (oculto en modo forgot/mfa) */}
-          {mode !== 'forgot' && mode !== 'mfa' && (
+          {/* Campo Contraseña con Toggle de Ojo (oculto en modo forgot/mfa/school) */}
+          {mode !== 'forgot' && mode !== 'mfa' && mode !== 'school' && (
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -435,10 +538,10 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           )}
 
           {/* Widget Turnstile (solo cuando el backend exige captcha) */}
-          {captchaNeeded && TURNSTILE_SITE_KEY && mode === 'login' && (
+          {captchaNeeded && TURNSTILE_SITE_KEY && (mode === 'login' || mode === 'school') && (
             <div ref={turnstileRef} className="flex justify-center py-1" />
           )}
-          {captchaNeeded && !TURNSTILE_SITE_KEY && mode === 'login' && (
+          {captchaNeeded && !TURNSTILE_SITE_KEY && (mode === 'login' || mode === 'school') && (
             <p className="text-[11px] font-bold text-amber-300 text-center">
               {t('auth.err_captcha', 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.')}
             </p>
@@ -590,6 +693,11 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                 <>
                   <Mail className="w-4 h-4 text-white" />
                   <span>{t('auth.btn_recover')}</span>
+                </>
+              ) : mode === 'school' ? (
+                <>
+                  <GraduationCap className="w-4 h-4 text-white" />
+                  <span>{t('auth.btn_school', 'Entrar al colegio')}</span>
                 </>
               ) : (
                 <>

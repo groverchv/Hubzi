@@ -522,8 +522,10 @@ def test_csrf_guard_blocks_mutating_request_without_header():
 
 
 def test_must_change_password_blocks_api_until_changed(client, monkeypatch):
-    """Cuenta escolar con contraseña temporal: TODA la API le responde 403
-    salvo /me, /logout y /change-password — la vía forzada de cambio."""
+    """La valla de must_change_password sigue activa como mecanismo genérico
+    (cuenta marcada manualmente): TODA la API le responde 403 salvo /me,
+    /logout y /change-password. Las cuentas school_managed ya no se marcan
+    (entran por credencial HUB-) — por eso este caso no lo es."""
     from app.core.database import db_manager
     from app.core.security import hash_password
     from app.core.session_store import in_memory_auth_users
@@ -543,7 +545,7 @@ def test_must_change_password_blocks_api_until_changed(client, monkeypatch):
         "age": 12,
         "age_band": "adventurer",
         "plan": "school",
-        "school_managed": True,
+        "school_managed": False,
         "must_change_password": True,
         "created_at": "2026-01-01T00:00:00",
     }

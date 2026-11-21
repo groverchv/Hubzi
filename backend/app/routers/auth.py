@@ -355,7 +355,12 @@ async def _finish_login(
 
     await reset_login_failures(user_id, email)
     await reset_attempt_failures(email)
-    await _update_user(user_id, email, {"last_login_at": utcnow_iso()})
+    login_updates = {"last_login_at": utcnow_iso()}
+    # Las cuentas escolares se autentican por credencial HUB-: el cambio de
+    # contraseña temporal forzado no aplica — se limpia al entrar.
+    if user_data.get("school_managed") and user_data.get("must_change_password"):
+        login_updates["must_change_password"] = False
+    await _update_user(user_id, email, login_updates)
 
     # Migración transparente: si el hash es sha256 legado, re-hashear con bcrypt
     if is_legacy_password_hash(stored_hash):

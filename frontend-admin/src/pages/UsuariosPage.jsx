@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, Ban, CheckCircle, Trash2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { Button, Input, Select, Table, Badge, ErrorBox, fmtDate } from "../components/ui";
 
@@ -28,6 +29,25 @@ export default function UsuariosPage() {
       .catch((e) => setError(e.message));
   }, [skip, q, role, plan]);
   useEffect(load, [load]);
+
+  const toggleDisabled = async (u) => {
+    if (!confirm(`¿${u.disabled ? "Habilitar" : "Deshabilitar"} a ${u.email}?`)) return;
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/admin/users/${u.id}`, { method: "PATCH", body: { disabled: !u.disabled } });
+      load();
+    } catch (e) { setError(e.message); }
+  };
+
+  const deleteUser = async (u) => {
+    const confirmText = prompt(`ELIMINACIÓN GDPR de ${u.email} — borra su cuenta y todos sus datos. Escribe el email para confirmar:`);
+    if (confirmText !== u.email) { if (confirmText !== null) setError("Email incorrecto — no se eliminó."); return; }
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/admin/users/${u.id}`, { method: "DELETE" });
+      load();
+    } catch (e) { setError(e.message); }
+  };
 
   const page = Math.floor(skip / PAGE_SIZE) + 1;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -60,6 +80,15 @@ export default function UsuariosPage() {
           { key: "disabled", label: "Estado", render: (u) => u.disabled ? <Badge tone="red">deshabilitado</Badge> : <Badge tone="green">activo</Badge> },
           { key: "mfa_enabled", label: "MFA", render: (u) => u.mfa_enabled ? "✓" : "—" },
           { key: "created_at", label: "Registro", render: (u) => fmtDate(u.created_at) },
+          { key: "x", label: "Acciones", render: (u) => (
+            <div className="flex gap-1 justify-end">
+              <Button size="sm" variant="ghost" title="Ver detalle" onClick={() => navigate(`/usuarios/${u.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
+              {u.disabled
+                ? <Button size="sm" variant="ghost" title="Habilitar" onClick={() => toggleDisabled(u)}><CheckCircle className="w-3.5 h-3.5 text-emerald-600" /></Button>
+                : <Button size="sm" variant="ghost" title="Deshabilitar" onClick={() => toggleDisabled(u)}><Ban className="w-3.5 h-3.5 text-amber-600" /></Button>}
+              <Button size="sm" variant="ghost" title="Eliminar (GDPR)" onClick={() => deleteUser(u)}><Trash2 className="w-3.5 h-3.5 text-rose-500" /></Button>
+            </div>
+          )},
         ]}
         rows={rows}
       />

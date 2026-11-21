@@ -347,8 +347,8 @@ def test_bulk_enroll_creates_working_credentials(client):
     assert cred["email"].endswith("@hubzy.school")
     assert cred["password"]
 
-    # La cuenta generada puede iniciar sesión — pero llega con contraseña
-    # temporal (must_change_password): la API la bloquea hasta cambiarla.
+    # La cuenta generada puede iniciar sesión y opera de inmediato: con el
+    # login por credencial HUB- el cambio de contraseña forzado ya no aplica.
     res = client.post(
         "/api/v1/auth/login",
         json={"email": cred["email"], "password": cred["password"]},
@@ -356,23 +356,10 @@ def test_bulk_enroll_creates_working_credentials(client):
     assert res.status_code == 200, res.text
     token = res.json()["token"]
     h_new = {"Authorization": f"Bearer {token}"}
-    assert res.json()["user"]["must_change_password"] is True
+    assert res.json()["user"]["must_change_password"] is False
 
     res = client.get("/api/v1/folders", headers=h_new)
-    assert res.status_code == 403
-    assert res.json()["detail"] == "password_change_required"
-
-    # Tras el cambio obligatorio ya opera normal y ve la materia del grado
-    res = client.post(
-        "/api/v1/auth/change-password",
-        json={"current_password": cred["password"], "new_password": "clave_nueva_9"},
-        headers=h_new,
-    )
-    assert res.status_code == 200, res.text
-    token = res.json()["token"]
-    h_new = {"Authorization": f"Bearer {token}"}
-
-    res = client.get("/api/v1/folders", headers=h_new)
+    assert res.status_code == 200
     ids = [f["id"] for f in res.json()["folders"]]
     assert folder["id"] in ids
 
@@ -600,7 +587,7 @@ def test_enroll_single_and_student_management(client):
     assert len(students) == 1
     sid = students[0]["id"]
 
-    # Reset de contraseña → nueva temporal + debe cambiarla
+    # Reset de contraseña → nueva temporal (sin cambio forzado: entran por credencial)
     res = client.post(
         f"/api/v1/institutions/grades/{grade['id']}/students/{sid}/reset-password",
         headers=h_admin,
@@ -611,7 +598,7 @@ def test_enroll_single_and_student_management(client):
         "/api/v1/auth/login", json={"email": cred["email"], "password": new_pw}
     )
     assert res.status_code == 200
-    assert res.json()["user"]["must_change_password"] is True
+    assert res.json()["user"]["must_change_password"] is False
 
     # Desmatricular
     res = client.delete(

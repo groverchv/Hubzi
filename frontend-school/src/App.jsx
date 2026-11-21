@@ -15,6 +15,12 @@ import DocentesPage from "./pages/DocentesPage";
 import LicenciaPage from "./pages/LicenciaPage";
 import AjustesPage from "./pages/AjustesPage";
 
+/** Rutas solo para director/admin — un docente cae a su panel. */
+function AdminOnly({ children }) {
+  const role = useSchoolStore((s) => s.role) || useAuthStore.getState().user?.role;
+  return role === "admin" ? children : <Navigate to="/panel" replace />;
+}
+
 export default function App() {
   const user = useAuthStore((s) => s.user);
   const refreshUser = useAuthStore((s) => s.refreshUser);
@@ -68,9 +74,10 @@ export default function App() {
             <Route path="/panel" element={<PanelPage />} />
             <Route path="/grados" element={<GradosPage />} />
             <Route path="/grados/:gradeId" element={<GradeDetailPage />} />
-            <Route path="/docentes" element={<DocentesPage />} />
-            <Route path="/licencia" element={<LicenciaPage />} />
-            <Route path="/ajustes" element={<AjustesPage />} />
+            {/* Solo director/admin */}
+            <Route path="/docentes" element={<AdminOnly><DocentesPage /></AdminOnly>} />
+            <Route path="/licencia" element={<AdminOnly><LicenciaPage /></AdminOnly>} />
+            <Route path="/ajustes" element={<AdminOnly><AjustesPage /></AdminOnly>} />
             <Route path="*" element={<Navigate to="/panel" replace />} />
           </Route>
         )}

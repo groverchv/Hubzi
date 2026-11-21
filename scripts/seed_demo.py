@@ -100,7 +100,8 @@ def code(prefix: str) -> str:
 async def clean_test_data(db):
     """Elimina usuarios/instituciones de pytest y datos huérfanos."""
     deleted_users = await db["users"].find(
-        {"email": {"$regex": "^(pytest_|alumno\\.)", "$options": "i"}}, {"_id": 1, "id": 1}
+        {"email": {"$regex": "^(pytest_|alumno\\.|director\\.|docente|.*@hubzy\\.school$)", "$options": "i"}},
+        {"_id": 1, "id": 1},
     ).to_list(None)
     uids = {str(u.get("id") or u["_id"]) for u in deleted_users}
     keep = await db["users"].find(
@@ -209,7 +210,8 @@ async def seed_schools(db):
                 folder_docs.append({
                     "_id": f_oid, "id": folder_id, "name": subject, "subject": subject,
                     "description": f"Materia de {subject} — {grade_name}",
-                    "user_id": teacher["id"], "institution_id": inst_id,
+                    "user_id": teacher["id"], "teacher_ids": [teacher["id"]],
+                    "institution_id": inst_id,
                     "grade_id": grade_id, "is_school_folder": True,
                     "islands": island_defs, "documents": [],
                     "created_at": (NOW - timedelta(days=random.randint(20, 90))).isoformat(),

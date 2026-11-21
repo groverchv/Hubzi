@@ -31,6 +31,7 @@ from app.core.session_store import (
 )
 from app.routers.institutions import (
     _doc_query,
+    _ensure_school_credential,
     _gen_code,
     _get_institution,
     _get_user,
@@ -78,6 +79,7 @@ def _admin_user(u: dict) -> dict:
         "mfa_enabled": bool(u.get("mfa_enabled")),
         "disabled": bool(u.get("disabled")),
         "must_change_password": bool(u.get("must_change_password")),
+        "school_credential": u.get("school_credential"),
         "created_at": u.get("created_at"),
     }
 
@@ -305,16 +307,20 @@ async def admin_get_institution(request: Request, inst_id: str):
     for g in grades:
         students |= set(g.get("student_ids") or [])
         grade_rows.append(_serialize_grade(g))
+    async def _member(uid: str) -> dict | None:
+        u = await _get_user(uid)
+        if not u:
+            return None
+        row = _admin_user(u)
+        row["school_credential"] = await _ensure_school_credential(u)
+        return row
+
     return {
         "institution": _serialize_inst(inst),
         "grades": grade_rows,
         "members": {
-            "admins": [
-                _admin_user(u) for u in [await _get_user(a) for a in inst.get("admin_ids") or []] if u
-            ],
-            "teachers": [
-                _admin_user(u) for u in [await _get_user(t) for t in inst.get("teacher_ids") or []] if u
-            ],
+            "admins": [m for m in [await _member(a) for a in inst.get("admin_ids") or []] if m],
+            "teachers": [m for m in [await _member(t) for t in inst.get("teacher_ids") or []] if m],
             "students_count": len(students),
         },
     }

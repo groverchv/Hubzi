@@ -1,22 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { School, KeyRound, Shield } from "lucide-react";
+import { School, Shield } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useSchoolStore } from "../store/schoolStore";
 import { useAuthStore } from "../store/authStore";
-import { Button, Input, Select, ErrorBox } from "../components/ui";
+import { Button, Select, ErrorBox } from "../components/ui";
 
 /**
  * El usuario autenticado aún no pertenece a una institución.
- * - Director: crea su institución.
- * - Docente: se une con código PROF-XXXXX.
  * - Superadmin: selecciona una institución existente y se vincula como admin
  *   (soporte/impersonación — usa el endpoint admin de la plataforma).
+ * - Resto: mensaje de contacto — las instituciones las crea/vincula el
+ *   administrador de la plataforma, no se auto-registran.
  */
 export default function OnboardingPage() {
   const user = useAuthStore((s) => s.user);
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
   const [insts, setInsts] = useState([]);
   const [instId, setInstId] = useState("");
   const [error, setError] = useState(null);
@@ -32,36 +30,6 @@ export default function OnboardingPage() {
       .then((d) => setInsts(d.institutions || []))
       .catch(() => {});
   }, [isSuperadmin]);
-
-  const create = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await apiFetch("/api/v1/institutions", { method: "POST", body: { name } });
-      await refresh();
-      navigate("/panel");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const join = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      await apiFetch("/api/v1/institutions/join", { method: "POST", body: { code } });
-      await refresh();
-      navigate("/panel");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const claim = async (e) => {
     e.preventDefault();
@@ -118,40 +86,11 @@ export default function OnboardingPage() {
             </Button>
           </form>
         ) : (
-          <>
-            <form onSubmit={create} className="space-y-3 pb-5 border-b border-slate-200">
-              <h2 className="text-sm font-semibold text-slate-700">
-                Soy director/a — crear mi institución
-              </h2>
-              <Input
-                label="Nombre del colegio"
-                placeholder="Colegio San Andrés"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-              <Button type="submit" loading={loading} className="w-full">
-                Crear institución
-              </Button>
-            </form>
-
-            <form onSubmit={join} className="space-y-3 pt-5">
-              <h2 className="text-sm font-semibold text-slate-700">
-                <KeyRound className="w-4 h-4 inline mr-1" />
-                Soy docente — tengo un código
-              </h2>
-              <Input
-                label="Código de docente (PROF-XXXXX)"
-                placeholder="PROF-AB1C2"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-              />
-              <Button type="submit" variant="secondary" loading={loading} className="w-full">
-                Unirme como docente
-              </Button>
-            </form>
-          </>
+          <p className="text-sm text-slate-600">
+            Tu cuenta aún no está vinculada a una institución. Pide al
+            administrador de la plataforma que te añada a tu colegio — o
+            entra con tu credencial si ya la tienes.
+          </p>
         )}
 
         <div className="mt-6 pt-4 border-t border-slate-200 text-center">

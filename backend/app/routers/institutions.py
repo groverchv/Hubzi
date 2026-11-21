@@ -540,6 +540,27 @@ async def my_institution(current_user: dict | None = Depends(get_optional_user))
     if role == "student":
         mine = set(current_user.get("grade_ids") or [])
         grades = [g for g in grades if (g.get("id") or str(g.get("_id"))) in mine]
+    elif role == "teacher":
+        uid = _uid(current_user)
+        own = [g for g in grades if uid in (g.get("teacher_ids") or [])]
+        # + grados donde tiene alguna materia asignada aunque no sea docente
+        # oficial del grado (el admin puede asignarle materias sueltas).
+        extra_ids = set()
+        for g in grades:
+            if uid in (g.get("teacher_ids") or []):
+                continue
+            for fid in g.get("folder_ids") or []:
+                f = None
+                if db_manager.db is not None:
+                    f = await db_manager.db["study_folders"].find_one(
+                        _doc_query(fid), {"teacher_ids": 1}
+                    )
+                else:
+                    f = in_memory_study_folders.get(fid)
+                if f and uid in [str(t) for t in (f.get("teacher_ids") or [])]:
+                    extra_ids.add(g.get("id") or str(g.get("_id")))
+                    break
+        grades = own + [g for g in grades if (g.get("id") or str(g.get("_id"))) in extra_ids]
     return {
         "institution": _serialize_inst(inst, for_student=role == "student"),
         "grades": [_serialize_grade(g, for_student=role == "student") for g in grades],
@@ -692,6 +713,7 @@ async def create_grade_folder(
         "name": name,
         "description": payload.description.strip(),
         "user_id": _uid(current_user),  # el docente es dueño
+        "teacher_ids": [_uid(current_user)],  # asignada al creador; el admin reasigna
         "institution_id": inst["id"],
         "grade_id": grade_id,
         "subject": name,
@@ -1036,7 +1058,7 @@ async def _create_managed_student(
         "school_managed": True,
         "school_credential": _gen_credential(),
         "email_verified": True,
-        "must_change_password": True,
+        "must_change_password": False,
         "created_at": utcnow_iso(),
     }
     if db_manager.db is not None:
@@ -1256,7 +1278,7 @@ async def create_teacher(
         "school_managed": True,
         "school_credential": _gen_credential(),
         "email_verified": True,
-        "must_change_password": True,
+        "must_change_password": False,
         "created_at": utcnow_iso(),
     }
     if db_manager.db is not None:
@@ -1591,6 +1613,9 @@ async def list_grade_folders(
     if not inst or not _can_teach(current_user, inst, grade):
         raise HTTPException(status_code=403, detail="Solo staff del grado.")
 
+    uid = _uid(current_user)
+    is_admin = _can_manage(current_user, inst)
+
     out = []
     for fid in grade.get("folder_ids") or []:
         f = None
@@ -1602,7 +1627,21 @@ async def list_grade_folders(
             f = in_memory_study_folders.get(fid)
         if not f:
             continue
+        # Docente: solo ve las materias asignadas a él (teacher_ids). Las
+        # carpetas antiguas sin el campo quedan asignadas a su creador.
+        assigned = (
+            [str(t) for t in f["teacher_ids"]]
+            if "teacher_ids" in f
+            else ([str(f.get("user_id"))] if f.get("user_id") else [])
+        )
+        if not is_admin and uid not in assigned:
+            continue
         owner = await _get_user(str(f.get("user_id") or ""))
+        teacher_names = []
+        for tid in assigned:
+            tu = await _get_user(str(tid))
+            if tu:
+                teacher_names.append(tu.get("username"))
         out.append(
             {
                 "id": f.get("id") or str(f.get("_id")),
@@ -1615,11 +1654,54 @@ async def list_grade_folders(
                     for i in (f.get("islands") or [])
                 ],
                 "assignment": f.get("assignment"),
+                "teacher_ids": assigned,
+                "teacher_names": teacher_names,
                 "owner_name": (owner or {}).get("username"),
                 "created_at": f.get("created_at"),
             }
         )
     return {"folders": out}
+
+
+class FolderTeachersRequest(BaseModel):
+    teacher_ids: list[str] = Field(min_length=1)
+
+
+@router.patch("/grades/{grade_id}/folders/{folder_id}/teachers")
+@limiter.limit("30/minute")
+async def set_folder_teachers(
+    request: Request,
+    grade_id: str,
+    folder_id: str,
+    payload: FolderTeachersRequest,
+    current_user: dict | None = Depends(get_optional_user),
+):
+    """Admin asigna qué docentes gestionan una materia del grado."""
+    grade = await _get_grade(grade_id)
+    if not grade:
+        raise HTTPException(status_code=404, detail="Grado no encontrado.")
+    inst = await _get_institution(grade["institution_id"])
+    if not inst or not _can_manage(current_user, inst):
+        raise HTTPException(status_code=403, detail="Solo el administrador asigna docentes.")
+    if folder_id not in (grade.get("folder_ids") or []):
+        raise HTTPException(status_code=404, detail="Esa materia no pertenece a este grado.")
+
+    members = set(inst.get("admin_ids") or []) | set(inst.get("teacher_ids") or [])
+    bad = [t for t in payload.teacher_ids if t not in members]
+    if bad:
+        raise HTTPException(status_code=400, detail="Hay docentes que no pertenecen a la institución.")
+
+    if db_manager.db is not None:
+        await db_manager.db["study_folders"].update_one(
+            _doc_query(folder_id), {"$set": {"teacher_ids": payload.teacher_ids}}
+        )
+    elif folder_id in in_memory_study_folders:
+        in_memory_study_folders[folder_id]["teacher_ids"] = payload.teacher_ids
+    await audit_event(
+        "institution_folder_teachers_set", request=request, actor_id=_uid(current_user),
+        detail={"institution_id": inst["id"], "grade_id": grade_id, "folder_id": folder_id, "teacher_ids": payload.teacher_ids},
+    )
+    return {"status": "teachers_assigned", "folder_id": folder_id, "teacher_ids": payload.teacher_ids}
 
 
 # ────────────────────── Gestión: estudiantes ──────────────────────
@@ -1760,7 +1842,7 @@ async def reset_student_password(
         student_id,
         {
             "password_hash": hash_password(new_password),
-            "must_change_password": True,
+            "must_change_password": False,
             "token_version": int(udoc.get("token_version") or 0) + 1,
         },
     )

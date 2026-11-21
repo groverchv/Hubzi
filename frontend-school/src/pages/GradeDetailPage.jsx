@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Plus, RefreshCw, Trash2, KeyRound, FileUp, Printer, ArrowRightLeft } from "lucide-react";
+import { Plus, RefreshCw, Trash2, KeyRound, FileUp, Printer, ArrowRightLeft, Users } from "lucide-react";
 import { apiFetch, uploadWithProgress } from "../lib/api";
 import { useSchoolStore } from "../store/schoolStore";
 import { useAuthStore } from "../store/authStore";
@@ -134,7 +134,7 @@ function StudentsTab({ gradeId }) {
   };
 
   const downloadCsv = () => {
-    const rows = [["username", "email", "password"], ...created.map((c) => [c.username, c.email, c.password])];
+    const rows = [["username", "email", "password", "school_credential"], ...created.map((c) => [c.username, c.email, c.password, c.school_credential])];
     const blob = new Blob([rows.map((r) => r.join(",")).join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -232,10 +232,15 @@ function StudentsTab({ gradeId }) {
 
 function SubjectsTab({ gradeId }) {
   const [folders, setFolders] = useState(null);
-  const [modal, setModal] = useState(false);
+  const [modal, setModal] = useState(null); // "create" | "assign"
   const [name, setName] = useState("");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+  const institution = useSchoolStore((s) => s.institution);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [staff, setStaff] = useState([]);
+  const [assignIds, setAssignIds] = useState([]);
 
   const load = useCallback(() => {
     apiFetch(`/api/v1/institutions/grades/${gradeId}/folders`)
@@ -247,7 +252,26 @@ function SubjectsTab({ gradeId }) {
     e.preventDefault();
     try {
       await apiFetch(`/api/v1/institutions/grades/${gradeId}/folders`, { method: "POST", body: { name } });
-      setModal(false); setName(""); load();
+      setModal(null); setName(""); load();
+    } catch (err) { setError(err.message); }
+  };
+
+  const openAssign = async (f) => {
+    setAssignTarget(f);
+    setAssignIds(f.teacher_ids || []);
+    try {
+      const d = await apiFetch(`/api/v1/institutions/${institution.id}/teachers`);
+      setStaff([...(d.admins || []), ...(d.teachers || [])]);
+      setModal("assign");
+    } catch (err) { setError(err.message); }
+  };
+
+  const saveAssign = async () => {
+    try {
+      await apiFetch(`/api/v1/institutions/grades/${gradeId}/folders/${assignTarget.id}/teachers`, {
+        method: "PATCH", body: { teacher_ids: assignIds },
+      });
+      setModal(null); load();
     } catch (err) { setError(err.message); }
   };
 
@@ -277,17 +301,29 @@ function SubjectsTab({ gradeId }) {
   return (
     <div>
       <ErrorBox error={error} />
-      <div className="mb-4"><Button size="sm" onClick={() => setModal(true)}><Plus className="w-4 h-4" /> Nueva materia</Button></div>
+      <div className="mb-4"><Button size="sm" onClick={() => setModal("create")}><Plus className="w-4 h-4" /> Nueva materia</Button></div>
       <div className="grid gap-4 md:grid-cols-2">
-        {folders.length === 0 && <p className="text-sm text-slate-400 col-span-2 py-8 text-center">Sin materias — crea la primera.</p>}
+        {folders.length === 0 && <p className="text-sm text-slate-400 col-span-2 py-8 text-center">
+          {isAdmin ? "Sin materias — crea la primera." : "No tienes materias asignadas."}
+        </p>}
         {folders.map((f) => (
           <div key={f.id} className="bg-white rounded-xl border border-slate-200 p-4">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">{f.name}</h3>
-                <p className="text-xs text-slate-500">{f.documents_count} docs · {(f.islands || []).length} islas · {f.owner_name || "—"}</p>
+                <p className="text-xs text-slate-500">
+                  {f.documents_count} docs · {(f.islands || []).length} islas
+                  {(f.teacher_names || []).length > 0 ? ` · ${f.teacher_names.join(", ")}` : ` · ${f.owner_name || "—"}`}
+                </p>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => remove(f.id)}><Trash2 className="w-4 h-4 text-rose-500" /></Button>
+              <div className="flex gap-1">
+                {isAdmin && (
+                  <Button size="sm" variant="ghost" title="Asignar docentes" onClick={() => openAssign(f)}>
+                    <Users className="w-4 h-4 text-slate-500" />
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" title="Eliminar" onClick={() => remove(f.id)}><Trash2 className="w-4 h-4 text-rose-500" /></Button>
+              </div>
             </div>
             {(f.islands || []).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
@@ -310,11 +346,33 @@ function SubjectsTab({ gradeId }) {
           </div>
         ))}
       </div>
-      <Modal open={modal} onClose={() => setModal(false)} title="Nueva materia">
+      <Modal open={modal === "create"} onClose={() => setModal(null)} title="Nueva materia">
         <form onSubmit={create} className="space-y-4">
           <Input label="Nombre de la materia" placeholder="Matemáticas" value={name} onChange={(e) => setName(e.target.value)} required />
           <Button type="submit" className="w-full">Crear materia</Button>
         </form>
+      </Modal>
+
+      <Modal open={modal === "assign"} onClose={() => setModal(null)} title={`Docentes — ${assignTarget?.name || ""}`}>
+        <p className="text-sm text-slate-500 mb-4">Marca los docentes que gestionan esta materia.</p>
+        <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+          {staff.map((t) => (
+            <label key={t.id} className="flex items-center gap-3 bg-slate-50 rounded-lg border border-slate-200 px-4 py-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-brand-600"
+                checked={assignIds.includes(t.id)}
+                onChange={() => setAssignIds((ids) => ids.includes(t.id) ? ids.filter((i) => i !== t.id) : [...ids, t.id])}
+              />
+              <div className="flex-1">
+                <div className="text-sm font-semibold">{t.username}</div>
+                <div className="text-xs text-slate-500">{t.email}</div>
+              </div>
+            </label>
+          ))}
+          {staff.length === 0 && <p className="text-sm text-slate-400">Sin docentes en la institución.</p>}
+        </div>
+        <Button className="w-full" disabled={!assignIds.length} onClick={saveAssign}>Guardar asignación</Button>
       </Modal>
     </div>
   );

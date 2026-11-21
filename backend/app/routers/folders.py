@@ -403,6 +403,23 @@ def _assert_folder_access(current_user: dict | None, folder_doc: dict) -> None:
     carpeta es una materia escolar compartida."""
     if folder_doc.get("is_school_folder") and current_user:
         uid = str(current_user.get("id") or current_user.get("_id") or "")
+        # Docente no asignado a la materia: no puede abrirla (el admin decide
+        # teacher_ids; carpetas sin el campo quedan abiertas al grado).
+        if (
+            current_user.get("role") == "teacher"
+            and "teacher_ids" in folder_doc
+            and uid not in {str(t) for t in (folder_doc.get("teacher_ids") or [])}
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Esta materia está asignada a otro docente.",
+            )
+        if (
+            current_user.get("role") in ("admin", "superadmin")
+            and current_user.get("institution_id")
+            and current_user.get("institution_id") == folder_doc.get("institution_id")
+        ):
+            return
         if folder_doc.get("grade_id") in (current_user.get("grade_ids") or []):
             return
         if uid and uid == str(folder_doc.get("user_id") or ""):
@@ -415,16 +432,19 @@ def _assert_folder_access(current_user: dict | None, folder_doc: dict) -> None:
 
 
 async def _school_staff_uids(folder_doc: dict) -> set[str]:
-    """UIDs con permiso de gestión sobre una materia escolar: el docente
-    dueño, los docentes asignados al grado y los admins de la institución."""
-    uids = {str(folder_doc.get("user_id"))}
+    """UIDs con permiso de gestión sobre una materia escolar: los docentes
+    ASIGNADOS a la materia (teacher_ids; si el campo no existe, el dueño) y
+    los admins de la institución."""
+    if "teacher_ids" in folder_doc:
+        uids = {str(t) for t in (folder_doc.get("teacher_ids") or [])}
+    else:
+        uids = {str(folder_doc.get("user_id"))}
     gid = folder_doc.get("grade_id")
     if not gid:
         return uids
     grade = await _get_grade(gid)
     if not grade:
         return uids
-    uids |= {str(t) for t in (grade.get("teacher_ids") or [])}
     inst = await _get_institution(grade.get("institution_id"))
     if inst:
         uids |= {str(a) for a in (inst.get("admin_ids") or [])}

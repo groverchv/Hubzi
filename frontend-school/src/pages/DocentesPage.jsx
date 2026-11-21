@@ -8,7 +8,6 @@ import { Button, Table, Badge, ErrorBox, PageLoader, CopyButton, Modal, Input } 
 export default function DocentesPage() {
   const institution = useSchoolStore((s) => s.institution);
   const grades = useSchoolStore((s) => s.grades);
-  const refresh = useSchoolStore((s) => s.refresh);
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -25,12 +24,6 @@ export default function DocentesPage() {
   useEffect(load, [institution?.id]);
 
   const gradeNames = (ids) => ids.map((id) => grades.find((g) => g.id === id)?.name || "?").join(", ");
-
-  const rotateCode = async () => {
-    if (!confirm("¿Rotar el código PROF? El anterior deja de funcionar.")) return;
-    try { await apiFetch(`/api/v1/institutions/${institution.id}/regenerate-teacher-code`, { method: "POST" }); await refresh(); }
-    catch (e) { setError(e.message); }
-  };
 
   const createTeacher = async (e) => {
     e.preventDefault();
@@ -106,19 +99,6 @@ export default function DocentesPage() {
         )}
       </div>
       <ErrorBox error={error} />
-
-      <div className="bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 flex items-center justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-brand-700">Código de invitación docente</div>
-          <div className="font-mono text-xl font-bold text-brand-900 mt-0.5">
-            {institution.teacher_code} <CopyButton text={institution.teacher_code} />
-          </div>
-          <p className="text-xs text-brand-800/70 mt-1">Compártelo con tus docentes — se registran en esta app con el código.</p>
-        </div>
-        {isAdmin && (
-          <Button size="sm" variant="secondary" onClick={rotateCode}><RefreshCw className="w-3.5 h-3.5" /> Rotar</Button>
-        )}
-      </div>
 
       <Table rowKey="id" empty="Sin docentes aún."
         columns={[

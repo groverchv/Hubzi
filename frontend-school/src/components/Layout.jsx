@@ -14,7 +14,7 @@ import { useSchoolStore } from "../store/schoolStore";
 const NAV = [
   { to: "/panel", label: "Panel", icon: LayoutDashboard, roles: ["admin", "teacher"] },
   { to: "/grados", label: "Grados", icon: GraduationCap, roles: ["admin", "teacher"] },
-  { to: "/docentes", label: "Docentes", icon: Users, roles: ["admin", "teacher"] },
+  { to: "/docentes", label: "Docentes", icon: Users, roles: ["admin"] },
   { to: "/licencia", label: "Licencia", icon: CreditCard, roles: ["admin"] },
   { to: "/ajustes", label: "Ajustes", icon: Settings, roles: ["admin"] },
 ];

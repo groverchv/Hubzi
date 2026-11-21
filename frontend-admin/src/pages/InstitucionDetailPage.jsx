@@ -92,6 +92,7 @@ export default function InstitucionDetailPage() {
                   <div>
                     <div className="font-semibold">{a.username}</div>
                     <div className="text-xs text-slate-500">{a.email}</div>
+                    <CredChip cred={a.school_credential} />
                   </div>
                   <Button size="sm" variant="ghost" onClick={() => removeAdmin(a.id)}>Quitar</Button>
                 </div>
@@ -107,9 +108,12 @@ export default function InstitucionDetailPage() {
             <h2 className="font-bold mb-3">Docentes ({members.teachers.length})</h2>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {members.teachers.map((t) => (
-                <div key={t.id} className="text-sm">
-                  <span className="font-semibold">{t.username}</span>
-                  <span className="text-xs text-slate-500 ml-2">{t.email}</span>
+                <div key={t.id} className="flex items-center justify-between text-sm">
+                  <div>
+                    <span className="font-semibold">{t.username}</span>
+                    <span className="text-xs text-slate-500 ml-2">{t.email}</span>
+                    <CredChip cred={t.school_credential} />
+                  </div>
                 </div>
               ))}
               {!members.teachers.length && <p className="text-xs text-slate-400">Sin docentes</p>}
@@ -157,6 +161,20 @@ export default function InstitucionDetailPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+function CredChip({ cred }) {
+  if (!cred) return null;
+  return (
+    <button
+      type="button"
+      title="Copiar credencial"
+      onClick={() => navigator.clipboard?.writeText(cred)}
+      className="mt-0.5 inline-block font-mono text-[10px] bg-slate-100 hover:bg-brand-50 hover:text-brand-700 rounded px-1.5 py-0.5 cursor-pointer"
+    >
+      {cred} ⧉
+    </button>
   );
 }
 
