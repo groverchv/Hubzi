@@ -77,6 +77,11 @@ class UserProfileResponse(BaseModel):
     email_verified: bool = False  # correo confirmado vía enlace firmado
     mfa_enabled: bool = False  # TOTP activo — para mostrar estado en ajustes
     ai_training_consent: bool = False  # opt-in: su material puede entrenar la IA
+    # Rol para gating de frontends (juego / escuelas / admin): el backend
+    # siempre valida por membresía; esto solo orienta la UX.
+    role: str = "individual"  # individual | student | teacher | admin | superadmin
+    institution_id: str | None = None
+    grade_ids: list[str] | None = None
 
 
 class AuthResponse(BaseModel):

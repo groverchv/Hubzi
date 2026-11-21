@@ -480,3 +480,282 @@ def test_school_checkout_permissions(client):
         headers=h_admin,
     )
     assert res.status_code == 400
+
+
+# ────────────────────── Gestión institucional ──────────────────────
+
+
+def test_update_institution_and_rotate_teacher_code(client):
+    h_admin, inst, _grade, _folder = _bootstrap_school(client)
+
+    res = client.patch(
+        f"/api/v1/institutions/{inst['id']}",
+        json={"name": "Colegio Renombrado"},
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["institution"]["name"] == "Colegio Renombrado"
+
+    old_code = inst["teacher_code"]
+    res = client.post(
+        f"/api/v1/institutions/{inst['id']}/regenerate-teacher-code",
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+    new_code = res.json()["teacher_code"]
+    assert new_code.startswith("PROF-") and new_code != old_code
+
+    # El código viejo ya no funciona
+    h_t, _ = _register(client, "profe_old")
+    res = client.post(
+        "/api/v1/institutions/join", json={"code": old_code}, headers=h_t
+    )
+    assert res.status_code == 404
+
+
+def test_grade_update_and_code_rotation(client):
+    h_admin, _inst, grade, _folder = _bootstrap_school(client)
+
+    res = client.patch(
+        f"/api/v1/institutions/grades/{grade['id']}",
+        json={"name": "6to Secundaria A"},
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["grade"]["name"] == "6to Secundaria A"
+
+    res = client.post(
+        f"/api/v1/institutions/grades/{grade['id']}/regenerate-code",
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["join_code"] != grade["join_code"]
+
+
+def test_institution_overview_and_teachers(client):
+    h_admin, inst, grade, _folder = _bootstrap_school(client)
+    h_t, t_user = _register(client, "profe_x")
+    client.post(
+        "/api/v1/institutions/join", json={"code": inst["teacher_code"]}, headers=h_t
+    )
+
+    res = client.get(f"/api/v1/institutions/{inst['id']}/teachers", headers=h_admin)
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert len(data["teachers"]) == 1
+    assert data["teachers"][0]["email"]
+    assert len(data["admins"]) == 1
+
+    res = client.get(f"/api/v1/institutions/{inst['id']}/overview", headers=h_admin)
+    assert res.status_code == 200, res.text
+    ov = res.json()
+    assert ov["grades_count"] == 1
+    assert ov["subjects_count"] == 1
+    assert ov["teachers_count"] == 1
+    assert ov["seat_limit"] >= 30
+
+
+def test_remove_teacher(client):
+    h_admin, inst, grade, _folder = _bootstrap_school(client)
+    h_t, t_user = _register(client, "profe_y")
+    client.post(
+        "/api/v1/institutions/join", json={"code": inst["teacher_code"]}, headers=h_t
+    )
+
+    res = client.delete(
+        f"/api/v1/institutions/{inst['id']}/teachers/{t_user['id']}",
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+
+    res = client.get(f"/api/v1/institutions/{inst['id']}/teachers", headers=h_admin)
+    assert res.json()["teachers"] == []
+
+    # El ex-docente ya no ve el panel
+    res = client.get(
+        f"/api/v1/institutions/grades/{grade['id']}/dashboard", headers=h_t
+    )
+    assert res.status_code == 403
+
+
+def test_enroll_single_and_student_management(client):
+    h_admin, _inst, grade, _folder = _bootstrap_school(client)
+
+    # Matrícula individual
+    res = client.post(
+        f"/api/v1/institutions/grades/{grade['id']}/students",
+        json={"username": "Alumna Sola", "age": 14},
+        headers=h_admin,
+    )
+    assert res.status_code == 201, res.text
+    cred = res.json()["created"]
+    assert cred["email"].endswith("@hubzy.school")
+
+    # Lista de estudiantes
+    res = client.get(
+        f"/api/v1/institutions/grades/{grade['id']}/students", headers=h_admin
+    )
+    assert res.status_code == 200, res.text
+    students = res.json()["students"]
+    assert len(students) == 1
+    sid = students[0]["id"]
+
+    # Reset de contraseña → nueva temporal + debe cambiarla
+    res = client.post(
+        f"/api/v1/institutions/grades/{grade['id']}/students/{sid}/reset-password",
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+    new_pw = res.json()["password"]
+    res = client.post(
+        "/api/v1/auth/login", json={"email": cred["email"], "password": new_pw}
+    )
+    assert res.status_code == 200
+    assert res.json()["user"]["must_change_password"] is True
+
+    # Desmatricular
+    res = client.delete(
+        f"/api/v1/institutions/grades/{grade['id']}/students/{sid}",
+        headers=h_admin,
+    )
+    assert res.status_code == 200
+    res = client.get(
+        f"/api/v1/institutions/grades/{grade['id']}/students", headers=h_admin
+    )
+    assert res.json()["students"] == []
+
+
+def test_move_student_between_grades(client):
+    h_admin, inst, grade, _folder = _bootstrap_school(client)
+    res = client.post(
+        f"/api/v1/institutions/{inst['id']}/grades",
+        json={"name": "5to Secundaria C"},
+        headers=h_admin,
+    )
+    grade2 = res.json()["grade"]
+
+    res = client.post(
+        f"/api/v1/institutions/grades/{grade['id']}/students",
+        json={"username": "Movida"},
+        headers=h_admin,
+    )
+    sid = client.get(
+        f"/api/v1/institutions/grades/{grade['id']}/students", headers=h_admin
+    ).json()["students"][0]["id"]
+
+    res = client.post(
+        f"/api/v1/institutions/grades/{grade['id']}/students/{sid}/move",
+        json={"target_grade_id": grade2["id"]},
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+
+    res = client.get(
+        f"/api/v1/institutions/grades/{grade2['id']}/students", headers=h_admin
+    )
+    assert any(s["id"] == sid for s in res.json()["students"])
+
+
+def test_delete_grade_preserves_teacher_folder(client):
+    """Sin ?delete_folders la materia pasa a ser carpeta personal del docente."""
+    h_admin, _inst, grade, folder = _bootstrap_school(client)
+
+    res = client.delete(
+        f"/api/v1/institutions/grades/{grade['id']}", headers=h_admin
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["folders_deleted"] is False
+
+    # La materia ya no es escolar: sigue visible para el docente dueño
+    res = client.get("/api/v1/folders", headers=h_admin)
+    ids = [f["id"] for f in res.json()["folders"]]
+    assert folder["id"] in ids
+
+
+def test_set_grade_teachers(client):
+    h_admin, inst, grade, _folder = _bootstrap_school(client)
+    h_t, t_user = _register(client, "profe_z")
+    client.post(
+        "/api/v1/institutions/join", json={"code": inst["teacher_code"]}, headers=h_t
+    )
+
+    # Asignar docente al grado (admin)
+    res = client.patch(
+        f"/api/v1/institutions/grades/{grade['id']}/teachers",
+        json={"teacher_ids": [t_user["id"]]},
+        headers=h_admin,
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["grade"]["teacher_ids"] == [t_user["id"]]
+
+    # Un id ajeno a la institución es rechazado
+    _h_ext, ext = _register(client, "externo")
+    res = client.patch(
+        f"/api/v1/institutions/grades/{grade['id']}/teachers",
+        json={"teacher_ids": [ext["id"]]},
+        headers=h_admin,
+    )
+    assert res.status_code == 400
+
+
+def test_directory_is_public_and_lists_schools(client):
+    _bootstrap_school(client)
+    res = client.get("/api/v1/institutions/directory")
+    assert res.status_code == 200
+    insts = res.json()["institutions"]
+    assert any(i["name"] == "Colegio Test" for i in insts)
+    assert all(set(i) <= {"id", "name"} for i in insts)  # solo campos públicos
+
+
+def _my_credential(client, headers):
+    res = client.get("/api/v1/institutions/mine", headers=headers)
+    assert res.status_code == 200
+    cred = res.json()["my_school_credential"]
+    assert cred.startswith("HUB-")
+    return cred
+
+
+def test_school_login_with_credential(client):
+    h_admin, inst, _g, _f = _bootstrap_school(client)
+    cred = _my_credential(client, h_admin)
+    res = client.post(
+        "/api/v1/auth/school-login",
+        json={"institution_id": inst["id"], "credential": cred},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["user"]["institution_id"] == inst["id"]
+    assert body["user"]["role"] == "admin"
+    assert body["token"]
+
+
+def test_school_login_credential_is_case_insensitive(client):
+    h_admin, inst, _g, _f = _bootstrap_school(client)
+    cred = _my_credential(client, h_admin)
+    res = client.post(
+        "/api/v1/auth/school-login",
+        json={"institution_id": inst["id"], "credential": cred.lower()},
+    )
+    assert res.status_code == 200, res.text
+
+
+def test_school_login_wrong_institution_and_credential(client):
+    h_admin, inst, _g, _f = _bootstrap_school(client)
+    cred = _my_credential(client, h_admin)
+    h_other, _ = _register(client, "otro")
+    res2 = client.post("/api/v1/institutions", json={"name": "Otro Cole"}, headers=h_other)
+    other_inst = res2.json()["institution"]
+
+    # credencial correcta, institución equivocada
+    res = client.post(
+        "/api/v1/auth/school-login",
+        json={"institution_id": other_inst["id"], "credential": cred},
+    )
+    assert res.status_code == 401
+
+    # institución correcta, credencial inexistente
+    res = client.post(
+        "/api/v1/auth/school-login",
+        json={"institution_id": inst["id"], "credential": "HUB-00000000"},
+    )
+    assert res.status_code == 401

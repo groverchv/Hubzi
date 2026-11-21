@@ -77,8 +77,14 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # development | staging | production
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
     ADMIN_EMAILS: str = ""  # lista separada por comas — acceso a dataset de IA
+    # Superadmins de plataforma (panel /admin): acceso TOTAL — instituciones,
+    # usuarios, licencias. El env sirve de bootstrap; el rol persiste como
+    # users.role="superadmin" para que sobreviva a cambios de correo/env.
+    SUPERADMIN_EMAILS: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
     SENTRY_DSN: str | None = None
+    # Observabilidad de IA con Respan (opcional)
+    RESPAN_API_KEY: str | None = None
     RATE_LIMIT_ENABLED: bool = True
     # Backend de almacenamiento de slowapi (memory:// por defecto).
     # Para múltiples workers/réplicas usar p. ej. redis://host:6379 o mongodb://host:27017

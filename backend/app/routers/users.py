@@ -146,6 +146,9 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
         created_at=str(current_user.get("created_at", "")),
         plan=plan,
         pro_since=current_user.get("pro_since"),
+        role=current_user.get("role") or "individual",
+        institution_id=current_user.get("institution_id"),
+        grade_ids=current_user.get("grade_ids"),
         trial_days_left=(
             trial_days_left(str(current_user.get("created_at", "")))
             if plan == "free"

@@ -159,6 +159,9 @@ def _to_profile(user_id: str, doc: dict) -> UserProfileResponse:
         email_verified=bool(doc.get("email_verified")),
         mfa_enabled=bool(doc.get("mfa_enabled")),
         ai_training_consent=bool(doc.get("ai_training_consent")),
+        role=doc.get("role") or "individual",
+        institution_id=doc.get("institution_id"),
+        grade_ids=doc.get("grade_ids"),
         trial_days_left=(
             trial_days_left(str(doc.get("created_at", "")))
             if plan == "free"
@@ -277,6 +280,118 @@ async def auth_register(
     return AuthResponse(token=token, user=_to_profile(user_id, user_doc))
 
 
+async def _finish_login(
+    request: Request,
+    response: Response,
+    *,
+    user_data: dict | None,
+    user_id: str | None,
+    email: str,
+    password: str,
+    captcha_token: str | None,
+    user_from_mongo: bool,
+    current_user: dict | None,
+    preauthenticated: bool = False,
+):
+    """Flujo de login tras resolver la cuenta (por email o por
+    institución+credencial): lockout, captcha, verificación, migración de
+    hash legado, MFA, JWT+cookie, sesión, migración de invitado y audit.
+    `preauthenticated=True` indica que la credencial ya autenticó (p. ej.
+    código escolar único) — se omite la verificación de contraseña."""
+    # Lockout por cuenta: defensa contra fuerza bruta distribuida (un botnet
+    # rota IPs y esquiva el rate-limit por IP — el contador va en la cuenta).
+    if user_data:
+        locked, remaining = is_account_locked(user_data)
+        if locked:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Cuenta bloqueada temporalmente por intentos fallidos. "
+                    f"Intenta de nuevo en {max(1, remaining // 60)} min."
+                ),
+            )
+
+    # Captcha tras N fallos para esa clave (cuente o no — así no delata
+    # qué cuentas existen): frena el credential stuffing antes del lockout.
+    if await captcha_required(email):
+        ip = request.client.host if request.client else None
+        if not await verify_turnstile(captcha_token, ip):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="captcha_required",
+            )
+
+    # Anti-enumeración: mismo mensaje y mismo costo bcrypt exista o no la
+    # cuenta — distinguir "no existe" de "contraseña incorrecta" permitía
+    # sondear qué cuentas están registradas.
+    stored_hash = (user_data or {}).get("password_hash") or _dummy_hash()
+    # Con credencial única la identidad ya quedó probada en el lookup; el costo
+    # bcrypt del dummy se mantiene para igualar tiempos anti-enumeración.
+    if preauthenticated:
+        verify_password(_dummy_hash(), password or "")
+        password_ok = user_data is not None
+    else:
+        password_ok = verify_password(stored_hash, password)
+    if not user_data or not password_ok:
+        await record_attempt_failure(email)
+        await audit_event(EVT_LOGIN_FAIL, request=request, actor_id=user_id)
+        if user_data:
+            lock_secs = await record_login_failure(user_id, email)
+            if lock_secs:
+                await audit_event(
+                    EVT_ACCOUNT_LOCKED, request=request, actor_id=user_id
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"Demasiados intentos fallidos. Cuenta bloqueada "
+                        f"{max(1, lock_secs // 60)} min."
+                    ),
+                ) from None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales incorrectas.",
+        )
+
+    await reset_login_failures(user_id, email)
+    await reset_attempt_failures(email)
+    await _update_user(user_id, email, {"last_login_at": utcnow_iso()})
+
+    # Migración transparente: si el hash es sha256 legado, re-hashear con bcrypt
+    if is_legacy_password_hash(stored_hash):
+        try:
+            new_hash = hash_password(password)
+            if user_from_mongo and db_manager.db is not None:
+                from bson import ObjectId
+
+                await db_manager.db["users"].update_one(
+                    {"_id": ObjectId(user_id)}, {"$set": {"password_hash": new_hash}}
+                )
+            elif email in in_memory_auth_users:
+                in_memory_auth_users[email]["password_hash"] = new_hash
+            logger.info(f"Hash de contraseña migrado a bcrypt para {email}")
+        except Exception as e:
+            logger.warning(f"No se pudo migrar hash legado: {e}")
+
+    # MFA: segundo factor obligatorio — solo se emite un purpose-token de
+    # 5 min; el access token llega tras /auth/mfa/verify.
+    if user_data.get("mfa_enabled"):
+        mfa_token = create_purpose_token(
+            user_id, email, "mfa_challenge", expires_minutes=5
+        )
+        return {"mfa_required": True, "mfa_token": mfa_token}
+
+    token, jti = create_access_token(
+        user_id, email, int(user_data.get("token_version") or 0)
+    )
+    set_auth_cookie(response, token, settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    await register_session(user_id, jti, request)
+    if current_user and current_user.get("is_guest"):
+        await _migrate_guest_folders(str(current_user["id"]), user_id)
+    await audit_event(EVT_LOGIN_OK, request=request, actor_id=user_id)
+    return AuthResponse(token=token, user=_to_profile(user_id, user_data))
+
+
 @router.post("/login")
 @limiter.limit("15/minute")
 async def auth_login(
@@ -311,92 +426,85 @@ async def auth_login(
         user_data = in_memory_auth_users[clean_email]
         user_id = user_data.get("id")
 
-    # Lockout por cuenta: defensa contra fuerza bruta distribuida (un botnet
-    # rota IPs y esquiva el rate-limit por IP — el contador va en la cuenta).
-    if user_data:
-        locked, remaining = is_account_locked(user_data)
-        if locked:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"Cuenta bloqueada temporalmente por intentos fallidos. "
-                    f"Intenta de nuevo en {max(1, remaining // 60)} min."
-                ),
-            )
-
-    # Captcha tras N fallos para ese email (cuente o no — así no delata
-    # qué correos existen): frena el credential stuffing antes del lockout.
-    if await captcha_required(clean_email):
-        ip = request.client.host if request.client else None
-        if not await verify_turnstile(payload.captcha_token, ip):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="captcha_required",
-            )
-
-    # Anti-enumeración: mismo mensaje y mismo costo bcrypt exista o no la
-    # cuenta — distinguir "no existe" de "contraseña incorrecta" permitía
-    # sondear qué correos están registrados.
-    stored_hash = (user_data or {}).get("password_hash") or _dummy_hash()
-    password_ok = verify_password(stored_hash, payload.password)
-    if not user_data or not password_ok:
-        await record_attempt_failure(clean_email)
-        await audit_event(EVT_LOGIN_FAIL, request=request, actor_id=user_id)
-        if user_data:
-            lock_secs = await record_login_failure(user_id, clean_email)
-            if lock_secs:
-                await audit_event(
-                    EVT_ACCOUNT_LOCKED, request=request, actor_id=user_id
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=(
-                        f"Demasiados intentos fallidos. Cuenta bloqueada "
-                        f"{max(1, lock_secs // 60)} min."
-                    ),
-                ) from None
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales incorrectas.",
-        )
-
-    await reset_login_failures(user_id, clean_email)
-    await reset_attempt_failures(clean_email)
-    await _update_user(user_id, clean_email, {"last_login_at": utcnow_iso()})
-
-    # Migración transparente: si el hash es sha256 legado, re-hashear con bcrypt
-    if is_legacy_password_hash(stored_hash):
-        try:
-            new_hash = hash_password(payload.password)
-            if user_from_mongo and db_manager.db is not None:
-                from bson import ObjectId
-
-                await db_manager.db["users"].update_one(
-                    {"_id": ObjectId(user_id)}, {"$set": {"password_hash": new_hash}}
-                )
-            elif clean_email in in_memory_auth_users:
-                in_memory_auth_users[clean_email]["password_hash"] = new_hash
-            logger.info(f"Hash de contraseña migrado a bcrypt para {clean_email}")
-        except Exception as e:
-            logger.warning(f"No se pudo migrar hash legado: {e}")
-
-    # MFA: segundo factor obligatorio — solo se emite un purpose-token de
-    # 5 min; el access token llega tras /auth/mfa/verify.
-    if user_data.get("mfa_enabled"):
-        mfa_token = create_purpose_token(
-            user_id, clean_email, "mfa_challenge", expires_minutes=5
-        )
-        return {"mfa_required": True, "mfa_token": mfa_token}
-
-    token, jti = create_access_token(
-        user_id, clean_email, int(user_data.get("token_version") or 0)
+    return await _finish_login(
+        request,
+        response,
+        user_data=user_data,
+        user_id=user_id,
+        email=clean_email,
+        password=payload.password,
+        captcha_token=payload.captcha_token,
+        user_from_mongo=user_from_mongo,
+        current_user=current_user,
     )
-    set_auth_cookie(response, token, settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
-    await register_session(user_id, jti, request)
-    if current_user and current_user.get("is_guest"):
-        await _migrate_guest_folders(str(current_user["id"]), user_id)
-    await audit_event(EVT_LOGIN_OK, request=request, actor_id=user_id)
-    return AuthResponse(token=token, user=_to_profile(user_id, user_data))
+
+
+class SchoolLoginRequest(BaseModel):
+    institution_id: str = Field(min_length=1, max_length=64)
+    credential: str = Field(min_length=4, max_length=32)
+    captcha_token: str | None = None
+
+
+@router.post("/school-login")
+@limiter.limit("15/minute")
+async def auth_school_login(
+    request: Request,
+    response: Response,
+    payload: SchoolLoginRequest,
+    current_user: dict | None = Depends(get_optional_user_unrestricted),
+):
+    """Login contextual por institución + credencial única (HUB-XXXXXXXX) —
+    la credencial asignada por el colegio identifica y autentica a la vez.
+    Misma seguridad que /login (delega en _finish_login)."""
+    cred = payload.credential.strip().upper()
+    user_data = None
+    user_id = None
+    user_from_mongo = False
+
+    if db_manager.db is not None:
+        try:
+            user_db = await db_manager.db["users"].find_one(
+                {
+                    "institution_id": payload.institution_id,
+                    "school_credential": cred,
+                }
+            )
+            if user_db:
+                user_data = user_db
+                user_id = str(user_db["_id"])
+                user_from_mongo = True
+        except Exception as e:
+            logger.error(f"Error buscando usuario en MongoDB: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Servicio de base de datos no disponible. Intenta de nuevo.",
+            ) from e
+    else:
+        for u in in_memory_auth_users.values():
+            if (
+                u.get("institution_id") == payload.institution_id
+                and (u.get("school_credential") or "").upper() == cred
+            ):
+                user_data = u
+                user_id = u.get("id")
+                break
+
+    # Clave anti-enumeración: email real si se resolvió; si no, compuesta
+    # estable para que el rate-limit/lockout funcione igual.
+    email_key = ((user_data or {}).get("email") or f"{cred.lower()}@inst-{payload.institution_id}").lower()
+
+    return await _finish_login(
+        request,
+        response,
+        user_data=user_data,
+        user_id=user_id,
+        email=email_key,
+        password=cred,
+        captcha_token=payload.captcha_token,
+        user_from_mongo=user_from_mongo,
+        current_user=current_user,
+        preauthenticated=True,
+    )
 
 
 @router.get("/me", response_model=UserProfileResponse)

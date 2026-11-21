@@ -12,6 +12,7 @@ from app.core.database import db_manager
 from app.core.rate_limit import limiter
 from app.routers import (
     adaptive,
+    admin,
     ai,
     arena,
     auth,
@@ -208,4 +209,5 @@ app.include_router(ai.router)
 app.include_router(adaptive.router)
 app.include_router(jobs.router)
 app.include_router(institutions.router)
+app.include_router(admin.router)
 app.include_router(telemetry.router)

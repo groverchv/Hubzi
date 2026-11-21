@@ -42,6 +42,8 @@ from app.core.security import (
 from app.core.session_store import in_memory_study_folders
 from app.routers.arena import MAX_FILE_SIZE, _validate_upload, summarize_and_store
 from app.routers.institutions import (
+    _get_grade,
+    _get_institution,
     delete_student_progress,
     get_student_progress_doc,
     in_memory_student_progress,
@@ -271,7 +273,7 @@ async def add_documents_to_folder(
     folder_doc = await _load_folder(folder_id)
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
-    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    await _assert_folder_write(current_user, folder_doc)
     effective_plan = (
         "school" if folder_doc.get("is_school_folder") else get_user_plan(current_user)
     )
@@ -360,7 +362,7 @@ async def add_game_to_folder(
 ):
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
-        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+        await _assert_folder_write(current_user, folder_doc)
     clean_game = _sanitize_game(payload.game)
     if db_manager.db is not None:
         try:
@@ -412,18 +414,45 @@ def _assert_folder_access(current_user: dict | None, folder_doc: dict) -> None:
     assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
 
 
-def _assert_school_owner(current_user: dict | None, folder_doc: dict) -> None:
+async def _school_staff_uids(folder_doc: dict) -> set[str]:
+    """UIDs con permiso de gestión sobre una materia escolar: el docente
+    dueño, los docentes asignados al grado y los admins de la institución."""
+    uids = {str(folder_doc.get("user_id"))}
+    gid = folder_doc.get("grade_id")
+    if not gid:
+        return uids
+    grade = await _get_grade(gid)
+    if not grade:
+        return uids
+    uids |= {str(t) for t in (grade.get("teacher_ids") or [])}
+    inst = await _get_institution(grade.get("institution_id"))
+    if inst:
+        uids |= {str(a) for a in (inst.get("admin_ids") or [])}
+    return uids
+
+
+async def _assert_folder_write(current_user: dict | None, folder_doc: dict) -> None:
+    """Mutaciones sobre la carpeta: dueño en carpetas personales; en
+    materias escolares, cualquier docente/admin del grado (co-gestión)."""
+    if folder_doc.get("is_school_folder"):
+        await _assert_school_staff(current_user, folder_doc)
+    else:
+        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+
+
+async def _assert_school_staff(current_user: dict | None, folder_doc: dict) -> None:
     """Acciones con costo LLM o destructivas en materias escolares: solo el
-    docente dueño. Un estudiante matriculado pasaba _assert_folder_access y
-    podía re-analizar todos los docs (cuota LLM) e invalidar los tableros
-    de la clase entera (griefing)."""
+    staff del grado (docentes asignados, admins de la institución). Un
+    estudiante matriculado pasaba _assert_folder_access y podía re-analizar
+    todos los docs (cuota LLM) e invalidar los tableros de la clase entera
+    (griefing)."""
     if not folder_doc.get("is_school_folder"):
         return
     req_uid = str(current_user.get("id") or current_user.get("_id")) if current_user else None
-    if req_uid != str(folder_doc.get("user_id")):
+    if not req_uid or req_uid not in await _school_staff_uids(folder_doc):
         raise HTTPException(
             status_code=403,
-            detail="Solo el docente de esta materia puede hacerlo.",
+            detail="Solo los docentes de este grado pueden hacerlo.",
         )
 
 
@@ -641,7 +670,7 @@ async def delete_document_from_folder(
 ):
     folder_doc = await _load_folder(folder_id)
     if folder_doc:
-        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+        await _assert_folder_write(current_user, folder_doc)
 
     if db_manager.db is not None:
         try:
@@ -716,7 +745,10 @@ async def delete_folder(
     # arbitrario (inexistente o no) sin pasar por autorización.
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
-    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    if folder_doc.get("is_school_folder"):
+        await _assert_school_staff(current_user, folder_doc)
+    else:
+        assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
 
     # Cleanup asociado: vectores RAG + progreso por estudiante (si era
     # materia escolar). Sin esto quedan datos huérfanos para siempre.
@@ -759,9 +791,9 @@ async def update_folder(
     folder_doc = await _load_folder(folder_id)
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
-    # Mismo criterio que delete: solo el dueño (docente incluido en
-    # materias de colegio) puede editar — un estudiante no renombra la clase.
-    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    # Mismo criterio que delete: dueño en carpetas personales; en materias
+    # escolares, el staff del grado — un estudiante no renombra la clase.
+    await _assert_folder_write(current_user, folder_doc)
 
     updates: dict = {}
     if payload.name is not None and payload.name.strip():
@@ -803,7 +835,7 @@ async def upload_document_to_folder(
     folder_doc = await _load_folder(folder_id)
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
-    assert_can_access_user_resource(current_user, folder_doc.get("user_id"))
+    await _assert_folder_write(current_user, folder_doc)
     # Las materias escolares pertenecen a la institución — el plan del docente
     # no limita su contenido (la licencia por seats lo gobierna).
     effective_plan = (
@@ -1009,12 +1041,12 @@ async def _run_folder_generation(
         )
     _assert_folder_access(current_user, folder_doc)
     # Carpetas escolares: `force` regenera con LLM (costo) — privilegio del
-    # docente dueño; los estudiantes siempre consumen el tablero cacheado.
+    # staff del grado; los estudiantes siempre consumen el tablero cacheado.
     if folder_doc.get("is_school_folder") and force:
         req_uid = (
             str(current_user.get("id") or current_user.get("_id")) if current_user else None
         )
-        if req_uid != folder_doc.get("user_id"):
+        if not req_uid or req_uid not in await _school_staff_uids(folder_doc):
             force = False
     timings["load_ms"] = round((time.perf_counter() - t_start) * 1000)
 
@@ -1477,7 +1509,7 @@ async def detect_topics_endpoint(
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
     _assert_folder_access(current_user, folder_doc)
-    _assert_school_owner(current_user, folder_doc)
+    await _assert_school_staff(current_user, folder_doc)
     # force=true re-analiza con LLM: privilegio de cuenta, no de invitado.
     if force and not current_user:
         force = False
@@ -1563,7 +1595,7 @@ async def regenerate_island_questions(
     if not folder_doc:
         raise HTTPException(status_code=404, detail="Carpeta no encontrada.")
     _assert_folder_access(current_user, folder_doc)
-    _assert_school_owner(current_user, folder_doc)
+    await _assert_school_staff(current_user, folder_doc)
     if not any(i.get("id") == island_id for i in (folder_doc.get("islands") or [])):
         raise HTTPException(status_code=404, detail="Isla no encontrada.")
 

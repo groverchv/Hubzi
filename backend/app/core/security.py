@@ -402,8 +402,14 @@ async def _authenticate(request: Request, credentials) -> dict:
 
 
 def _account_gates(user: dict) -> None:
-    """Vallas de la cuenta: contraseña temporal pendiente o enrolamiento
-    MFA obligatorio → la API entera responde 403 hasta completarlas."""
+    """Vallas de la cuenta: cuenta suspendida, contraseña temporal
+    pendiente o enrolamiento MFA obligatorio → la API entera responde
+    403 hasta completarlas."""
+    if user.get("disabled"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="account_disabled",
+        )
     if user.get("must_change_password"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -506,6 +512,42 @@ async def get_optional_user_unrestricted(
     SOLO para login/register, que deben admitir la re-autenticación de una
     cuenta con contraseña temporal (si no, quedaría bloqueada fuera)."""
     return await _optional_user_impl(request, credentials, enforce_pw_gate=False)
+
+
+# ---------------------------------------------------------------------
+# Superadmin de plataforma (panel /admin — NO confundir con admin de
+# institución, que solo gestiona SU colegio)
+# ---------------------------------------------------------------------
+
+
+def is_superadmin(user: dict | None) -> bool:
+    """Superadmin = rol persistido en el doc del usuario, o email en
+    SUPERADMIN_EMAILS (bootstrap/env — útil para la primera cuenta)."""
+    if not user:
+        return False
+    if user.get("role") == "superadmin":
+        return True
+    email = (user.get("email") or "").strip().lower()
+    return bool(email) and email in {
+        e.strip().lower() for e in (settings.SUPERADMIN_EMAILS or "").split(",") if e.strip()
+    }
+
+
+async def require_superadmin(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> dict:
+    """Dependencia para el router /admin: sesión válida + vallas de cuenta
+    + rol superadmin. Un admin de institución NO pasa — su poder acaba
+    en su propia organización."""
+    user = await _authenticate(request, credentials)
+    _account_gates(user)
+    if not is_superadmin(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo superadministradores de la plataforma.",
+        )
+    return user
 
 
 def resolve_effective_user_id(user: dict | None, requested_user_id: str | None) -> str:
