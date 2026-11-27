@@ -1,26 +1,26 @@
 # Versiones pineadas para builds reproducibles (resueltas en el entorno dev).
 # Para actualizar: pip install -U <pkg> && pip freeze | grep <pkg>
-fastapi==0.141.1
-uvicorn[standard]==0.53.0
-pydantic==2.13.5
+fastapi==0.162.5
+uvicorn[standard]==0.54.0
+pydantic==2.14.4
 pydantic-settings==2.15.0
 motor==3.7.1
-qdrant-client==1.19.0
+qdrant-client==1.20.0
 google-genai==2.24.0
 pypdf==6.21.4
 python-docx==1.2.0
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 python-multipart==0.0.32
-email-validator==2.2.0
+email-validator==2.4.0
 groq==1.7.0
-edge-tts==7.2.8
+edge-tts==7.3.1
 stripe==16.0.0
 PyJWT==2.15.1
 bcrypt==5.0.0
 slowapi==0.1.10
 sentry-sdk[fastapi]==2.72.0
-pyotp==2.9.0           # MFA TOTP (RFC 6238)
-cryptography==50.0.1   # cifrado field-level (Fernet) de datos sensibles
+pyotp==2.12.1           # MFA TOTP (RFC 6238)
+cryptography==50.0.2   # cifrado field-level (Fernet) de datos sensibles
 redis==5.2.1           # backend de storage para slowapi en multi-réplica
 httpx==0.28.1          # cliente HTTP (HIBP k-anonymity) — también test dep
 
@@ -29,7 +29,7 @@ httpx==0.28.1          # cliente HTTP (HIBP k-anonymity) — también test dep
 pymongo==4.19.0       # requerido por motor; <4.18.2 tenía PYSEC-2026-429x
 aiohttp==3.14.5       # requerido por edge-tts; <3.14.4 tenía 8 CVEs
 urllib3==2.8.0        # transitiva; <2.8.0 tenía PYSEC-2026-417x
-certifi==2026.10.23   # bundle de CAs; <2026.10.18 tenía PYSEC-2026-4320
+certifi==2026.11.20   # bundle de CAs; <2026.10.18 tenía PYSEC-2026-4320
 dnspython==2.9.1      # transitiva; <2.9.0 tenía CVE-2026-114605
 multidict==7.2.1      # transitiva de aiohttp; <6.9.1 tenía PYSEC-2026-4244
 pyasn1==0.6.5         # transitiva; <0.6.5 tenía CVE-2026-1191xx
